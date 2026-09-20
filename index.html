@@ -121,17 +121,17 @@ body.sidebar-open { overflow: hidden; }
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: linear-gradient(155deg, var(--gold-light) 0%, var(--gold) 58%, #9a7a18 100%);
-  display: grid;
-  place-items: center;
   margin-bottom: 14px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
 }
 
-.sidebar-brand .mark svg {
-  width: 24px;
-  height: 24px;
-  color: var(--ink);
+.sidebar-brand .mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .sidebar-brand h1 {
@@ -307,6 +307,15 @@ body.sidebar-open { overflow: hidden; }
 .auth-card-brand {
   text-align: center;
   margin-bottom: 24px;
+}
+
+.auth-card-brand .auth-logo {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 14px;
+  border-radius: 22px;
+  display: block;
+  box-shadow: 0 8px 24px rgba(12, 24, 41, 0.18);
 }
 
 .auth-card-brand h1 {
@@ -3865,7 +3874,6 @@ input[type="radio"] {
     margin-bottom: 0;
     border-radius: 10px;
   }
-  .sidebar-brand .mark svg { width: 20px; height: 20px; }
   .sidebar-brand h1 { font-size: 1.02rem; margin: 0; }
   .sidebar-brand p {
     font-size: 0.7rem;
@@ -4856,6 +4864,7 @@ input[type="radio"] {
 <div id="auth-gate" class="auth-gate" aria-hidden="true">
   <div class="auth-card">
     <div class="auth-card-brand">
+      <img class="auth-logo" src="/icons/icon-192x192.png" width="88" height="88" alt="" decoding="async">
       <h1>ChierichApp</h1>
       <p id="auth-subtitle">Accesso riservato ai cerimonieri</p>
     </div>
@@ -4894,14 +4903,7 @@ input[type="radio"] {
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2.5v3.2"/>
-          <path d="M10.2 4.1h3.6"/>
-          <path d="M4.8 11.2 12 5.6l7.2 5.6"/>
-          <path d="M6.2 10.8V20.4h11.6V10.8"/>
-          <path d="M10.2 20.4v-5.2h3.6v5.2"/>
-          <path d="M12 11.4v2.4"/>
-        </svg>
+        <img src="/icons/icon-192x192.png" width="42" height="42" alt="" decoding="async">
       </div>
       <div class="sidebar-brand-text">
         <h1>ChierichApp</h1>
