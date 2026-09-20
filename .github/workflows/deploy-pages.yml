@@ -35,19 +35,31 @@ jobs:
             echo "::error::Imposta i secret SUPABASE_URL e SUPABASE_ANON_KEY"
             exit 1
           fi
-          node -e "
-            const fs = require('fs');
-            const cfg = {
-              supabaseUrl: process.env.SUPABASE_URL,
-              supabaseAnonKey: process.env.SUPABASE_ANON_KEY
-            };
-            const body = 'window.CHIERICH_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
-            fs.writeFileSync('site/config.js', body);
-            // sanity: must exist in the artifact that Pages serves
-            if (!fs.existsSync('site/config.js')) process.exit(2);
-            console.log('Wrote site/config.js (' + body.length + ' bytes)');
-          "
-          test -f site/config.js
+          # Inject config inline — no config.js in repo or as a public standalone file
+          node <<'NODE'
+          const fs = require('fs');
+          const url = process.env.SUPABASE_URL;
+          const key = process.env.SUPABASE_ANON_KEY;
+          if (!url || !key) process.exit(1);
+          const path = 'site/index.html';
+          let html = fs.readFileSync(path, 'utf8');
+          const marker = '<script src="config.js"></script>';
+          if (!html.includes(marker)) {
+            console.error('Marker config.js non trovato in index.html');
+            process.exit(2);
+          }
+          const inline =
+            '<script>window.CHIERICH_CONFIG=' +
+            JSON.stringify({ supabaseUrl: url, supabaseAnonKey: key }) +
+            ';</script>';
+          html = html.replace(marker, inline);
+          fs.writeFileSync(path, html);
+          if (html.includes('src="config.js"') || fs.existsSync('site/config.js')) {
+            console.error('config.js non deve restare nell\'artifact');
+            process.exit(3);
+          }
+          console.log('Config iniettata inline in site/index.html');
+          NODE
           ls -la site/
 
       - uses: actions/upload-pages-artifact@v3

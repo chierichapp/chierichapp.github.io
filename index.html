@@ -6133,7 +6133,7 @@ async function checkAuthAndInit() {
   if (!isSupabase) {
     showAuthGate();
     setAuthMode('login');
-    showAuthError('Config Supabase assente (config.js). In locale: copia config.example.js → config.js. Su GitHub Pages: secret SUPABASE_URL / SUPABASE_ANON_KEY e Source = GitHub Actions.');
+    showAuthError('Config Supabase assente. In locale: copia config.example.js → config.js (gitignored). In produzione: secret Actions + Pages su GitHub Actions.');
     return;
   }
 

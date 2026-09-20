@@ -21,7 +21,8 @@ Non serve Google Apps Script né Docker. Il browser parla direttamente con Supab
    - `supabase/migrations/001_init.sql`
    - `supabase/migrations/002_fix_bootstrap.sql` (se hai già applicato solo la 001)
 4. **Project Settings → API**: copia URL e `anon` key
-5. Copia `config.example.js` → `config.js` e inserisci URL + anon key
+5. Copia `config.example.js` → `config.js` **solo in locale** (resta in `.gitignore`) e inserisci URL + anon key
+6. In produzione **non** commitare config: usa i secret Actions (vedi sotto)
 
 ### Bootstrap primo admin
 
@@ -41,12 +42,15 @@ Nota: con Confirm email attivo, dopo il signup occorre confermare la mail prima 
    - `SUPABASE_ANON_KEY`
 4. Push su `main` (o **Actions → Deploy GitHub Pages → Run workflow**)
 
-Il workflow genera `config.js` dai secret nell’artifact pubblicato.  
-Se Pages resta su “Deploy from a branch”, il sito serve i file del repo **senza** `config.js` (è in `.gitignore`) e il login fallisce.
+`config.js` **non** è nel repo né pubblicato come file. Al deploy i secret vengono iniettati inline in `index.html` solo nell’artifact.
 
-Verifica dopo il deploy: `https://chierichapp.github.io/config.js` deve rispondere **200** (non 404).
+Se Pages resta su “Deploy from a branch”, il sito non riceve i secret e il login fallisce.
 
-URL tipico: `https://chierichapp.github.io/`
+Verifica: apri il sito → DevTools → non deve esserci richiesta a `/config.js`.
+
+URL: `https://chierichapp.github.io/`
+
+Nota: la chiave **anon** finisce comunque nel browser (così funziona Supabase client-side). La protezione reale è RLS, non nascondere la anon. Non committare mai la **service_role**.
 
 ## Sviluppo locale
 
