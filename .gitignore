@@ -1,0 +1,12 @@
+# Secrets / env locale
+.env
+.env.local
+config.js
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
