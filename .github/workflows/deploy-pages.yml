@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Prepare site
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -31,8 +34,9 @@ jobs:
           cp manifest.json site/manifest.json 2>/dev/null || true
           cp sw.js site/sw.js 2>/dev/null || true
           cp -r icons/. site/icons/ 2>/dev/null || true
+          touch site/.nojekyll
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Imposta i secret SUPABASE_URL e SUPABASE_ANON_KEY"
+            echo "::error::Imposta i repository secret SUPABASE_URL e SUPABASE_ANON_KEY"
             exit 1
           fi
           node scripts/inject-config.mjs site/index.html
@@ -40,10 +44,11 @@ jobs:
             echo "::error::Marker config non sostituito"
             exit 1
           fi
-          if [ -f site/config.js ]; then
-            echo "::error::config.js non deve essere nell'artifact"
+          if ! grep -q 'window.CHIERICH_CONFIG=' site/index.html; then
+            echo "::error::CHIERICH_CONFIG non presente dopo inject"
             exit 1
           fi
+          echo "Inject OK"
           ls -la site/
 
       - uses: actions/upload-pages-artifact@v3
@@ -59,3 +64,35 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifica che il live abbia la config
+        run: |
+          set -e
+          echo "Attendo propagazione Pages..."
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            sleep 15
+            html=$(curl -fsSL "https://chierichapp.github.io/?t=$(date +%s)") || continue
+            if echo "$html" | grep -q 'CHIERICH_CONFIG_INJECT'; then
+              echo "Tentativo $i: marker ancora presente (Pages sta servendo il branch, non Actions)"
+              continue
+            fi
+            if echo "$html" | grep -q 'window.CHIERICH_CONFIG='; then
+              echo "OK: config presente sul sito live"
+              ok=1
+              break
+            fi
+            echo "Tentativo $i: config non ancora visibile"
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::Il sito pubblico è ancora identico al branch main (senza secret)."
+            echo "::error::I repository secret sono OK, ma Settings → Pages → Source NON è 'GitHub Actions'."
+            echo "::error::Apri https://github.com/chierichapp/chierichapp.github.io/settings/pages"
+            echo "::error::In 'Build and deployment' → Source scegli 'GitHub Actions' (non Deploy from a branch)."
+            echo "::error::Poi rilancia questo workflow."
+            exit 1
+          fi
