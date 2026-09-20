@@ -46,6 +46,7 @@
 
   function mapCer(row) {
     if (!row) return null;
+    const ruolo = row.ruolo === 'prete' ? 'prete' : 'cerimoniere';
     return {
       uuid: row.uuid,
       nome: row.nome,
@@ -54,6 +55,7 @@
       chierichettoUuid: row.chierichetto_uuid || '',
       attivo: row.attivo !== false,
       admin: !!row.is_admin,
+      ruolo,
       createdAt: row.created_at || ''
     };
   }
@@ -481,6 +483,7 @@
     const sb = requireClient();
     const email = String(dati.email || '').trim().toLowerCase();
     const uuid = newId('CER-');
+    const ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
     const { error } = await sb.from('cerimonieri').insert({
       uuid,
       nome: String(dati.nome || '').trim(),
@@ -488,13 +491,16 @@
       parrocchia: dati.parrocchia || '',
       chierichetto_uuid: dati.chierichettoUuid || null,
       attivo: dati.attivo === false ? false : true,
-      is_admin: false
+      is_admin: false,
+      ruolo
     });
     if (error) return { success: false, message: error.message };
     return {
       success: true,
       uuid,
-      message: 'Account creato. La persona dovrà registrarsi su Supabase Auth con la stessa email.'
+      message: ruolo === 'prete'
+        ? 'Account Don creato. Dovrà accedere con la stessa email su Supabase Auth.'
+        : 'Account creato. La persona dovrà registrarsi su Supabase Auth con la stessa email.'
     };
   }
 
@@ -506,6 +512,7 @@
     if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia || '';
     if (dati.chierichettoUuid !== undefined) patch.chierichetto_uuid = dati.chierichettoUuid || null;
     if (dati.attivo !== undefined) patch.attivo = !!dati.attivo;
+    if (dati.ruolo !== undefined) patch.ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
     const { error } = await sb.from('cerimonieri').update(patch).eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
     return { success: true };
@@ -526,6 +533,17 @@
     return { anno: String(anno), events: [], byDate: {}, source: 'supabase' };
   }
 
+  async function salvaCalendarioLiturgico(anno, payload) {
+    const sb = requireClient();
+    const { error } = await sb.from('calendario_cache').upsert({
+      anno: String(anno),
+      payload,
+      updated_at: new Date().toISOString()
+    });
+    if (error) return { success: false, message: error.message };
+    return { success: true };
+  }
+
   global.ChierichSupabase = {
     getAuthStatus,
     login,
@@ -544,6 +562,7 @@
     salvaCerimoniere,
     aggiornaCerimoniere,
     eliminaCerimoniere,
-    getCalendarioLiturgico
+    getCalendarioLiturgico,
+    salvaCalendarioLiturgico
   };
 })(typeof window !== 'undefined' ? window : globalThis);

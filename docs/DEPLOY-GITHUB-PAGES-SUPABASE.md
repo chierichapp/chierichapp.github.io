@@ -23,6 +23,7 @@ Non serve Google Apps Script né Docker. Il browser parla direttamente con Supab
 4. **Project Settings → API**: copia URL e `anon` key
 5. Copia `.env.example` → `.env` **solo in locale** (gitignored) con URL + anon key
 6. In produzione: solo secret Actions (niente file di config nel repo)
+7. Se il progetto esisteva già: esegui anche `supabase/migrations/003_cerimonieri_ruolo_prete.sql` (account Don)
 
 ### Bootstrap primo admin
 

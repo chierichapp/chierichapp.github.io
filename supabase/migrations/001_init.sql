@@ -28,6 +28,8 @@ create table if not exists public.cerimonieri (
   chierichetto_uuid text references public.chierichetti (uuid) on delete set null,
   attivo boolean not null default true,
   is_admin boolean not null default false,
+  ruolo text not null default 'cerimoniere'
+    check (ruolo in ('cerimoniere', 'prete')),
   created_at timestamptz not null default now()
 );
 

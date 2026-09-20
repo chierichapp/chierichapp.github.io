@@ -820,6 +820,8 @@ input[type="radio"] {
 .badge-libera { background: var(--border); color: var(--muted); }
 .badge-assente { background: var(--danger-bg); color: var(--danger); }
 .badge-ex { background: var(--cream-dark); color: var(--muted); }
+.badge-prete { background: var(--gold-muted); color: #8a6d1a; }
+.badge-cerimoniere { background: var(--sky-muted); color: var(--sky); }
 
 .list-item.is-ex {
   opacity: 0.78;
@@ -2794,6 +2796,8 @@ input[type="radio"] {
 }
 
 .appello-save-hint.is-dirty { color: var(--warning); font-weight: 600; }
+.appello-save-hint.is-saved { color: var(--success); font-weight: 600; }
+.appello-save-hint.is-saving { color: var(--sky); font-weight: 600; }
 
 .appello-save-actions {
   display: flex;
@@ -2803,6 +2807,29 @@ input[type="radio"] {
 
 .appello-list {
   padding: 14px 22px 22px;
+}
+
+.appello-empty-messe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.appello-empty-messe p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  max-width: 22em;
+}
+
+.appello-loading {
+  color: var(--muted);
+  text-align: center;
+  padding: 28px 16px;
 }
 
 .appello-no-messe {
@@ -4042,7 +4069,8 @@ input[type="radio"] {
   .appello-shell-head {
     flex-direction: column;
     align-items: stretch;
-    padding: 14px 14px 12px;
+    gap: 10px;
+    padding: 12px 14px;
   }
   .appello-head-main { width: 100%; }
   .appello-date-stepper { flex: 1; min-width: 0; }
@@ -4058,8 +4086,20 @@ input[type="radio"] {
     padding: 10px 8px;
   }
   .appello-today-btn { min-height: 44px; }
-  .appello-stats-row { width: 100%; margin-left: 0; flex-wrap: wrap; }
-  .appello-stat-chip { flex: 1 1 auto; justify-content: center; min-width: 0; }
+  .appello-stats-row {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .appello-stat-chip {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+    font-size: 0.72rem;
+    padding: 5px 8px;
+  }
+  .appello-stats-cer { display: none; }
   .appello-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -4082,26 +4122,56 @@ input[type="radio"] {
   .appello-btns {
     grid-column: 1 / -1;
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
   }
   .appello-btn {
-    min-height: 44px;
+    min-height: 48px;
     flex: 1;
+    font-weight: 700;
+  }
+  .appello-btn.active-p,
+  .appello-btn.active-a,
+  .appello-btn.active-s {
+    box-shadow: 0 0 0 2px rgba(12, 24, 41, 0.12);
   }
   .appello-check-grid { grid-template-columns: 1fr; }
   .appello-messe-picker-row { flex-direction: column; }
-  .appello-messa-pill { min-height: 44px; min-width: 120px; }
+  .appello-messa-pill {
+    min-height: 48px;
+    min-width: 128px;
+    font-weight: 650;
+  }
+  .appello-messa-pill.active {
+    box-shadow: 0 0 0 2px rgba(37, 99, 168, 0.35);
+  }
   .appello-self-card { max-width: none; width: 100%; }
   .appello-altro-row { flex-direction: column; }
   .appello-altro-row .btn { width: 100%; min-height: 44px; }
+  .appello-list {
+    padding: 12px 14px 110px;
+  }
   .appello-save-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 130;
     flex-direction: column;
     align-items: stretch;
-    padding: 12px 14px 14px;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border-strong);
+    background: rgba(247, 244, 239, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -8px 28px rgba(12, 24, 41, 0.1);
   }
   .appello-save-actions { width: 100%; }
-  .appello-save-actions .btn { flex: 1; }
+  .appello-save-actions .btn { flex: 1; min-height: 48px; }
+  #presenze:not(.active) .appello-save-bar { display: none; }
   .toast-container {
-    bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
     right: 14px;
     left: 14px;
   }
@@ -4866,11 +4936,11 @@ input[type="radio"] {
     <div class="auth-card-brand">
       <img class="auth-logo" src="/icons/icon-192x192.png" width="88" height="88" alt="" decoding="async">
       <h1>ChierichApp</h1>
-      <p id="auth-subtitle">Accesso riservato ai cerimonieri</p>
+      <p id="auth-subtitle">Accesso riservato a cerimonieri e sacerdoti</p>
     </div>
     <div id="auth-error" class="auth-error" role="alert"></div>
     <p id="auth-bootstrap-hint" class="auth-hint" style="display:none">
-      Primo avvio: crea l'account del cerimoniere responsabile. Potrai aggiungere altri colleghi da Anagrafica → Cerimonieri.
+      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi da Anagrafica → Accessi.
     </p>
     <div id="auth-google-block" class="auth-google-block" hidden>
       <p id="auth-google-email" class="auth-hint"></p>
@@ -4921,12 +4991,11 @@ input[type="radio"] {
         </span>
         Oggi
       </button>
-      <button class="nav-item" data-section="presenze" onclick="showSection('presenze')">
+      <button class="nav-item" data-section="presenze" onclick="openAppello()">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
         </span>
-        Presenze
-        <span class="nav-badge">Appello</span>
+        Appello
       </button>
       <button class="nav-item" data-section="registro" onclick="showSection('registro')">
         <span class="nav-item-icon" aria-hidden="true">
@@ -5005,8 +5074,8 @@ input[type="radio"] {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
             </span>
             <span>
-              <span class="quick-action-label">Segna presenze</span>
-              <span class="quick-action-hint">Appello rapido prima della messa</span>
+              <span class="quick-action-label">Fai appello</span>
+              <span class="quick-action-hint">Segna i presenti in sacrestia</span>
             </span>
           </button>
           <button type="button" class="quick-action" onclick="showSection('messe')">
@@ -5067,7 +5136,7 @@ input[type="radio"] {
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
-          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Cerimonieri</button>
+          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Accessi</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -5157,15 +5226,22 @@ input[type="radio"] {
         <div id="anag-panel-cerimonieri" class="split-grid" style="display:none">
           <div class="panel" id="cerimoniere-form-panel">
             <div class="panel-head">
-              <h3 id="form-cerimoniere-title">Nuovo account cerimoniere</h3>
-              <p id="form-cerimoniere-sub">Login app — di solito per chi è cerimoniere di turno nel gruppo</p>
+              <h3 id="form-cerimoniere-title">Nuovo accesso</h3>
+              <p id="form-cerimoniere-sub">Login app per cerimonieri e sacerdoti (Don)</p>
             </div>
             <div class="panel-body">
               <form id="cerimoniereForm">
                 <input type="hidden" id="edit-cerimoniere-uuid" value="">
                 <div class="form-group">
+                  <label for="cerimoniere-ruolo">Tipo account</label>
+                  <select id="cerimoniere-ruolo" required onchange="onCerimoniereRuoloChange()">
+                    <option value="cerimoniere">Cerimoniere</option>
+                    <option value="prete">Don (sacerdote)</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label for="cerimoniere-nome">Nome e cognome</label>
-                  <input type="text" id="cerimoniere-nome" required placeholder="Don Mario Rossi" autocomplete="name">
+                  <input type="text" id="cerimoniere-nome" required placeholder="Mario Rossi" autocomplete="name">
                 </div>
                 <div class="form-group">
                   <label for="cerimoniere-email">Email (login)</label>
@@ -5179,7 +5255,7 @@ input[type="radio"] {
                     <option value="mantegazza">Mantegazza</option>
                   </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="cerimoniere-chierichetto-wrap">
                   <label for="cerimoniere-chierichetto">Collega a chierichetto</label>
                   <select id="cerimoniere-chierichetto">
                     <option value="">— Nessun collegamento —</option>
@@ -5199,16 +5275,16 @@ input[type="radio"] {
 
           <div class="panel">
             <div class="panel-head">
-              <h3>Account cerimonieri</h3>
+              <h3>Account con accesso</h3>
               <p><span id="cerimonieri-count">0</span> <span id="cerimonieri-count-label">attivi</span></p>
             </div>
             <div class="panel-body">
-              <div class="anag-status-tabs" role="tablist" aria-label="Stato cerimonieri">
+              <div class="anag-status-tabs" role="tablist" aria-label="Stato accessi">
                 <button type="button" class="anag-status-tab active" id="anag-cer-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
                 <button type="button" class="anag-status-tab" id="anag-cer-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
               </div>
               <div class="toolbar">
-                <input type="search" id="search-cerimonieri" placeholder="Cerca per nome o email…" oninput="renderCerimonieri()" aria-label="Cerca cerimoniere">
+                <input type="search" id="search-cerimonieri" placeholder="Cerca per nome o email…" oninput="renderCerimonieri()" aria-label="Cerca account">
               </div>
               <div class="list" id="cerimonieri-list"></div>
             </div>
@@ -5465,10 +5541,10 @@ input[type="radio"] {
                 <input type="search" id="appello-search" placeholder="Cerca…" oninput="renderAppello()" aria-label="Cerca chierichetto">
               </div>
             </div>
-            <p class="appello-turno-line" id="appello-subtitle">Seleziona data e messa</p>
+            <p class="appello-turno-line" id="appello-subtitle">Il tuo gruppo in cima</p>
             <div class="appello-list" id="appello-list"></div>
             <div class="appello-save-bar">
-              <p class="appello-save-hint" id="appello-save-hint">Le spunte restano in bozza finché non salvi</p>
+              <p class="appello-save-hint is-saved" id="appello-save-hint">Tutto salvato</p>
               <div class="appello-save-actions">
                 <button type="button" class="btn btn-ghost" id="btn-discard-appello" onclick="discardAppelloDraft()" disabled>Annulla</button>
                 <button type="button" class="btn btn-primary" id="btn-save-appello" onclick="saveAppello()" disabled>Salva appello</button>
@@ -5642,7 +5718,7 @@ input[type="radio"] {
         <div class="panel" style="margin-bottom:24px;">
           <div class="panel-head">
             <h3>Calendario liturgico completo</h3>
-            <p>Tutte le celebrazioni del rito ambrosiano — dati da <a href="https://gcatholic.org/calendar/" target="_blank" rel="noopener">GCatholic</a></p>
+            <p>Tutte le celebrazioni del rito ambrosiano — aggiornabile online (link schede GCatholic)</p>
           </div>
           <div class="panel-body">
             <div class="cal-legend" aria-label="Legenda gradi liturgici">
@@ -5660,7 +5736,7 @@ input[type="radio"] {
                   <option value="2026" selected>2026</option>
                   <option value="2027">2027</option>
                 </select>
-                <button type="button" class="btn btn-secondary" onclick="loadCalendario(true)">Aggiorna da GCatholic</button>
+                <button type="button" class="btn btn-secondary" onclick="loadCalendario(true)">Aggiorna calendario</button>
               </div>
               <label class="cal-filter">
                 <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
@@ -5717,7 +5793,7 @@ input[type="radio"] {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>
       Oggi
     </button>
-    <button type="button" class="mobile-tab" data-section="presenze" onclick="showSection('presenze')">
+    <button type="button" class="mobile-tab" data-section="presenze" onclick="openAppello()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
       Appello
     </button>
@@ -5749,12 +5825,12 @@ const DATA_SCHEMA_VERSION = 6;
 
 const PAGE_META = {
   dashboard:  { title: 'Oggi',                subtitle: 'Agenda messe, turni e appello' },
-  presenze:   { title: 'Presenze',            subtitle: 'Appello rapido in sacrestia — il tuo gruppo in cima' },
+  presenze:   { title: 'Appello',             subtitle: 'Il tuo gruppo in cima' },
   registro:   { title: 'Registro',            subtitle: 'Presenze per anno pastorale (apertura 2 sett. prima di settembre – giugno)' },
   messe:      { title: 'Messe',               subtitle: 'Agenda delle celebrazioni con chierichetti' },
   turni:      { title: 'Turni',               subtitle: 'Messe di servizio e rotazione turni' },
   gruppi:     { title: 'Gruppi',              subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica',          subtitle: 'Attivi ed ex — chierichetti e cerimonieri' },
+  anagrafica: { title: 'Anagrafica',          subtitle: 'Attivi ed ex — chierichetti e accessi (cerimonieri / Don)' },
   calendario: { title: 'Liturgia',            subtitle: 'Calendario ambrosiano completo' }
 };
 
@@ -5767,7 +5843,8 @@ const GRUPPI_LABEL_LEGACY = {
 const SEDI_LABEL = { santuario: 'Santuario', vanzago: 'Vanzago', mantegazza: 'Mantegazza' };
 const PARROCCHIA_LABEL = { vanzago: 'Vanzago', mantegazza: 'Mantegazza' };
 const CLASSE_TO_ANNO_NASCITA = { '1a': '2015', '2a': '2014', '3a': '2013', '4a': '2012', '5a': '2011' };
-const RUOLI_LABEL = { chierichetto: 'Chierichetto', cerimoniere: 'Cerimoniere' };
+const RUOLI_LABEL = { chierichetto: 'Chierichetto', cerimoniere: 'Cerimoniere', prete: 'Don' };
+const ACCOUNT_RUOLI_LABEL = { cerimoniere: 'Cerimoniere', prete: 'Don' };
 
 let anagraficaTab = 'chierichetto';
 let anagraficaStatusFilter = 'attivi';
@@ -5809,6 +5886,7 @@ let gruppiTab = 'squadre';
 let appelloParrocchiaTab = 'mine';
 let appelloParrocchiaTabBySlot = {};
 let appelloSelectedSlotKey = '';
+let appelloSaving = false;
 let appelloDraft = {};
 let appelloDraftDirty = {};
 
@@ -5858,13 +5936,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function prepareSupabaseAuthUi() {
   const sub = document.getElementById('form-cerimoniere-sub');
-  if (sub) sub.textContent = 'Stessa email del login Supabase Auth (invitali a registrarsi con quella mail)';
+  if (sub) sub.textContent = 'Login per cerimonieri e Don — stessa email su Supabase Auth';
   const googleBlock = document.getElementById('auth-google-block');
   if (googleBlock) googleBlock.hidden = true;
   const pwdWrap = document.getElementById('cerimoniere-password-wrap');
   if (pwdWrap) pwdWrap.hidden = true;
   const pwd = document.getElementById('cerimoniere-password');
   if (pwd) pwd.required = false;
+  onCerimoniereRuoloChange();
 }
 
 function prepareGoogleAuthUi() {
@@ -5877,9 +5956,10 @@ function prepareGoogleAuthUi() {
   const emailInput = document.getElementById('cerimoniere-email');
   if (emailInput) emailInput.placeholder = 'mario@gmail.com';
   const sub = document.getElementById('form-cerimoniere-sub');
-  if (sub) sub.textContent = 'Autorizzano l\'accesso con Account Google — stessa email del login Google';
+  if (sub) sub.textContent = 'Autorizzano l\'accesso con Account Google — cerimonieri e sacerdoti';
   const googleBlock = document.getElementById('auth-google-block');
   if (googleBlock) googleBlock.hidden = false;
+  onCerimoniereRuoloChange();
 }
 
 function setAuthMode(mode, extra = {}) {
@@ -5893,15 +5973,15 @@ function setAuthMode(mode, extra = {}) {
     ? 'Configurazione iniziale'
     : isUnauthorized
       ? 'Accesso non autorizzato'
-      : 'Accesso riservato ai cerimonieri';
+      : 'Accesso riservato a cerimonieri e sacerdoti';
 
   const hint = document.getElementById('auth-bootstrap-hint');
   if (isBootstrap && isGAS) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: questo Account Google diventa il primo cerimoniere. Poi potrai autorizzare i colleghi da Anagrafica → Cerimonieri.';
+    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don da Anagrafica → Accessi.';
   } else if (isBootstrap) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: crea l\'account del cerimoniere responsabile. Potrai aggiungere altri colleghi da Anagrafica → Cerimonieri.';
+    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don da Anagrafica → Accessi.';
   } else {
     hint.style.display = 'none';
   }
@@ -6354,7 +6434,9 @@ async function ensureCalendarioForToday() {
 
 async function ensureCalendarioForYear(anno) {
   anno = String(anno);
-  if (calState.data?.anno === anno && calState.data?.byDate) return calState.data;
+  if (calState.data?.anno === anno && calState.data?.byDate && Object.keys(calState.data.byDate).length) {
+    return calState.data;
+  }
   try {
     if (isGAS) {
       const data = await gasRun('getCalendarioLiturgico', anno);
@@ -6363,7 +6445,11 @@ async function ensureCalendarioForYear(anno) {
         return calState.data;
       }
     } else if (isSupabase) {
-      const data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
+      let data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
+      if (!data?.byDate || !Object.keys(data.byDate).length) {
+        data = await fetchAmbrosianCalendarYear(anno);
+        await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
+      }
       if (data?.byDate) {
         calState.data = data;
         return calState.data;
@@ -8394,15 +8480,16 @@ function goToMessa(dateStr) {
 }
 
 function openAppello(dateStr, slotKey) {
-  showSection('presenze');
   const el = document.getElementById('appello-data');
   if (el) el.value = dateStr || getTodayStr();
   if (slotKey) appelloSelectedSlotKey = slotKey;
-  renderAppello();
+  else appelloSelectedSlotKey = '';
+  showSection('presenze');
 }
 
 function onAppelloDateChange() {
   appelloParrocchiaTabBySlot = {};
+  appelloSelectedSlotKey = '';
   renderAppello();
 }
 
@@ -9043,13 +9130,23 @@ function updateAppelloSaveBar(dateStr, slot) {
   const saveBtn = document.getElementById('btn-save-appello');
   const discardBtn = document.getElementById('btn-discard-appello');
   if (hint) {
-    hint.textContent = dirty
-      ? 'Modifiche non salvate — premi Salva appello'
-      : 'Le spunte restano in bozza finché non salvi';
-    hint.classList.toggle('is-dirty', dirty);
+    hint.classList.remove('is-dirty', 'is-saved', 'is-saving');
+    if (appelloSaving) {
+      hint.textContent = 'Salvataggio…';
+      hint.classList.add('is-saving');
+    } else if (dirty) {
+      hint.textContent = 'Non salvato';
+      hint.classList.add('is-dirty');
+    } else {
+      hint.textContent = 'Tutto salvato';
+      hint.classList.add('is-saved');
+    }
   }
-  if (saveBtn) saveBtn.disabled = !dirty;
-  if (discardBtn) discardBtn.disabled = !dirty;
+  if (saveBtn) {
+    saveBtn.disabled = !dirty || appelloSaving;
+    saveBtn.textContent = appelloSaving ? 'Salvataggio…' : 'Salva appello';
+  }
+  if (discardBtn) discardBtn.disabled = !dirty || appelloSaving;
 }
 
 function discardAppelloDraft() {
@@ -9064,6 +9161,7 @@ function discardAppelloDraft() {
 }
 
 async function saveAppello() {
+  if (appelloSaving) return;
   const dateStr = getAppelloDate();
   const celebrations = getCelebrationsForAppelloDate(dateStr);
   const slot = getSelectedAppelloCelebration(celebrations);
@@ -9136,11 +9234,8 @@ async function saveAppello() {
   }
 
   saveData();
-  appelloDraft[key] = getSavedAppelloPresentSet(dateStr, slot);
-  appelloDraftDirty[key] = false;
-  renderAppello();
-  if (document.getElementById('dashboard')?.classList.contains('active')) renderDashboard();
-  showToast('Appello salvato');
+  appelloSaving = true;
+  updateAppelloSaveBar(dateStr, slot);
 
   try {
     if (isGAS) {
@@ -9153,8 +9248,16 @@ async function saveAppello() {
         ...add.map(r => persistPresenzaRecord(r))
       ]);
     }
+    appelloDraft[key] = getSavedAppelloPresentSet(dateStr, slot);
+    appelloDraftDirty[key] = false;
+    showToast('Appello salvato');
   } catch (e) {
-    showToast(e.message || 'Sincronizzazione appello non riuscita');
+    appelloDraftDirty[key] = true;
+    showToast(e.message || 'Salvataggio non riuscito — riprova');
+  } finally {
+    appelloSaving = false;
+    renderAppello();
+    if (document.getElementById('dashboard')?.classList.contains('active')) renderDashboard();
   }
 }
 
@@ -9172,19 +9275,32 @@ function ensureAppelloMessaSelection(celebrations) {
   const keys = celebrations.map(getAppelloSlotKey);
   if (appelloSelectedSlotKey && keys.includes(appelloSelectedSlotKey)) return;
 
+  if (celebrations.length === 1) {
+    appelloSelectedSlotKey = getAppelloSlotKey(celebrations[0]);
+    return;
+  }
+
   const dateStr = getAppelloDate();
+  const ranked = celebrations.map(slot => {
+    const [h, m] = (slot.ora || '00:00').split(':').map(Number);
+    const t = new Date(dateStr + 'T12:00:00');
+    t.setHours(h || 0, m || 0, 0, 0);
+    const stats = getAppelloStatsForSlot(dateStr, slot);
+    return { slot, t, incomplete: !stats.isComplete && !stats.libera };
+  });
+
   if (dateStr === getTodayStr()) {
     const now = new Date();
-    const upcoming = celebrations.find(slot => {
-      const [h, m] = (slot.ora || '00:00').split(':').map(Number);
-      const t = new Date(dateStr + 'T12:00:00');
-      t.setHours(h, m, 0, 0);
-      return t >= now;
-    });
-    appelloSelectedSlotKey = getAppelloSlotKey(upcoming || celebrations[0]);
-  } else {
-    appelloSelectedSlotKey = getAppelloSlotKey(celebrations[0]);
+    const upcomingIncomplete = ranked.find(x => x.t >= now && x.incomplete);
+    const upcoming = ranked.find(x => x.t >= now);
+    const firstIncomplete = ranked.find(x => x.incomplete);
+    const pick = upcomingIncomplete || upcoming || firstIncomplete || ranked[0];
+    appelloSelectedSlotKey = getAppelloSlotKey(pick.slot);
+    return;
   }
+
+  const incomplete = ranked.find(x => x.incomplete);
+  appelloSelectedSlotKey = getAppelloSlotKey((incomplete || ranked[0]).slot);
 }
 
 function getSelectedAppelloCelebration(celebrations) {
@@ -9630,7 +9746,7 @@ async function renderChierichetti() {
   const nEx = anagChi.length - nAttivi;
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
   const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri (${nCerAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nCerAttivi})`;
 
   populateAnnoNascitaFilter();
   updateAnagraficaFormLabels();
@@ -9723,10 +9839,34 @@ async function loadCerimonieriAccounts(force) {
       const res = await apiFetch('/api/cerimonieri');
       cerimonieriAccounts = res.ok ? await res.json() : [];
     }
+    cerimonieriAccounts = (cerimonieriAccounts || []).map(c => ({
+      ...c,
+      ruolo: c.ruolo === 'prete' ? 'prete' : 'cerimoniere'
+    }));
     cerimonieriHydrated = true;
   } catch {
     cerimonieriAccounts = cerimonieriAccounts || [];
   }
+}
+
+function onCerimoniereRuoloChange() {
+  const ruolo = document.getElementById('cerimoniere-ruolo')?.value || 'cerimoniere';
+  const isPrete = ruolo === 'prete';
+  const linkWrap = document.getElementById('cerimoniere-chierichetto-wrap');
+  if (linkWrap) linkWrap.style.display = isPrete ? 'none' : '';
+  const nome = document.getElementById('cerimoniere-nome');
+  if (nome && !editingCerimoniereUuid) {
+    nome.placeholder = isPrete ? 'Don Mario Rossi' : 'Mario Rossi';
+  }
+  if (isPrete) {
+    const link = document.getElementById('cerimoniere-chierichetto');
+    if (link) link.value = '';
+  }
+}
+
+function accountRuoloLabel(c) {
+  const ruolo = c?.ruolo === 'prete' ? 'prete' : 'cerimoniere';
+  return ACCOUNT_RUOLI_LABEL[ruolo] || 'Cerimoniere';
 }
 
 function renderCerimonieri() {
@@ -9734,19 +9874,27 @@ function renderCerimonieri() {
   syncAnagraficaStatusTabs();
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri (${nAttivi})`;
+  const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nAttivi})`;
   const wantAttivi = anagraficaStatusFilter !== 'ex';
   const search = (document.getElementById('search-cerimonieri')?.value || '').toLowerCase();
 
   const filtered = cerimonieriAccounts.filter(c => {
     if (isPersonaAttiva(c) !== wantAttivi) return false;
     if (!search) return true;
-    return (c.nome || '').toLowerCase().includes(search) || (c.email || '').toLowerCase().includes(search);
+    const ruoloLabel = accountRuoloLabel(c).toLowerCase();
+    return (c.nome || '').toLowerCase().includes(search)
+      || (c.email || '').toLowerCase().includes(search)
+      || ruoloLabel.includes(search);
   });
 
   document.getElementById('cerimonieri-count').textContent = filtered.length;
   const countLabel = document.getElementById('cerimonieri-count-label');
-  if (countLabel) countLabel.textContent = wantAttivi ? 'attivi' : 'ex';
+  if (countLabel) {
+    countLabel.textContent = wantAttivi
+      ? (nPreti ? `attivi · ${nPreti} Don` : 'attivi')
+      : 'ex';
+  }
 
   populateCerimoniereChierichettoSelect(
     (editingCerimoniereUuid && cerimonieriAccounts.find(x => x.uuid === editingCerimoniereUuid)?.chierichettoUuid) || ''
@@ -9754,8 +9902,8 @@ function renderCerimonieri() {
   const container = document.getElementById('cerimonieri-list');
   if (!filtered.length) {
     container.innerHTML = wantAttivi
-      ? '<p class="empty-state">Nessun account cerimoniere attivo</p>'
-      : '<p class="empty-state">Nessun ex cerimoniere. Usa «Segna come ex» sugli attivi per spostarli qui.</p>';
+      ? '<p class="empty-state">Nessun account attivo. Aggiungi un cerimoniere o un Don.</p>'
+      : '<p class="empty-state">Nessun ex. Usa «Segna come ex» sugli attivi per spostarli qui.</p>';
     return;
   }
   container.innerHTML = filtered.map(c => {
@@ -9763,13 +9911,17 @@ function renderCerimonieri() {
     const isSelf = currentUser?.uuid === c.uuid;
     const isAdminAcc = !!c.admin;
     const canManage = isCurrentUserAdmin();
+    const isPrete = c.ruolo === 'prete';
     const parrocchia = c.parrocchia ? getParrocchiaLabel(c.parrocchia) : 'Entrambe le parrocchie';
     const linked = c.chierichettoUuid
       ? state.chierichetti.find(ch => ch.uuid === c.chierichettoUuid)
       : null;
-    const linkMeta = linked ? ` · collegato a ${esc(linked.nome)}` : '';
+    const linkMeta = (!isPrete && linked) ? ` · collegato a ${esc(linked.nome)}` : '';
     const statusBadge = attivo ? '' : ' <span class="badge badge-ex">Ex</span>';
     const adminBadge = isAdminAcc ? ' <span class="badge">Admin</span>' : '';
+    const ruoloBadge = isPrete
+      ? ' <span class="badge badge-prete">Don</span>'
+      : ' <span class="badge badge-cerimoniere">Cerimoniere</span>';
     const statusBtn = (!canManage || isSelf || isAdminAcc) ? '' : (attivo
       ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setCerimoniereAttivo(${jsStr(c.uuid)}, false)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
@@ -9790,7 +9942,7 @@ function renderCerimonieri() {
     return `
       <div class="list-item${attivo ? '' : ' is-ex'}">
         <div class="list-item-main">
-          <p class="list-item-title">${esc(c.nome)}${isSelf ? ' <span class="liturgy-meta">(tu)</span>' : ''}${adminBadge}${statusBadge}</p>
+          <p class="list-item-title">${esc(c.nome)}${isSelf ? ' <span class="liturgy-meta">(tu)</span>' : ''}${ruoloBadge}${adminBadge}${statusBadge}</p>
           <p class="list-item-meta">${esc(parrocchia)} · ${attivo ? 'Attivo' : 'Ex'}${linkMeta}</p>
           <p class="list-item-sub">${esc(c.email)}</p>
         </div>
@@ -9808,6 +9960,7 @@ function editCerimoniere(uuid) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
   if (!c) return;
   editingCerimoniereUuid = uuid;
+  document.getElementById('cerimoniere-ruolo').value = c.ruolo === 'prete' ? 'prete' : 'cerimoniere';
   document.getElementById('cerimoniere-nome').value = c.nome;
   document.getElementById('cerimoniere-email').value = c.email;
   document.getElementById('cerimoniere-parrocchia').value = c.parrocchia || '';
@@ -9815,28 +9968,31 @@ function editCerimoniere(uuid) {
   document.getElementById('cerimoniere-password').value = '';
   document.getElementById('cerimoniere-password').required = false;
   document.getElementById('edit-cerimoniere-uuid').value = uuid;
-  document.getElementById('form-cerimoniere-title').textContent = 'Modifica account';
+  document.getElementById('form-cerimoniere-title').textContent = c.ruolo === 'prete' ? 'Modifica Don' : 'Modifica cerimoniere';
   document.getElementById('form-cerimoniere-sub').textContent = c.nome;
   document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
   document.getElementById('btn-save-cerimoniere').textContent = 'Aggiorna';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'block';
+  onCerimoniereRuoloChange();
 }
 
 function cancelCerimoniereEdit() {
   editingCerimoniereUuid = null;
   document.getElementById('cerimoniereForm').reset();
   document.getElementById('edit-cerimoniere-uuid').value = '';
-  document.getElementById('form-cerimoniere-title').textContent = 'Nuovo account cerimoniere';
+  document.getElementById('cerimoniere-ruolo').value = 'cerimoniere';
+  document.getElementById('form-cerimoniere-title').textContent = 'Nuovo accesso';
   document.getElementById('form-cerimoniere-sub').textContent = isGAS
-    ? 'Autorizzano l\'accesso con Account Google — stessa email del login Google'
+    ? 'Autorizzano l\'accesso con Account Google — cerimonieri e sacerdoti'
     : isSupabase
-      ? 'Stessa email del login Supabase Auth (invitali a registrarsi con quella mail)'
-      : 'Login app — di solito per chi è cerimoniere di turno nel gruppo';
+      ? 'Login per cerimonieri e Don — stessa email su Supabase Auth'
+      : 'Login app per cerimonieri e sacerdoti (Don)';
   document.getElementById('cerimoniere-password-label').textContent = 'Password';
   document.getElementById('cerimoniere-password').required = !isGAS && !isSupabase;
   document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
   populateCerimoniereChierichettoSelect('');
+  onCerimoniereRuoloChange();
 }
 
 async function handleCerimoniereFormSubmit(e) {
@@ -9846,11 +10002,13 @@ async function handleCerimoniereFormSubmit(e) {
     return;
   }
   const uuid = document.getElementById('edit-cerimoniere-uuid').value;
+  const ruolo = document.getElementById('cerimoniere-ruolo').value === 'prete' ? 'prete' : 'cerimoniere';
   const dati = {
     nome: document.getElementById('cerimoniere-nome').value.trim(),
     email: document.getElementById('cerimoniere-email').value.trim(),
     parrocchia: document.getElementById('cerimoniere-parrocchia').value,
-    chierichettoUuid: document.getElementById('cerimoniere-chierichetto').value || '',
+    chierichettoUuid: ruolo === 'prete' ? '' : (document.getElementById('cerimoniere-chierichetto').value || ''),
+    ruolo,
     password: document.getElementById('cerimoniere-password').value
   };
 
@@ -9881,7 +10039,7 @@ async function handleCerimoniereFormSubmit(e) {
     return;
   }
 
-  showToast(uuid ? 'Account aggiornato' : 'Account creato');
+  showToast(uuid ? 'Account aggiornato' : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato'));
   cancelCerimoniereEdit();
   await loadCerimonieriAccounts(true);
   renderCerimonieri();
@@ -10699,11 +10857,26 @@ function toggleTuttiPresentiTab(checked) {
 async function renderAppello() {
   const container = document.getElementById('appello-list');
   const tabsWrap = document.getElementById('appello-parrocchia-tabs-wrap');
+  const subtitle = document.getElementById('appello-subtitle');
   if (!container) return;
 
   const dateStr = getAppelloDate();
-  await ensureCalendarioForYear(dateStr.slice(0, 4));
-  await loadCerimonieriAccounts();
+  container.innerHTML = '<p class="empty-state appello-loading">Caricamento…</p>';
+  if (subtitle) subtitle.textContent = 'Caricamento…';
+  const picker = document.getElementById('appello-messe-picker');
+  if (picker) picker.innerHTML = '';
+  if (tabsWrap) tabsWrap.innerHTML = '';
+
+  try {
+    await ensureCalendarioForYear(dateStr.slice(0, 4));
+    await loadCerimonieriAccounts();
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `<p class="empty-state">Impossibile caricare l'appello.<br>${esc(err.message || 'Riprova')}</p>`;
+    if (subtitle) subtitle.textContent = 'Errore di caricamento';
+    updateAppelloSaveBar(dateStr, null);
+    return;
+  }
 
   const celebrations = getCelebrationsForAppelloDate(dateStr);
   const slot = getSelectedAppelloCelebration(celebrations);
@@ -10712,6 +10885,28 @@ async function renderAppello() {
     : (getAppelloPrimaryGruppo() || getGruppiServizioForDate(dateStr)[0] || '');
 
   renderAppelloMessePicker(celebrations, dateStr);
+
+  if (!celebrations.length) {
+    resetAppelloSummary(dateStr, null);
+    if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
+    const isToday = dateStr === getTodayStr();
+    if (subtitle) {
+      subtitle.textContent = isToday
+        ? 'Nessuna messa in agenda per oggi'
+        : 'Nessuna messa in agenda per questa data';
+    }
+    const { list } = getAppelloFilteredList();
+    container.innerHTML = `
+      <div class="empty-state appello-empty-messe">
+        <p>${isToday
+          ? 'Nessuna messa in agenda per oggi. Controlla l\'agenda messe oppure segna un appello giornaliero qui sotto.'
+          : 'Nessuna messa in agenda per questa data.'}</p>
+        <button type="button" class="btn btn-secondary" onclick="showSection('messe')">Apri agenda messe</button>
+      </div>
+      ${list.length ? renderAppelloFallback(dateStr, list, primaryGruppo) : ''}`;
+    updateAppelloSaveBar(dateStr, null);
+    return;
+  }
 
   if (slot) {
     updateAppelloSummary(dateStr, slot);
@@ -10725,6 +10920,7 @@ async function renderAppello() {
   if (!list.length) {
     resetAppelloSummary(dateStr, null);
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
+    if (subtitle) subtitle.textContent = 'Nessun risultato';
     container.innerHTML = '<p class="empty-state">Nessun chierichetto corrisponde alla ricerca.</p>';
     updateAppelloSaveBar(dateStr, null);
     return;
@@ -10732,6 +10928,7 @@ async function renderAppello() {
 
   updateAppelloSummary(dateStr, null);
   if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
+  if (subtitle) subtitle.textContent = 'Appello giornaliero';
   container.innerHTML = renderAppelloFallback(dateStr, list, primaryGruppo);
   updateAppelloSaveBar(dateStr, null);
 }
@@ -11012,7 +11209,7 @@ function prefillMessaExtra(dateStr) {
   document.getElementById('messa-extra-nota').focus();
 }
 
-// ── Calendario (GCatholic) ──────────────────────────────────
+// ── Calendario (Ambrosiano) ──────────────────────────────────
 function getCalAnno() {
   return document.getElementById('anno-calendario').value;
 }
@@ -11050,6 +11247,84 @@ function goCalToday() {
   loadCalendario().then(() => selectCalDay(calState.selectedDate));
 }
 
+function mapLitCalColor(raw) {
+  const c = String(raw || '').toLowerCase();
+  if (c.includes('verd')) return 'verde';
+  if (c.includes('ross')) return 'rosso';
+  if (c.includes('bianc') || c.includes('white')) return 'bianco';
+  if (c.includes('viol') || c.includes('morell') || c.includes('ner') || c.includes('rosa') || c.includes('purple')) return 'viola';
+  return '';
+}
+
+function mapLitCalEvent(ev, dateStr, anno) {
+  const grade = Number(ev.grade);
+  let tipo = 'feriale';
+  let grado = '';
+  let tipoLabel = ev.grade_lcl || '';
+  if (grade >= 6) {
+    tipo = 'solennita';
+    grado = 'S';
+    tipoLabel = tipoLabel || 'Solennità';
+  } else if (grade >= 4) {
+    tipo = 'festa';
+    grado = 'F';
+    tipoLabel = tipoLabel || 'Festa';
+  } else if (grade === 3) {
+    tipo = 'memoria';
+    grado = 'M';
+    tipoLabel = tipoLabel || 'Memoria';
+  } else if (grade === 2) {
+    tipo = 'memoria';
+    grado = 'm';
+    tipoLabel = tipoLabel || 'Memoria facoltativa';
+  } else {
+    tipoLabel = tipoLabel || 'Feriale';
+  }
+
+  const colorRaw = Array.isArray(ev.color_lcl) ? ev.color_lcl[0]
+    : (ev.color_lcl || (Array.isArray(ev.color) ? ev.color[0] : ev.color) || '');
+  const mmdd = dateStr.slice(5).replace('-', '');
+
+  return {
+    data: dateStr,
+    nome: ev.name || '',
+    tipo,
+    tipoLabel,
+    grado,
+    colore: mapLitCalColor(colorRaw),
+    url: `https://gcatholic.org/calendar/${anno}/Ambrosian-it#${mmdd}`
+  };
+}
+
+async function fetchAmbrosianCalendarYear(anno) {
+  const y = String(anno);
+  const url = `https://litcal.johnromanodorazio.com/api/dev/calendar/ambrosian/${encodeURIComponent(y)}?locale=it&return_type=JSON`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Download calendario non riuscito (HTTP ' + res.status + ')');
+  const json = await res.json();
+  const rows = Array.isArray(json.litcal) ? json.litcal : [];
+  const byDate = {};
+  const events = [];
+  rows.forEach(ev => {
+    const dateStr = String(ev.date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+    const mapped = mapLitCalEvent(ev, dateStr, y);
+    if (!mapped.nome) return;
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push(mapped);
+    events.push(mapped);
+  });
+  if (!Object.keys(byDate).length) throw new Error('Calendario vuoto per l\'anno ' + y);
+  return {
+    anno: y,
+    events,
+    byDate,
+    source: `https://gcatholic.org/calendar/${y}/Ambrosian-it`,
+    fetchedAt: new Date().toISOString(),
+    provider: 'litcal-ambrosian'
+  };
+}
+
 async function loadCalendario(refresh) {
   const anno = getCalAnno();
   const container = document.getElementById('calendario-container');
@@ -11059,15 +11334,35 @@ async function loadCalendario(refresh) {
   container.innerHTML = '<div class="cal-loading">Caricamento calendario liturgico…</div>';
 
   try {
-    const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Errore HTTP ' + res.status);
-    calState.data = await res.json();
+    let data;
+    if (isGAS) {
+      data = await gasRun('getCalendarioLiturgico', anno, !!refresh);
+    } else if (isSupabase) {
+      if (refresh) {
+        data = await fetchAmbrosianCalendarYear(anno);
+        const saved = await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
+        if (!saved.success) throw new Error(saved.message || 'Salvataggio in cache non riuscito');
+      } else {
+        data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
+        if (!data?.byDate || !Object.keys(data.byDate).length) {
+          data = await fetchAmbrosianCalendarYear(anno);
+          await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
+        }
+      }
+    } else {
+      const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Errore HTTP ' + res.status);
+      data = await res.json();
+    }
+
+    if (!data?.byDate) throw new Error('Dati calendario non validi');
+    calState.data = data;
     renderCalMonth();
     renderProssimeCelebrazioni();
     updateCalSource();
 
-    if (refresh) showToast('Calendario aggiornato da GCatholic');
+    if (refresh) showToast('Calendario aggiornato');
   } catch (err) {
     console.error(err);
     container.innerHTML = `<p class="empty-state">Impossibile caricare il calendario.<br>${esc(err.message)}</p>`;
@@ -11083,7 +11378,7 @@ function updateCalSource() {
   const when = calState.data.fetchedAt
     ? new Date(calState.data.fetchedAt).toLocaleString('it-IT')
     : '';
-  el.innerHTML = `Fonte: <a href="${esc(calState.data.source)}" target="_blank" rel="noopener">GCatholic — Calendario Ambrosiano Comune ${esc(calState.data.anno)}</a>${when ? ` · aggiornato ${esc(when)}` : ''}`;
+  el.innerHTML = `Fonte: <a href="${esc(calState.data.source)}" target="_blank" rel="noopener">Calendario Ambrosiano Comune ${esc(calState.data.anno)}</a>${when ? ` · aggiornato ${esc(when)}` : ''}`;
 }
 
 function primaryEvent(events) {
@@ -11215,18 +11510,27 @@ function renderDayDetail(dateStr) {
 
 async function renderProssimeCelebrazioni() {
   const container = document.getElementById('prossime-celebrazioni');
-  const anno = getCalAnno();
+  if (!container) return;
 
   try {
-    const res = await fetch(`${API_BASE}/api/prossime-celebrazioni/${anno}`);
-    const upcoming = res.ok ? await res.json() : [];
+    if (!calState.data?.byDate) await loadCalendario(false);
+    const byDate = calState.data?.byDate || {};
+    const today = getTodayStr();
+    const upcoming = [];
+    Object.keys(byDate).sort().forEach(dateStr => {
+      if (dateStr < today) return;
+      const primary = primaryEvent(byDate[dateStr]);
+      if (!primary || !['solennita', 'festa', 'memoria'].includes(primary.tipo)) return;
+      upcoming.push({ data: dateStr, ...primary });
+    });
+    const list = upcoming.slice(0, 12);
 
-    if (!upcoming.length) {
+    if (!list.length) {
       container.innerHTML = '<p class="empty-state">Nessuna celebrazione in programma</p>';
       return;
     }
 
-    container.innerHTML = upcoming.map(ev => {
+    container.innerHTML = list.map(ev => {
       const d = new Date(ev.data + 'T12:00:00');
       const day = d.getDate();
       const monthShort = MONTHS[d.getMonth()].substring(0, 3);
