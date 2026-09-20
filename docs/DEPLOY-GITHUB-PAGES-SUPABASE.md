@@ -35,15 +35,18 @@ Nota: con Confirm email attivo, dopo il signup occorre confermare la mail prima 
 ## Deploy GitHub Pages
 
 1. Repo → **Settings → Pages**
-2. Source: **GitHub Actions**
-3. Push su questo branch (o `main` dopo il merge): il workflow `.github/workflows/deploy-pages.yml` pubblica il sito
-4. Secrets del repository (Settings → Secrets and variables → Actions):
+2. **Source: GitHub Actions** (non “Deploy from a branch”)
+3. Secrets del repository (Settings → Secrets and variables → Actions):
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
+4. Push su `main` (o **Actions → Deploy GitHub Pages → Run workflow**)
 
-Il workflow genera `config.js` dai secret al momento del deploy (non resta nel repo).
+Il workflow genera `config.js` dai secret nell’artifact pubblicato.  
+Se Pages resta su “Deploy from a branch”, il sito serve i file del repo **senza** `config.js` (è in `.gitignore`) e il login fallisce.
 
-URL tipico: `https://<user>.github.io/<repo>/`
+Verifica dopo il deploy: `https://chierichapp.github.io/config.js` deve rispondere **200** (non 404).
+
+URL tipico: `https://chierichapp.github.io/`
 
 ## Sviluppo locale
 

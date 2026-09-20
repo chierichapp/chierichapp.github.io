@@ -41,9 +41,14 @@ jobs:
               supabaseUrl: process.env.SUPABASE_URL,
               supabaseAnonKey: process.env.SUPABASE_ANON_KEY
             };
-            fs.writeFileSync('site/config.js',
-              'window.CHIERICH_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n');
+            const body = 'window.CHIERICH_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
+            fs.writeFileSync('site/config.js', body);
+            // sanity: must exist in the artifact that Pages serves
+            if (!fs.existsSync('site/config.js')) process.exit(2);
+            console.log('Wrote site/config.js (' + body.length + ' bytes)');
           "
+          test -f site/config.js
+          ls -la site/
 
       - uses: actions/upload-pages-artifact@v3
         with:

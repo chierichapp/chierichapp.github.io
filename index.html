@@ -6130,54 +6130,32 @@ async function checkAuthAndInit() {
     return;
   }
 
-  if (isSupabase) {
-    try {
-      const status = await fetchAuthStatus();
-      if (status.authenticated && status.user) {
-        saveSession(status.token || 'supabase', status.user);
-        showAppShell();
-        initApp();
-        return;
-      }
-      clearSession();
-      showAuthGate();
-      if (status.needsBootstrap) setAuthMode('bootstrap');
-      else if (status.unauthorized) {
-        setAuthMode('login');
-        showAuthError(status.message || 'Account non autorizzato');
-      } else setAuthMode('login');
-    } catch (err) {
-      showAuthGate();
-      setAuthMode('login');
-      showAuthError('Supabase non raggiungibile — controlla config.js');
-    }
+  if (!isSupabase) {
+    showAuthGate();
+    setAuthMode('login');
+    showAuthError('Config Supabase assente (config.js). In locale: copia config.example.js → config.js. Su GitHub Pages: secret SUPABASE_URL / SUPABASE_ANON_KEY e Source = GitHub Actions.');
     return;
   }
-  const saved = loadSession();
-  if (saved?.token && saved?.user) {
-    authToken = saved.token;
-    currentUser = saved.user;
-  }
+
   try {
     const status = await fetchAuthStatus();
     if (status.authenticated && status.user) {
-      saveSession(authToken, status.user);
+      saveSession(status.token || 'supabase', status.user);
       showAppShell();
       initApp();
       return;
     }
     clearSession();
-    setAuthMode(status.needsBootstrap ? 'bootstrap' : 'login');
     showAuthGate();
-  } catch {
-    if (saved?.token && saved?.user) {
-      saveSession(saved.token, saved.user);
-      showAppShell();
-      initApp();
-      return;
-    }
+    if (status.needsBootstrap) setAuthMode('bootstrap');
+    else if (status.unauthorized) {
+      setAuthMode('login');
+      showAuthError(status.message || 'Account non autorizzato');
+    } else setAuthMode('login');
+  } catch (err) {
+    showAuthGate();
     setAuthMode('login');
-    showAuthGate();
+    showAuthError('Supabase non raggiungibile — controlla config.js');
   }
 }
 
