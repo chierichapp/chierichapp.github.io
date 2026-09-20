@@ -7,7 +7,7 @@
  * - Installazione come app nativa
  */
 
-const CACHE_NAME = 'chierichetti-v2';
+const CACHE_NAME = 'chierichetti-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
