@@ -94,7 +94,8 @@
 
   async function getCurrentCerimoniere() {
     const sb = requireClient();
-    const { data: { user } } = await sb.auth.getUser();
+    const { data: { user }, error: userErr } = await sb.auth.getUser();
+    if (userErr) throw userErr;
     if (!user) return null;
     const email = String(user.email || '').toLowerCase();
     const { data, error } = await sb
@@ -105,6 +106,35 @@
       .maybeSingle();
     if (error) throw error;
     return data ? mapCer(data) : null;
+  }
+
+  function isTransientError(err) {
+    const msg = String(err?.message || err || '').toLowerCase();
+    const status = err?.status || err?.code;
+    return (
+      status === 503 ||
+      status === 504 ||
+      status === 429 ||
+      msg.includes('failed to fetch') ||
+      msg.includes('network') ||
+      msg.includes('timeout') ||
+      msg.includes('fetch') ||
+      msg.includes('abort')
+    );
+  }
+
+  async function withRetry(fn, attempts = 2) {
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastErr = err;
+        if (i === attempts - 1 || !isTransientError(err)) throw err;
+        await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+      }
+    }
+    throw lastErr;
   }
 
   async function getAuthStatus() {
@@ -172,12 +202,22 @@
       password
     });
     if (error) return { success: false, message: error.message };
-    const status = await getAuthStatus();
-    if (!status.authenticated) {
-      await sb.auth.signOut();
-      return { success: false, message: status.message || 'Non autorizzato' };
+    try {
+      const status = await withRetry(() => getAuthStatus(), 3);
+      if (!status.authenticated) {
+        await sb.auth.signOut();
+        return { success: false, message: status.message || 'Non autorizzato' };
+      }
+      return { success: true, token: data.session.access_token, user: status.user };
+    } catch (err) {
+      console.error('Login post-auth failed:', err);
+      return {
+        success: false,
+        message: isTransientError(err)
+          ? 'Supabase non risponde — riprova tra qualche secondo'
+          : (err.message || 'Verifica account non riuscita')
+      };
     }
-    return { success: true, token: data.session.access_token, user: status.user };
   }
 
   async function bootstrap({ nome, email, password }) {

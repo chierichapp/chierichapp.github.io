@@ -6265,7 +6265,16 @@ async function handleAuthSubmit(e) {
     document.getElementById('auth-login-form').reset();
     initApp();
   } catch (err) {
-    showAuthError('Errore di connessione — riprova');
+    console.error('Auth submit failed:', err);
+    const msg = String(err?.message || '').toLowerCase();
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (offline) {
+      showAuthError('Sei offline — controlla la connessione');
+    } else if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('fetch')) {
+      showAuthError('Supabase non raggiungibile — riprova tra qualche secondo');
+    } else {
+      showAuthError(err?.message || 'Accesso non riuscito — riprova');
+    }
   } finally {
     btn.disabled = false;
   }
