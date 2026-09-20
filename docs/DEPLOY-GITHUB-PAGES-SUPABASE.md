@@ -21,8 +21,8 @@ Non serve Google Apps Script né Docker. Il browser parla direttamente con Supab
    - `supabase/migrations/001_init.sql`
    - `supabase/migrations/002_fix_bootstrap.sql` (se hai già applicato solo la 001)
 4. **Project Settings → API**: copia URL e `anon` key
-5. Copia `config.example.js` → `config.js` **solo in locale** (resta in `.gitignore`) e inserisci URL + anon key
-6. In produzione **non** commitare config: usa i secret Actions (vedi sotto)
+5. Copia `.env.example` → `.env` **solo in locale** (gitignored) con URL + anon key
+6. In produzione: solo secret Actions (niente file di config nel repo)
 
 ### Bootstrap primo admin
 
@@ -42,7 +42,7 @@ Nota: con Confirm email attivo, dopo il signup occorre confermare la mail prima 
    - `SUPABASE_ANON_KEY`
 4. Push su `main` (o **Actions → Deploy GitHub Pages → Run workflow**)
 
-`config.js` **non** è nel repo né pubblicato come file. Al deploy i secret vengono iniettati inline in `index.html` solo nell’artifact.
+Nessun `config.js` nel repo né come file pubblico. Al deploy i secret vengono iniettati inline in `index.html` solo nell’artifact (`scripts/inject-config.mjs`).
 
 Se Pages resta su “Deploy from a branch”, il sito non riceve i secret e il login fallisce.
 
@@ -50,24 +50,21 @@ Verifica: apri il sito → DevTools → non deve esserci richiesta a `/config.js
 
 URL: `https://chierichapp.github.io/`
 
-Nota: la chiave **anon** finisce comunque nel browser (così funziona Supabase client-side). La protezione reale è RLS, non nascondere la anon. Non committare mai la **service_role**.
+Nota: la chiave **anon** finisce comunque nel browser (così funziona Supabase client-side). La protezione reale è RLS. Non committare mai la **service_role**.
 
 ## Sviluppo locale
 
 ```bash
-# Servi la cartella statica (qualsiasi static server)
-npx --yes serve -l 4173 .
-# Apri http://localhost:4173/
+cp .env.example .env   # poi compila SUPABASE_URL e SUPABASE_ANON_KEY
+npm run dev            # http://localhost:4173/
 ```
 
-Su questo branch `index.html` è l’entry point (stesso contenuto di `webapp.html`).
-
-Serve un `config.js` locale (non committato).
+La config viene letta da `.env` e iniettata al volo: non serve (e non si usa) `config.js`.
 
 ## Limiti rispetto a GAS / Docker
 
 - Il calendario liturgico va in tabella `calendario_cache` (o resta vuoto finché non lo popoliamo)
-- Nessun backend Node: tutta la logica di auth/autorizzazione è su Auth + RLS
+- Nessun backend Node in produzione: auth/autorizzazione su Auth + RLS
 - La chiave anon è pubblica by design: la sicurezza sta nelle policy RLS
 
 ## Migrazione dati da CSV / Sheets

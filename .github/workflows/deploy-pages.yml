@@ -35,31 +35,15 @@ jobs:
             echo "::error::Imposta i secret SUPABASE_URL e SUPABASE_ANON_KEY"
             exit 1
           fi
-          # Inject config inline — no config.js in repo or as a public standalone file
-          node <<'NODE'
-          const fs = require('fs');
-          const url = process.env.SUPABASE_URL;
-          const key = process.env.SUPABASE_ANON_KEY;
-          if (!url || !key) process.exit(1);
-          const path = 'site/index.html';
-          let html = fs.readFileSync(path, 'utf8');
-          const marker = '<script src="config.js"></script>';
-          if (!html.includes(marker)) {
-            console.error('Marker config.js non trovato in index.html');
-            process.exit(2);
-          }
-          const inline =
-            '<script>window.CHIERICH_CONFIG=' +
-            JSON.stringify({ supabaseUrl: url, supabaseAnonKey: key }) +
-            ';</script>';
-          html = html.replace(marker, inline);
-          fs.writeFileSync(path, html);
-          if (html.includes('src="config.js"') || fs.existsSync('site/config.js')) {
-            console.error('config.js non deve restare nell\'artifact');
-            process.exit(3);
-          }
-          console.log('Config iniettata inline in site/index.html');
-          NODE
+          node scripts/inject-config.mjs site/index.html
+          if grep -q 'CHIERICH_CONFIG_INJECT' site/index.html; then
+            echo "::error::Marker config non sostituito"
+            exit 1
+          fi
+          if [ -f site/config.js ]; then
+            echo "::error::config.js non deve essere nell'artifact"
+            exit 1
+          fi
           ls -la site/
 
       - uses: actions/upload-pages-artifact@v3

@@ -1,0 +1,9 @@
+{
+  "name": "chierichapp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "inject-config": "node scripts/inject-config.mjs"
+  }
+}

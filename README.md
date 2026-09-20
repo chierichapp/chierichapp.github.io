@@ -1,22 +1,23 @@
 # ChierichApp — GitHub Pages + Supabase
 
-Sito statico: [chierichapp.github.io](https://chierichapp.github.io)
+Sito: [chierichapp.github.io](https://chierichapp.github.io)
 
-Stack: frontend statico + Supabase Auth/Postgres (RLS).  
-Sorgente sviluppo: repo `chierich-app` (branch `feat/github-pages-supabase`).
+Stack: frontend statico + Supabase Auth/Postgres (RLS).
 
 ## Setup rapido
 
-1. Supabase → SQL Editor: esegui `supabase/migrations/001_init.sql` poi `002_fix_bootstrap.sql`
-2. Copia `config.example.js` → `config.js` e inserisci URL + anon key (locale)
-3. Secret GitHub (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) per il deploy Actions
-4. Repo → Settings → Pages → Source: **GitHub Actions**
+1. Supabase → SQL Editor: `supabase/migrations/001_init.sql` poi `002_fix_bootstrap.sql`
+2. Copia `.env.example` → `.env` e inserisci URL + anon key (**solo locale**, gitignored)
+3. Secret GitHub: `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+4. Settings → Pages → Source: **GitHub Actions**
 
-Guida completa: [`docs/DEPLOY-GITHUB-PAGES-SUPABASE.md`](docs/DEPLOY-GITHUB-PAGES-SUPABASE.md)
+Guida: [`docs/DEPLOY-GITHUB-PAGES-SUPABASE.md`](docs/DEPLOY-GITHUB-PAGES-SUPABASE.md)
 
 ## Locale
 
 ```bash
-npx --yes serve -l 4173 .
+npm run dev
 # http://localhost:4173/
 ```
+
+Niente `config.js`: la config arriva da `.env` e viene iniettata dal server di sviluppo.

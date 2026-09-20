@@ -11,7 +11,7 @@
   function requireClient() {
     if (client) return client;
     if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
-      throw new Error('Configura config.js con supabaseUrl e supabaseAnonKey');
+      throw new Error('Manca CHIERICH_CONFIG (SUPABASE_URL / SUPABASE_ANON_KEY)');
     }
     if (!global.supabase || !global.supabase.createClient) {
       throw new Error('Libreria @supabase/supabase-js non caricata');

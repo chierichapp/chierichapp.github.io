@@ -5737,7 +5737,7 @@ input[type="radio"] {
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
+<!--CHIERICH_CONFIG_INJECT-->
 <script src="js/supabase-api.js"></script>
 <script>
 // ── Config ──────────────────────────────────────────────────
@@ -6133,7 +6133,8 @@ async function checkAuthAndInit() {
   if (!isSupabase) {
     showAuthGate();
     setAuthMode('login');
-    showAuthError('Config Supabase assente. In locale: copia config.example.js → config.js (gitignored). In produzione: secret Actions + Pages su GitHub Actions.');
+    showAuthError('Accesso non configurato su questo sito. Se sei l\'amministratore: GitHub → Settings → Pages → Source = GitHub Actions, con i secret SUPABASE_URL e SUPABASE_ANON_KEY.');
+    console.warn('[ChierichApp] CHIERICH_CONFIG assente. Locale: npm run dev con .env. Produzione: secret Actions + Pages su GitHub Actions.');
     return;
   }
 
@@ -6155,7 +6156,7 @@ async function checkAuthAndInit() {
   } catch (err) {
     showAuthGate();
     setAuthMode('login');
-    showAuthError('Supabase non raggiungibile — controlla config.js');
+    showAuthError('Supabase non raggiungibile — riprova tra poco');
   }
 }
 
