@@ -2500,6 +2500,10 @@ input[type="radio"] {
   border-bottom: 1px solid var(--border);
 }
 
+.appello-sticky-chrome {
+  background: var(--cream);
+}
+
 .appello-head-main {
   display: flex;
   align-items: center;
@@ -2838,6 +2842,7 @@ input[type="radio"] {
 .appello-save-hint.is-dirty { color: var(--warning); font-weight: 600; }
 .appello-save-hint.is-saved { color: var(--success); font-weight: 600; }
 .appello-save-hint.is-saving { color: var(--sky); font-weight: 600; }
+.appello-save-hint.is-error { color: var(--danger); font-weight: 600; }
 
 .appello-save-actions {
   display: flex;
@@ -3915,11 +3920,14 @@ input[type="radio"] {
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 1024px) {
-  .split-grid { grid-template-columns: 1fr; }
+  .split-grid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 16px;
+  }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-}
 
-@media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
     width: min(286px, 78vw);
@@ -3957,17 +3965,13 @@ input[type="radio"] {
     border-radius: 10px;
   }
   .nav-item.is-group-start { margin-top: 6px; }
-  .nav-item .nav-badge {
-    font-size: 0.62rem;
-    padding: 3px 8px;
-  }
   .sidebar-footer {
     padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   }
   .sidebar-footer-note { display: none; }
   .sidebar-user { margin-bottom: 0; }
   .btn-logout {
-    min-height: 40px;
+    min-height: 44px;
     padding: 8px 12px;
     font-size: 0.78rem;
   }
@@ -3975,11 +3979,13 @@ input[type="radio"] {
     margin-left: 0;
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   }
-  .menu-toggle { display: none; }
+  .menu-toggle { display: flex; }
   .content { padding: 16px 14px 24px; }
   .topbar {
     padding: max(10px, env(safe-area-inset-top, 0px)) 12px 10px;
   }
+  .topbar-date { display: none; }
+  .page-header h2 { font-size: 1.25rem; }
   .mobile-tabbar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -4015,21 +4021,48 @@ input[type="radio"] {
     cursor: pointer;
     touch-action: manipulation;
   }
-  .mobile-tab svg {
-    width: 22px;
-    height: 22px;
-    opacity: 0.85;
-  }
+  .mobile-tab svg { width: 22px; height: 22px; opacity: 0.85; }
   .mobile-tab.active {
     color: var(--ink);
     background: rgba(37, 99, 168, 0.1);
   }
   .mobile-tab.active svg { opacity: 1; }
-  .mobile-tab:active { transform: scale(0.97); }
   body.sidebar-open #mobile-tab-altro {
     color: var(--ink);
     background: rgba(37, 99, 168, 0.1);
   }
+
+  body.appello-focus .mobile-tabbar { display: none; }
+  body.appello-focus .main { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body.appello-focus .menu-toggle { display: flex; }
+  body.appello-focus .appello-save-bar {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+  body.appello-focus .toast-container {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .appello-sticky-chrome {
+    position: sticky;
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    z-index: 55;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-tab { min-height: 44px; padding: 10px 14px; }
+  .anag-status-tab { min-height: 44px; padding: 10px 14px; }
+  .auth-forgot-link, .auth-back-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .menu-toggle { display: none; }
+  body.appello-focus .menu-toggle { display: flex; }
   .page-header { min-width: 0; }
   .page-header h2 {
     font-size: 1.2rem;
@@ -4126,6 +4159,19 @@ input[type="radio"] {
     padding: 10px 8px;
   }
   .appello-today-btn { min-height: 44px; }
+  .appello-sticky-chrome {
+    position: sticky;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    z-index: 55;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 6px 16px rgba(12, 24, 41, 0.06);
+  }
+  .appello-shell-head {
+    padding: 10px 14px 8px;
+    border-bottom: none;
+  }
+  .appello-messe-picker-wrap { padding: 0 14px 8px; }
   .appello-stats-row {
     width: 100%;
     margin-left: 0;
@@ -4139,7 +4185,6 @@ input[type="radio"] {
     font-size: 0.72rem;
     padding: 5px 8px;
   }
-  .appello-stats-cer { display: none; }
   .appello-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -4453,7 +4498,12 @@ input[type="radio"] {
   }
 
   /* Anagrafica */
-  .split-grid { grid-template-columns: 1fr; gap: 16px; }
+  .split-grid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 16px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -5558,6 +5608,7 @@ input[type="radio"] {
       <!-- Presenze -->
       <section id="presenze" class="section">
           <div class="panel appello-shell">
+            <div class="appello-sticky-chrome">
             <header class="appello-shell-head">
               <div class="appello-head-main">
                 <div class="appello-date-stepper">
@@ -5585,6 +5636,7 @@ input[type="radio"] {
               </div>
             </header>
             <div class="appello-messe-picker-wrap" id="appello-messe-picker"></div>
+            </div>
             <div class="appello-complete-chip" id="appello-complete-banner" role="status">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
               Appello completato per questa messa
@@ -5945,6 +5997,15 @@ let appelloSelectedSlotKey = '';
 let appelloSaving = false;
 let appelloDraft = {};
 let appelloDraftDirty = {};
+let appelloAutoSaveTimer = null;
+let appelloSaveFailed = false;
+let appelloSaveQuiet = false;
+
+window.addEventListener('beforeunload', (e) => {
+  if (!isAnyAppelloDraftDirty() && !appelloSaving && !appelloSaveFailed) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
@@ -6212,7 +6273,7 @@ function syncCerimonieriAdminUi() {
 
 function syncChierichettiAdminUi() {
   const formPanel = document.getElementById('chierichetto-form-panel');
-  if (formPanel) formPanel.style.display = isCurrentUserAdmin() ? '' : 'none';
+  if (formPanel) formPanel.style.display = '';
 }
 
 function syncGruppiAdminUi() {
@@ -6761,9 +6822,48 @@ function updateMobileNav(sectionId) {
 }
 
 // ── Navigation ──────────────────────────────────────────────
-function showSection(sectionId) {
+function isAnyAppelloDraftDirty() {
+  return Object.values(appelloDraftDirty).some(Boolean);
+}
+
+function scheduleAppelloAutoSave() {
+  if (appelloAutoSaveTimer) clearTimeout(appelloAutoSaveTimer);
+  appelloAutoSaveTimer = setTimeout(() => {
+    appelloAutoSaveTimer = null;
+    void saveAppello({ quiet: true });
+  }, 800);
+}
+
+async function flushAppelloIfNeeded() {
+  if (appelloAutoSaveTimer) {
+    clearTimeout(appelloAutoSaveTimer);
+    appelloAutoSaveTimer = null;
+  }
+  if (appelloSaving) {
+    // Attendi il salvataggio in corso
+    for (let i = 0; i < 40 && appelloSaving; i++) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+  if (!isAnyAppelloDraftDirty() && !appelloSaveFailed) return true;
+  await saveAppello({ quiet: true });
+  if (isAnyAppelloDraftDirty() || appelloSaveFailed) {
+    showToast('Salva l\'appello prima di uscire — tocca Riprova');
+    return false;
+  }
+  return true;
+}
+
+async function showSection(sectionId) {
+  const current = document.querySelector('.section.active')?.id;
+  if (current === 'presenze' && sectionId !== 'presenze') {
+    const ok = await flushAppelloIfNeeded();
+    if (!ok) return;
+  }
+
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(sectionId).classList.add('active');
+  document.body.classList.toggle('appello-focus', sectionId === 'presenze');
 
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.section === sectionId);
@@ -7366,7 +7466,6 @@ async function persistToApi(path, body, method) {
 }
 
 async function persistPersona(dati, uuid) {
-  if (!requireAdminAction('Solo l\'admin può modificare i chierichetti')) return false;
   saveDataLocal();
   try {
     if (isGAS) {
@@ -7444,7 +7543,6 @@ async function persistDeletePresenza(uuid) {
 }
 
 async function persistDeletePersona(uuid) {
-  if (!requireAdminAction('Solo l\'admin può eliminare i chierichetti')) return false;
   try {
     if (isGAS) {
       mutationFailed(await gasRun('eliminaChierichetto', uuid), 'Eliminazione non riuscita');
@@ -8753,23 +8851,36 @@ function openAppello(dateStr, slotKey) {
   showSection('presenze');
 }
 
-function onAppelloDateChange() {
+async function onAppelloDateChange() {
+  const ok = await flushAppelloIfNeeded();
+  if (!ok) {
+    // Ripristina data precedente se il flush fallisce non è banale senza stash —
+    // l'utente resta sulla nuova data ma con toast a salvare
+  }
   appelloParrocchiaTabBySlot = {};
   appelloSelectedSlotKey = '';
   renderAppello();
 }
 
-function shiftAppelloDate(delta) {
+async function shiftAppelloDate(delta) {
+  const ok = await flushAppelloIfNeeded();
+  if (!ok) return;
   const el = document.getElementById('appello-data');
   if (!el) return;
   el.value = addDaysToDateStr(el.value || getTodayStr(), delta);
-  onAppelloDateChange();
+  appelloParrocchiaTabBySlot = {};
+  appelloSelectedSlotKey = '';
+  renderAppello();
 }
 
-function goAppelloToday() {
+async function goAppelloToday() {
+  const ok = await flushAppelloIfNeeded();
+  if (!ok) return;
   const el = document.getElementById('appello-data');
   if (el) el.value = getTodayStr();
-  onAppelloDateChange();
+  appelloParrocchiaTabBySlot = {};
+  appelloSelectedSlotKey = '';
+  renderAppello();
 }
 
 function openAppelloDatePicker() {
@@ -9388,6 +9499,12 @@ function setDraftPresente(uuid, dateStr, slot, present) {
   const saved = getSavedAppelloPresentSet(dateStr, slot);
   const dirty = draft.size !== saved.size || [...draft].some(id => !saved.has(id));
   appelloDraftDirty[key] = dirty;
+  appelloSaveFailed = false;
+  if (dirty) scheduleAppelloAutoSave();
+  else if (appelloAutoSaveTimer) {
+    clearTimeout(appelloAutoSaveTimer);
+    appelloAutoSaveTimer = null;
+  }
 }
 
 function updateAppelloSaveBar(dateStr, slot) {
@@ -9396,12 +9513,15 @@ function updateAppelloSaveBar(dateStr, slot) {
   const saveBtn = document.getElementById('btn-save-appello');
   const discardBtn = document.getElementById('btn-discard-appello');
   if (hint) {
-    hint.classList.remove('is-dirty', 'is-saved', 'is-saving');
+    hint.classList.remove('is-dirty', 'is-saved', 'is-saving', 'is-error');
     if (appelloSaving) {
       hint.textContent = 'Salvataggio…';
       hint.classList.add('is-saving');
+    } else if (appelloSaveFailed) {
+      hint.textContent = 'Non salvato — riprova';
+      hint.classList.add('is-error');
     } else if (dirty) {
-      hint.textContent = 'Non salvato';
+      hint.textContent = 'Salvataggio automatico…';
       hint.classList.add('is-dirty');
     } else {
       hint.textContent = 'Tutto salvato';
@@ -9409,13 +9529,22 @@ function updateAppelloSaveBar(dateStr, slot) {
     }
   }
   if (saveBtn) {
-    saveBtn.disabled = !dirty || appelloSaving;
-    saveBtn.textContent = appelloSaving ? 'Salvataggio…' : 'Salva appello';
+    const needRetry = appelloSaveFailed || dirty;
+    saveBtn.disabled = (!needRetry && !dirty) || appelloSaving;
+    if (appelloSaving) saveBtn.textContent = 'Salvataggio…';
+    else if (appelloSaveFailed) saveBtn.textContent = 'Riprova';
+    else if (dirty) saveBtn.textContent = 'Salva ora';
+    else saveBtn.textContent = 'Salva appello';
   }
-  if (discardBtn) discardBtn.disabled = !dirty || appelloSaving;
+  if (discardBtn) discardBtn.disabled = (!dirty && !appelloSaveFailed) || appelloSaving;
 }
 
 function discardAppelloDraft() {
+  if (appelloAutoSaveTimer) {
+    clearTimeout(appelloAutoSaveTimer);
+    appelloAutoSaveTimer = null;
+  }
+  appelloSaveFailed = false;
   const dateStr = getAppelloDate();
   const celebrations = getCelebrationsForAppelloDate(dateStr);
   const slot = getSelectedAppelloCelebration(celebrations);
@@ -9426,8 +9555,13 @@ function discardAppelloDraft() {
   renderAppello();
 }
 
-async function saveAppello() {
+async function saveAppello(opts = {}) {
   if (appelloSaving) return;
+  if (appelloAutoSaveTimer) {
+    clearTimeout(appelloAutoSaveTimer);
+    appelloAutoSaveTimer = null;
+  }
+  const quiet = !!opts.quiet;
   const dateStr = getAppelloDate();
   const celebrations = getCelebrationsForAppelloDate(dateStr);
   const slot = getSelectedAppelloCelebration(celebrations);
@@ -9438,6 +9572,7 @@ async function saveAppello() {
   const toRemove = [...saved].filter(id => !draft.has(id));
   if (!toAdd.length && !toRemove.length) {
     appelloDraftDirty[key] = false;
+    appelloSaveFailed = false;
     updateAppelloSaveBar(dateStr, slot);
     return;
   }
@@ -9501,6 +9636,7 @@ async function saveAppello() {
 
   saveData();
   appelloSaving = true;
+  appelloSaveQuiet = quiet;
   updateAppelloSaveBar(dateStr, slot);
 
   try {
@@ -9516,12 +9652,15 @@ async function saveAppello() {
     }
     appelloDraft[key] = getSavedAppelloPresentSet(dateStr, slot);
     appelloDraftDirty[key] = false;
-    showToast('Appello salvato');
+    appelloSaveFailed = false;
+    if (!quiet) showToast('Appello salvato');
   } catch (e) {
     appelloDraftDirty[key] = true;
+    appelloSaveFailed = true;
     showToast(e.message || 'Salvataggio non riuscito — riprova');
   } finally {
     appelloSaving = false;
+    appelloSaveQuiet = false;
     renderAppello();
     if (document.getElementById('dashboard')?.classList.contains('active')) renderDashboard();
   }
@@ -9575,7 +9714,10 @@ function getSelectedAppelloCelebration(celebrations) {
   return celebrations.find(s => getAppelloSlotKey(s) === appelloSelectedSlotKey) || celebrations[0];
 }
 
-function selectAppelloMessa(slotKey) {
+async function selectAppelloMessa(slotKey) {
+  if (slotKey === appelloSelectedSlotKey) return;
+  const ok = await flushAppelloIfNeeded();
+  if (!ok) return;
   appelloSelectedSlotKey = slotKey;
   const slot = parseMessaSlotKey(slotKey);
   const primaryGruppo = getAppelloPrimaryGruppoForSlot(slot);
@@ -9953,7 +10095,6 @@ function isAnagraficaChierichetto(chi) {
 }
 
 async function setChierichettoAttivo(uuid, attivo) {
-  if (!requireAdminAction('Solo l\'admin può modificare i chierichetti')) return;
   const idx = state.chierichetti.findIndex(c => c.uuid === uuid);
   if (idx < 0) return;
   const c = state.chierichetti[idx];
@@ -10054,7 +10195,6 @@ async function renderChierichetti() {
 
   container.innerHTML = filtered.map(c => {
     const attivo = isPersonaAttiva(c);
-    const canManage = isCurrentUserAdmin();
     const cerBadge = isCerimoniereTurno(c) ? ' · <strong>Cerimoniere di turno</strong>' : '';
     const statusBadge = attivo ? '' : ' <span class="badge badge-ex">Ex</span>';
     const meta = `${parrocchiaBadgeHtml(c.parrocchia)} Nato nel ${esc(formatAnnoNascitaLabel(c.annoNascita))}${cerBadge}${
@@ -10062,23 +10202,13 @@ async function renderChierichetti() {
         ? (c.gruppo ? ' · ' + esc(getGruppoLabel(c.gruppo)) : ' · <span style="color:var(--muted)">gruppo da assegnare</span>')
         : ' · non in servizio'
     }`;
-    const statusBtn = !canManage ? '' : attivo
+    const statusBtn = attivo
       ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, false)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         </button>`
       : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina tra gli attivi" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, true)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         </button>`;
-    const editBtn = canManage
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editChierichetto(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>`
-      : '';
-    const deleteBtn = canManage
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deletePersona(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>`
-      : '';
     return `
     <div class="list-item${attivo ? '' : ' is-ex'}">
       <div class="list-item-main">
@@ -10088,9 +10218,13 @@ async function renderChierichetti() {
         ${c.telefono ? `<a class="contact-link" href="tel:${esc(c.telefono.replace(/\s/g,''))}">${esc(c.telefono)}</a>` : ''}
       </div>
       <div class="list-item-actions">
-        ${editBtn}
+        <button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editChierichetto(${jsStr(c.uuid)})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
         ${statusBtn}
-        ${deleteBtn}
+        <button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deletePersona(${jsStr(c.uuid)})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
       </div>
     </div>
   `;
@@ -10505,7 +10639,6 @@ async function deleteCerimoniere(uuid) {
 }
 
 function editChierichetto(uuid) {
-  if (!requireAdminAction('Solo l\'admin può modificare i chierichetti')) return;
   const c = state.chierichetti.find(ch => ch.uuid === uuid);
   if (!c || !isChierichettoPersona(c)) return;
 
@@ -10526,11 +10659,11 @@ function editChierichetto(uuid) {
   document.getElementById('btn-save-chierichetto').textContent = 'Aggiorna';
   document.getElementById('btn-cancel-edit').style.display = 'block';
 
+  document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('nome').focus();
 }
 
 async function deletePersona(uuid) {
-  if (!requireAdminAction('Solo l\'admin può eliminare i chierichetti')) return;
   const c = state.chierichetti.find(ch => ch.uuid === uuid);
   if (!c) return;
 
@@ -12061,7 +12194,6 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
 
 document.getElementById('chierichettoForm').addEventListener('submit', async e => {
   e.preventDefault();
-  if (!requireAdminAction('Solo l\'admin può modificare i chierichetti')) return;
 
   const annoNascita = document.getElementById('anno-nascita').value;
   const parrocchia = document.getElementById('parrocchia').value;
