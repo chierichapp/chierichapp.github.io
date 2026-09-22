@@ -9501,7 +9501,9 @@ function updateAppelloSummary(dateStr, slot) {
       const parts = [
         formatAppelloMessaShort(slot),
         slot.gruppoLabel
-          ? `Gruppo ${slot.gruppoLabel}`
+          ? (/^gruppo\b/i.test(String(slot.gruppoLabel).trim())
+              ? slot.gruppoLabel
+              : `Gruppo ${slot.gruppoLabel}`)
           : (isMessaSenzaGruppoServizio(slot) ? 'Messa libera' : null),
         'Spunta chi ha servito'
       ].filter(Boolean);
@@ -9985,10 +9987,10 @@ function cancelCerimoniereEdit() {
   document.getElementById('form-cerimoniere-sub').textContent = isGAS
     ? 'Autorizzano l\'accesso con Account Google — cerimonieri e sacerdoti'
     : isSupabase
-      ? 'Login per cerimonieri e Don — stessa email su Supabase Auth'
+      ? 'Crea login email/password per cerimonieri e Don (Supabase Auth)'
       : 'Login app per cerimonieri e sacerdoti (Don)';
   document.getElementById('cerimoniere-password-label').textContent = 'Password';
-  document.getElementById('cerimoniere-password').required = !isGAS && !isSupabase;
+  document.getElementById('cerimoniere-password').required = !isGAS;
   document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
   populateCerimoniereChierichettoSelect('');
@@ -10012,11 +10014,12 @@ async function handleCerimoniereFormSubmit(e) {
     password: document.getElementById('cerimoniere-password').value
   };
 
-  if (!uuid && !isGAS && !isSupabase && (!dati.password || dati.password.length < 6)) {
+  if (!uuid && !isGAS && (!dati.password || dati.password.length < 6)) {
     showToast('Password di almeno 6 caratteri');
     return;
   }
-  if (isGAS || isSupabase) delete dati.password;
+  if (isGAS) delete dati.password;
+  if (uuid && isSupabase) delete dati.password;
 
   let result;
   if (isGAS) {
@@ -10039,7 +10042,7 @@ async function handleCerimoniereFormSubmit(e) {
     return;
   }
 
-  showToast(uuid ? 'Account aggiornato' : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato'));
+  showToast(uuid ? 'Account aggiornato' : (result.message || (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')));
   cancelCerimoniereEdit();
   await loadCerimonieriAccounts(true);
   renderCerimonieri();

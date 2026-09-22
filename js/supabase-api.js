@@ -482,8 +482,41 @@
   async function salvaCerimoniere(dati) {
     const sb = requireClient();
     const email = String(dati.email || '').trim().toLowerCase();
+    const password = String(dati.password || '');
     const uuid = newId('CER-');
     const ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
+
+    if (!password || password.length < 6) {
+      return { success: false, message: 'Password di almeno 6 caratteri obbligatoria' };
+    }
+
+    const { data: sessData } = await sb.auth.getSession();
+    const adminSession = sessData?.session;
+    if (!adminSession) {
+      return { success: false, message: 'Sessione scaduta — riloggia come admin' };
+    }
+
+    // Crea utente Auth senza perdere la sessione admin
+    const { data: sign, error: signErr } = await sb.auth.signUp({ email, password });
+    const { error: restoreErr } = await sb.auth.setSession({
+      access_token: adminSession.access_token,
+      refresh_token: adminSession.refresh_token
+    });
+    if (restoreErr) {
+      return {
+        success: false,
+        message: 'Utente Auth creato ma sessione admin persa — riloggia e riprova'
+      };
+    }
+
+    if (signErr) {
+      const msg = signErr.message || 'Creazione Auth fallita';
+      // Se l'email esiste già in Auth, procedi con la riga anagrafica
+      if (!/already|registered|exists|duplicate/i.test(msg)) {
+        return { success: false, message: msg };
+      }
+    }
+
     const { error } = await sb.from('cerimonieri').insert({
       uuid,
       nome: String(dati.nome || '').trim(),
@@ -495,12 +528,15 @@
       ruolo
     });
     if (error) return { success: false, message: error.message };
+
+    const needsEmailConfirm = !!(sign?.user && !sign?.session && !signErr);
     return {
       success: true,
       uuid,
-      message: ruolo === 'prete'
-        ? 'Account Don creato. Dovrà accedere con la stessa email su Supabase Auth.'
-        : 'Account creato. La persona dovrà registrarsi su Supabase Auth con la stessa email.'
+      needsEmailConfirm,
+      message: needsEmailConfirm
+        ? 'Account creato. Conferma l\'email (o disattiva Confirm email in Supabase Auth) prima del primo accesso.'
+        : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')
     };
   }
 
