@@ -563,6 +563,10 @@
 
   async function salvaCerimoniere(dati) {
     const sb = requireClient();
+    const me = await getCurrentCerimoniere();
+    if (!me?.admin) {
+      return { success: false, message: 'Solo l\'admin può creare nuovi accessi' };
+    }
     const email = String(dati.email || '').trim().toLowerCase();
     const password = String(dati.password || '');
     const uuid = newId('CER-');
@@ -624,6 +628,10 @@
 
   async function aggiornaCerimoniere(uuid, dati) {
     const sb = requireClient();
+    const me = await getCurrentCerimoniere();
+    if (!me?.admin) {
+      return { success: false, message: 'Solo l\'admin può modificare gli accessi' };
+    }
     const patch = {};
     if (dati.nome) patch.nome = String(dati.nome).trim();
     if (dati.email) patch.email = String(dati.email).trim().toLowerCase();
@@ -696,6 +704,10 @@
 
   async function eliminaCerimoniere(uuid) {
     const sb = requireClient();
+    const me = await getCurrentCerimoniere();
+    if (!me?.admin) {
+      return { success: false, message: 'Solo l\'admin può eliminare gli accessi' };
+    }
     const { error } = await sb.from('cerimonieri').delete().eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
     return { success: true };
