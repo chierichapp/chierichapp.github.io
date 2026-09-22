@@ -439,6 +439,23 @@ body.sidebar-open { overflow: hidden; }
   touch-action: manipulation;
 }
 
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar-brand {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+}
+
 .page-header h2 {
   font-family: var(--font-display);
   font-size: 1.65rem;
@@ -4098,6 +4115,7 @@ input[type="radio"] {
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   }
   .menu-toggle { display: flex; }
+  .topbar-brand { display: block; }
   .content { padding: 16px 14px 24px; }
   .topbar {
     padding: max(10px, env(safe-area-inset-top, 0px)) 12px 10px;
@@ -4170,6 +4188,7 @@ input[type="radio"] {
 
 @media (max-width: 768px) {
   .menu-toggle { display: none; }
+  .topbar-brand { width: 40px; height: 40px; border-radius: 11px; }
   .page-header { min-width: 0; }
   .page-header h2 {
     font-size: 1.2rem;
@@ -5365,10 +5384,11 @@ input[type="radio"] {
 
   <div class="main">
     <header class="topbar">
-      <div style="display:flex;align-items:center;gap:14px;">
+      <div class="topbar-start">
         <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Apri menu" aria-expanded="false">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
+        <img class="topbar-brand" src="/icons/icon-192x192.png" width="36" height="36" alt="ChierichApp" decoding="async">
         <div class="page-header">
           <h2 id="page-title">Oggi</h2>
           <p id="page-subtitle">Agenda messe, turni e appello</p>
