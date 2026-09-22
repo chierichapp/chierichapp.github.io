@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "inject-config": "node scripts/inject-config.mjs"
+    "inject-config": "node scripts/inject-config.mjs",
+    "apply-email-templates": "node scripts/apply-email-templates.mjs"
   }
 }

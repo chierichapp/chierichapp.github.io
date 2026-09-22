@@ -1,6 +1,9 @@
 # Secrets / env locale
 .env
 .env.local
+scripts/.sb-dash-token
+scripts/.email-templates-payload.json
+scripts/email-templates-payload.json
 config.js
 
 # IDE / OS
