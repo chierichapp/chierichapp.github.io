@@ -1468,6 +1468,10 @@ input[type="radio"] {
 .messe-legend i.eccezione { background: var(--gold); }
 .messe-legend i.turno { background: var(--success); }
 
+.messe-section-panel {
+  margin-bottom: 24px;
+}
+
 .messe-toolbar {
   display: flex;
   align-items: center;
@@ -2533,11 +2537,15 @@ input[type="radio"] {
   color: rgba(255,255,255,0.85);
   font-size: 0.82rem;
   font-weight: 600;
-  padding: 0;
+  padding: 8px 0;
+  min-height: 44px;
   border: none;
   background: none;
   cursor: pointer;
   text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+}
   text-underline-offset: 3px;
 }
 
@@ -2585,9 +2593,9 @@ input[type="radio"] {
 .stat-card.compact .stat-value { font-size: 1.5rem; }
 
 /* ── Appello rapido (presenze) ───────────────────────────── */
-.appello-shell {
+.panel.appello-shell {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .appello-shell-head {
@@ -2827,7 +2835,12 @@ input[type="radio"] {
   gap: 10px;
   overflow-x: auto;
   padding: 2px 0 6px;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.appello-messe-picker::-webkit-scrollbar {
+  display: none;
 }
 
 .appello-messa-pill {
@@ -2932,6 +2945,10 @@ input[type="radio"] {
   padding: 14px 22px 16px;
   border-top: 1px solid var(--border);
   background: var(--cream);
+}
+
+.appello-save-bar.is-hidden {
+  display: none;
 }
 
 .appello-save-hint {
@@ -4203,6 +4220,13 @@ input[type="radio"] {
   .quick-actions { grid-template-columns: 1fr; }
   .quick-action { min-height: 56px; }
   .quick-action.primary { order: -1; }
+  #dashboard.active {
+    display: flex;
+    flex-direction: column;
+  }
+  #dashboard .today-hero { order: 1; }
+  #dashboard .quick-actions { order: 2; }
+  #dashboard .today-stats-strip { order: 3; margin-bottom: 0; }
   .section-tabs {
     width: 100%;
     overflow-x: auto;
@@ -4272,12 +4296,19 @@ input[type="radio"] {
     background: var(--cream);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 6px 16px rgba(12, 24, 41, 0.06);
+    padding-bottom: 4px;
   }
   .appello-shell-head {
     padding: 10px 14px 8px;
     border-bottom: none;
   }
-  .appello-messe-picker-wrap { padding: 0 14px 8px; }
+  .appello-messe-picker-wrap { padding: 0 14px 10px; }
+  .appello-messa-pill {
+    padding: 10px 12px;
+    min-width: 118px;
+    gap: 4px;
+  }
+  .appello-messa-pill-time { font-size: 0.85rem; }
   .appello-stats-row {
     width: 100%;
     margin-left: 0;
@@ -4291,6 +4322,7 @@ input[type="radio"] {
     font-size: 0.72rem;
     padding: 5px 8px;
   }
+  .appello-shell-divider { margin-top: 10px; }
   .appello-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -4361,6 +4393,10 @@ input[type="radio"] {
   .appello-save-actions { width: 100%; }
   .appello-save-actions .btn { flex: 1; min-height: 48px; }
   #presenze:not(.active) .appello-save-bar { display: none; }
+  .appello-save-bar.is-hidden { display: none !important; }
+  body.appello-focus .appello-list:has(+ .appello-save-bar.is-hidden) {
+    padding-bottom: 24px;
+  }
   .toast-container {
     bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
     right: 14px;
@@ -4418,14 +4454,51 @@ input[type="radio"] {
   .prossima-messa-actions .btn { width: 100%; }
 
   /* Messe */
+  #messe > .panel { margin-bottom: 12px; }
+  #messe .messe-section-panel { margin-bottom: 12px; }
+  #messe > .panel > .panel-head { padding-bottom: 10px; }
+  #messe > .panel > .panel-head p { display: none; }
+  #messe .messe-legend {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+  #messe .messe-legend::-webkit-scrollbar { display: none; }
+  #messe .messe-legend span {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 0.72rem;
+  }
+  #messe .messe-agenda-summary {
+    margin: 0 0 12px;
+    font-size: 0.78rem;
+  }
+  #messe .cal-filter {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #messe .messe-toolbar .btn-ghost,
+  #messe .messe-toolbar select {
+    min-height: 44px;
+  }
   .messe-toolbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
   }
   .messe-toolbar-left {
     flex-direction: column;
     align-items: stretch;
     width: 100%;
+    gap: 8px;
   }
   .messe-toolbar .btn { width: 100%; }
   .messe-layout { grid-template-columns: 1fr; }
@@ -5880,7 +5953,7 @@ input[type="radio"] {
 
       <!-- Agenda messe pastorali -->
       <section id="messe" class="section">
-        <div class="panel" style="margin-bottom:24px;">
+        <div class="panel messe-section-panel">
           <div class="panel-head">
             <h3>Agenda messe con chierichetti</h3>
             <p>Celebrazioni domenicali della comunità pastorale, più le messe straordinarie aggiunte manualmente</p>
@@ -5891,7 +5964,7 @@ input[type="radio"] {
               <span><i class="eccezione"></i> Eccezione</span>
               <span><i class="turno"></i> Squadra assegnata</span>
             </div>
-            <p class="liturgy-meta" style="margin:-8px 0 16px" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
+            <p class="liturgy-meta messe-agenda-summary" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
 
             <div class="messe-layout">
               <div>
@@ -5903,7 +5976,7 @@ input[type="radio"] {
                       <option value="2026" selected>2026</option>
                       <option value="2027">2027</option>
                     </select>
-                    <label class="cal-filter">
+                    <label class="cal-filter" for="messe-show-past">
                       <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
                       Mostra messe passate
                     </label>
@@ -8966,14 +9039,28 @@ function renderTodayAgendaPreview(today, nextSlot) {
   }
 
   const { slot: highlightSlot, tag: highlightTag } = getTodayHeroHighlightInfo(slots, nextSlot);
+  const { shown, more } = limitTodayHeroSlots(slots, highlightSlot);
 
   container.innerHTML = `
     ${calBanner}
-    ${groupTodaySlotsByDay(slots).map(g => renderTodayDayGroup(g, today, highlightSlot, highlightTag)).join('')}
+    ${groupTodaySlotsByDay(shown).map(g => renderTodayDayGroup(g, today, highlightSlot, highlightTag)).join('')}
     <div class="today-agenda-footer">
-      <button type="button" class="btn-ghost-light" onclick="showSection('messe')">Vedi tutta l'agenda →</button>
+      <button type="button" class="btn-ghost-light" onclick="showSection('messe')">${more > 0 ? `Altre ${more} · vedi agenda →` : 'Vedi tutta l\'agenda →'}</button>
     </div>
   `;
+}
+
+/** Max 4 slot in hero (prossima + fino a 3 successive). */
+function limitTodayHeroSlots(slots, highlightSlot) {
+  const list = Array.isArray(slots) ? slots : [];
+  if (list.length <= 4) return { shown: list, more: 0 };
+  const keyOf = (s) => `${s.data}|${s.ora || ''}|${s.sede || ''}`;
+  const hiKey = highlightSlot ? keyOf(highlightSlot) : '';
+  let shown = list.slice(0, 4);
+  if (hiKey && !shown.some((s) => keyOf(s) === hiKey)) {
+    shown = [highlightSlot, ...list.filter((s) => keyOf(s) !== hiKey).slice(0, 3)];
+  }
+  return { shown, more: list.length - shown.length };
 }
 
 function goToMessa(dateStr) {
@@ -9650,7 +9737,12 @@ function setDraftPresente(uuid, dateStr, slot, present) {
   }
 }
 
-function updateAppelloSaveBar(dateStr, slot) {
+function updateAppelloSaveBar(dateStr, slot, opts = {}) {
+  const bar = document.querySelector('.appello-save-bar');
+  const hasPeople = opts.hasPeople;
+  if (bar && typeof hasPeople === 'boolean') {
+    bar.classList.toggle('is-hidden', !hasPeople);
+  }
   const dirty = isAppelloDraftDirty(dateStr, slot);
   const hint = document.getElementById('appello-save-hint');
   const saveBtn = document.getElementById('btn-save-appello');
@@ -9900,8 +9992,8 @@ function renderAppelloMessePicker(celebrations, dateStr) {
 
   if (!celebrations.length) {
     wrap.innerHTML = selfHtml
-      ? `<div class="appello-messe-picker-row">${selfHtml}</div><p class="appello-no-messe">Nessuna messa in agenda — appello giornaliero</p>`
-      : '<p class="appello-no-messe">Nessuna messa in agenda — appello giornaliero</p>';
+      ? `<div class="appello-messe-picker-row">${selfHtml}</div>`
+      : '';
     return;
   }
   ensureAppelloMessaSelection(celebrations);
@@ -11608,7 +11700,7 @@ async function renderAppello() {
     console.error(err);
     container.innerHTML = `<p class="empty-state">Impossibile caricare l'appello.<br>${esc(err.message || 'Riprova')}</p>`;
     if (subtitle) subtitle.textContent = 'Errore di caricamento';
-    updateAppelloSaveBar(dateStr, null);
+    updateAppelloSaveBar(dateStr, null, { hasPeople: false });
     return;
   }
 
@@ -11623,22 +11715,26 @@ async function renderAppello() {
   if (!celebrations.length) {
     resetAppelloSummary(dateStr, null);
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
+    const { list } = getAppelloFilteredList();
+    const people = getAppelloTabChierichetti(null);
     const isToday = dateStr === getTodayStr();
     if (subtitle) {
-      subtitle.textContent = isToday
-        ? 'Nessuna messa in agenda per oggi'
-        : 'Nessuna messa in agenda per questa data';
+      subtitle.textContent = people.length
+        ? 'Nessuna messa — appello giornaliero'
+        : (isToday ? 'Nessuna messa in agenda per oggi' : 'Nessuna messa in agenda');
     }
-    const { list } = getAppelloFilteredList();
-    container.innerHTML = `
-      <div class="empty-state appello-empty-messe">
-        <p>${isToday
-          ? 'Nessuna messa in agenda per oggi. Controlla l\'agenda messe oppure segna un appello giornaliero qui sotto.'
-          : 'Nessuna messa in agenda per questa data.'}</p>
-        <button type="button" class="btn btn-secondary" onclick="showSection('messe')">Apri agenda messe</button>
-      </div>
-      ${list.length ? renderAppelloFallback(dateStr, list, primaryGruppo) : ''}`;
-    updateAppelloSaveBar(dateStr, null);
+    if (people.length) {
+      container.innerHTML = renderAppelloFallback(dateStr, list, primaryGruppo);
+    } else {
+      container.innerHTML = `
+        <div class="empty-state appello-empty-messe">
+          <p>${isToday
+            ? 'Controlla l\'agenda messe o cambia data per fare l\'appello.'
+            : 'Seleziona un\'altra data oppure apri l\'agenda messe.'}</p>
+          <button type="button" class="btn btn-secondary" onclick="showSection('messe')">Apri agenda messe</button>
+        </div>`;
+    }
+    updateAppelloSaveBar(dateStr, null, { hasPeople: people.length > 0 });
     return;
   }
 
@@ -11646,7 +11742,8 @@ async function renderAppello() {
     updateAppelloSummary(dateStr, slot);
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(slot, primaryGruppo);
     container.innerHTML = renderAppelloMessaContent(slot, dateStr);
-    updateAppelloSaveBar(dateStr, slot);
+    const people = getAppelloTabChierichetti(slot);
+    updateAppelloSaveBar(dateStr, slot, { hasPeople: people.length > 0 });
     return;
   }
 
@@ -11656,7 +11753,7 @@ async function renderAppello() {
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
     if (subtitle) subtitle.textContent = 'Nessun risultato';
     container.innerHTML = '<p class="empty-state">Nessun chierichetto corrisponde alla ricerca.</p>';
-    updateAppelloSaveBar(dateStr, null);
+    updateAppelloSaveBar(dateStr, null, { hasPeople: false });
     return;
   }
 
@@ -11664,7 +11761,7 @@ async function renderAppello() {
   if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
   if (subtitle) subtitle.textContent = 'Appello giornaliero';
   container.innerHTML = renderAppelloFallback(dateStr, list, primaryGruppo);
-  updateAppelloSaveBar(dateStr, null);
+  updateAppelloSaveBar(dateStr, null, { hasPeople: getAppelloTabChierichetti(null).length > 0 });
 }
 
 // ── Agenda messe (domeniche + eccezioni) ────────────────────
