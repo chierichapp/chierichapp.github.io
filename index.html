@@ -5124,32 +5124,141 @@ input[type="radio"] {
     min-width: calc(50% - 4px);
   }
 
-  /* Anagrafica */
+  /* Anagrafica — lista a tutta larghezza su telefono */
   .split-grid {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column-reverse;
-    gap: 16px;
+    gap: 10px;
   }
   .anag-form-toggle { display: inline-flex; }
   .anag-form-panel.is-collapsed .panel-body { display: none; }
   .anag-form-panel.is-collapsed .panel-head {
     border-bottom: none;
-    padding-bottom: 16px;
+    padding-bottom: 14px;
   }
   .anag-form-panel:not(.is-collapsed) {
     order: -1;
     scroll-margin-top: calc(12px + env(safe-area-inset-top, 0px));
   }
-  .anag-person {
+
+  #anagrafica.section.active {
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+    max-width: none;
+    box-sizing: border-box;
+  }
+  #anagrafica > .section-tabs {
+    margin: 0 14px 10px;
+    width: auto;
+    max-width: none;
+  }
+  #anagrafica .split-grid {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .panel {
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  #anagrafica .anag-list-head {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-list-head .panel-head {
+    padding: 0;
+  }
+  #anagrafica #btn-anag-add {
+    margin: 0 !important;
+    flex-shrink: 0;
+  }
+  #anagrafica .panel-body {
+    padding: 12px 0 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-form-panel .panel-head,
+  #anagrafica .anag-form-panel .panel-body,
+  #anagrafica #cerimoniere-form-panel .panel-head,
+  #anagrafica #cerimoniere-form-panel .panel-body,
+  #anagrafica .anag-list-toolbar,
+  #anagrafica .toolbar {
+    padding-left: 14px;
+    padding-right: 14px;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-status-tabs {
+    display: flex;
+    width: calc(100% - 28px);
+    margin: 0 14px 12px;
+    padding-left: 3px;
+    padding-right: 3px;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-status-tab { flex: 1; text-align: center; }
+  #anagrafica .anag-list-toolbar,
+  #anagrafica .toolbar {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .anag-search,
+  #anagrafica .toolbar input,
+  #anagrafica .toolbar select,
+  #anagrafica .anag-filters,
+  #anagrafica .anag-filters select {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .list {
+    gap: 0;
+    width: 100%;
+  }
+  #anagrafica .list-item.anag-person,
+  #anagrafica .list-item {
+    flex-direction: row;
+    align-items: flex-start;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
     padding: 14px;
+    gap: 12px;
+    background: var(--surface);
   }
-  .anag-person-body .list-item-title { font-size: 1rem; }
-  .anag-list-head {
-    flex-wrap: wrap;
+  #anagrafica .list-item + .list-item {
+    border-top: 1px solid var(--border);
   }
-  #anagrafica .panel-body { padding: 16px; }
-  #anagrafica .panel-head { padding: 16px 16px 12px; }
+  #anagrafica .anag-person-body,
+  #anagrafica .list-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+  #anagrafica .list-item-actions {
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+  #anagrafica .anag-empty {
+    margin: 0 14px 14px;
+    width: auto;
+  }
+  #anagrafica .anag-form-panel .panel-body {
+    padding-bottom: 16px;
+  }
 }
 
 @media (max-width: 380px) {
