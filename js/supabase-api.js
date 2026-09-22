@@ -7,6 +7,43 @@
 
   const cfg = global.CHIERICH_CONFIG || {};
   let client = null;
+  let passwordRecoveryPending = false;
+  let authListenersReady = false;
+
+  function recoveryRedirectTo() {
+    return global.location.origin + global.location.pathname;
+  }
+
+  function detectRecoveryFromUrl() {
+    try {
+      const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
+      const search = new URLSearchParams(String(global.location.search || '').replace(/^\?/, ''));
+      if (hash.get('type') === 'recovery' || search.get('type') === 'recovery') {
+        passwordRecoveryPending = true;
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
+  function ensureAuthListeners() {
+    detectRecoveryFromUrl();
+    if (authListenersReady) return;
+    const sb = requireClient();
+    sb.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') passwordRecoveryPending = true;
+    });
+    authListenersReady = true;
+  }
+
+  function isPasswordRecovery() {
+    detectRecoveryFromUrl();
+    return passwordRecoveryPending;
+  }
+
+  function clearPasswordRecovery() {
+    passwordRecoveryPending = false;
+  }
 
   function requireClient() {
     if (client) return client;
@@ -24,6 +61,7 @@
         storage: global.localStorage
       }
     });
+    ensureAuthListeners();
     return client;
   }
 
@@ -220,6 +258,50 @@
           : (err.message || 'Verifica account non riuscita')
       };
     }
+  }
+
+  async function resetPasswordForEmail(email) {
+    const sb = requireClient();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail) return { success: false, message: 'Inserisci l\'email' };
+    const { error } = await sb.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: recoveryRedirectTo()
+    });
+    if (error) return { success: false, message: error.message };
+    return {
+      success: true,
+      message: 'Se l\'email è registrata, riceverai un link per reimpostare la password.'
+    };
+  }
+
+  async function updatePassword(password) {
+    const sb = requireClient();
+    const pwd = String(password || '');
+    if (pwd.length < 6) {
+      return { success: false, message: 'Password di almeno 6 caratteri' };
+    }
+    const { error } = await sb.auth.updateUser({ password: pwd });
+    if (error) return { success: false, message: error.message };
+    clearPasswordRecovery();
+    try {
+      if (global.history?.replaceState) {
+        global.history.replaceState(null, '', global.location.pathname + global.location.search);
+      }
+    } catch { /* ignore */ }
+    const status = await getAuthStatus();
+    if (!status.authenticated) {
+      return {
+        success: true,
+        needsLogin: true,
+        message: 'Password aggiornata. Accedi con la nuova password.'
+      };
+    }
+    return {
+      success: true,
+      token: status.token,
+      user: status.user,
+      message: 'Password aggiornata'
+    };
   }
 
   async function bootstrap({ nome, email, password }) {
@@ -643,6 +725,11 @@
     login,
     bootstrap,
     logout,
+    resetPasswordForEmail,
+    updatePassword,
+    ensureAuthListeners,
+    isPasswordRecovery,
+    clearPasswordRecovery,
     getAppData,
     salvaChierichetto,
     aggiornaChierichetto,
