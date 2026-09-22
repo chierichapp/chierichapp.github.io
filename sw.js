@@ -2,7 +2,7 @@
  * ChierichApp — service worker
  * Shell offline + aggiornamenti; non cachea API/auth Supabase.
  */
-const CACHE_NAME = 'chierichapp-v5';
+const CACHE_NAME = 'chierichapp-v6';
 const PRECACHE = [
   './',
   './index.html',
@@ -110,12 +110,18 @@ self.addEventListener('fetch', (event) => {
 
   if (!sameOrigin(url)) return;
 
+  // Manifest sempre fresco (display mode all’installazione)
+  if (url.pathname.endsWith('/manifest.json') || url.pathname.endsWith('manifest.json')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
   if (isNavigation(request, url)) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // Asset locali (js, icone, manifest)
+  // Asset locali (js, icone)
   event.respondWith(staleWhileRevalidate(request));
 });
 
