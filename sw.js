@@ -6,6 +6,7 @@
  * - Aggiornamenti automatici
  * - Installazione come app nativa
  */
+<<<<<<< Updated upstream
 
 const CACHE_NAME = 'chierichetti-v3';
 const STATIC_ASSETS = [
@@ -15,6 +16,18 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
+=======
+const CACHE_NAME = 'chierichapp-v6';
+const PRECACHE = [
+  './',
+  './index.html',
+  './js/supabase-api.js',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+  './icons/apple-touch-icon.png',
+  './icons/favicon-32x32.png',
+  './icons/favicon-16x16.png'
+>>>>>>> Stashed changes
 ];
 
 // Installazione - Cache risorse
@@ -47,6 +60,7 @@ self.addEventListener('activate', (event) => {
 
 // Fetch - Interceptar richieste
 self.addEventListener('fetch', (event) => {
+<<<<<<< Updated upstream
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -64,6 +78,48 @@ self.addEventListener('fetch', (event) => {
         return response || fetchPromise;
       })
   );
+=======
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+
+  // API / auth: passa sempre in rete
+  if (
+    url.hostname.includes('supabase.co')
+    || url.pathname.includes('/auth/')
+    || url.pathname.includes('/rest/')
+    || url.pathname.includes('/realtime/')
+  ) {
+    return;
+  }
+
+  // CDN font / supabase-js: SWR
+  if (
+    url.hostname === 'fonts.googleapis.com'
+    || url.hostname === 'fonts.gstatic.com'
+    || url.hostname === 'cdn.jsdelivr.net'
+  ) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
+  if (!sameOrigin(url)) return;
+
+  // Manifest sempre fresco (display mode installazione)
+  if (url.pathname.endsWith('/manifest.json') || url.pathname.endsWith('manifest.json')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (isNavigation(request, url)) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Asset locali (js, icone)
+  event.respondWith(staleWhileRevalidate(request));
+>>>>>>> Stashed changes
 });
 
 // Push Notification (opzionale - per future espansioni)

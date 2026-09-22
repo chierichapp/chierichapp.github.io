@@ -1,4 +1,5 @@
 {
+<<<<<<< Updated upstream
   "name": "Gestione Chierichetti",
   "short_name": "Chierichetti",
   "description": "Applicativo per gestione chierichetti - Anagrafica, Turnistica e Presenze",
@@ -7,6 +8,23 @@
   "display_override": ["window-controls", "fullscreen"],
   "orientation": "portrait-primary",
   "scope": "/",
+=======
+  "id": "https://chierichapp.github.io/",
+  "name": "ChierichApp",
+  "short_name": "ChierichApp",
+  "description": "Gestione chierichetti · anagrafica, turni, appello e liturgia ambrosiana",
+  "start_url": "./",
+  "scope": "./",
+  "display": "minimal-ui",
+  "display_override": ["minimal-ui", "standalone", "browser"],
+  "orientation": "any",
+  "lang": "it-IT",
+  "dir": "ltr",
+  "theme_color": "#f7f4ef",
+  "background_color": "#f7f4ef",
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false,
+>>>>>>> Stashed changes
   "icons": [
     {
       "src": "icons/icon-72x72.png",
