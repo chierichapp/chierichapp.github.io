@@ -11847,6 +11847,67 @@ function mapLitCalColor(raw) {
   return '';
 }
 
+/** Ordinali italiani → numeri romani (solo prima di «domenica» / «settimana»). */
+const LIT_ORDINAL_ROMAN = {
+  prima: 'I', seconda: 'II', terza: 'III', quarta: 'IV', quinta: 'V',
+  sesta: 'VI', settima: 'VII', ottava: 'VIII', nona: 'IX', decima: 'X',
+  undicesima: 'XI', dodicesima: 'XII', tredicesima: 'XIII',
+  quattordicesima: 'XIV', quindicesima: 'XV', sedicesima: 'XVI',
+  diciassettesima: 'XVII', diciottesima: 'XVIII', diciannovesima: 'XIX',
+  ventesima: 'XX', ventunesima: 'XXI', ventiduesima: 'XXII',
+  ventitreesima: 'XXIII', ventiquattresima: 'XXIV', venticinquesima: 'XXV',
+  ventiseiesima: 'XXVI', ventisettesima: 'XXVII', ventottesima: 'XXVIII',
+  ventinovesima: 'XXIX', trentesima: 'XXX', trentunesima: 'XXXI',
+  trentaduesima: 'XXXII', trentatreesima: 'XXXIII', trentaquattresima: 'XXXIV'
+};
+
+/**
+ * Normalizza titoli LitCal IT: numeri romani + Martirio completo
+ * (LitCal tronca «dopo il Martirio»; Ambrosiano = di San Giovanni Battista).
+ */
+function formatLiturgicalNome(nome, eventKey) {
+  let s = String(nome || '').trim();
+  if (!s) return s;
+
+  const key = String(eventKey || '');
+  const isMartyrdomSeason = /^AfterPentecostMartyrdom/i.test(key)
+    || /^BeheadingStJohnBaptist$/i.test(key)
+    || /\b(?:dopo|precede)\s+il\s+Martirio(?!\s+di\b)/i.test(s)
+    || /\bMartirio di S\.?\s*Giovanni\b/i.test(s);
+
+  if (isMartyrdomSeason) {
+    s = s.replace(/\bMartirio di S\.?\s*Giovanni(?:\s+il\s+Precursore)?\b/gi, 'Martirio di San Giovanni Battista');
+    s = s.replace(/\bMartirio di San Giovanni il Precursore\b/gi, 'Martirio di San Giovanni Battista');
+    s = s.replace(/\b(dopo|precede)\s+il\s+Martirio(?!\s+di\b)/gi, '$1 il Martirio di San Giovanni Battista');
+  }
+
+  s = s.replace(
+    /\b(prima|seconda|terza|quarta|quinta|sesta|settima|ottava|nona|decima|undicesima|dodicesima|tredicesima|quattordicesima|quindicesima|sedicesima|diciassettesima|diciottesima|diciannovesima|ventesima|ventunesima|ventiduesima|ventitreesima|ventiquattresima|venticinquesima|ventiseiesima|ventisettesima|ventottesima|ventinovesima|trentesima|trentunesima|trentaduesima|trentatreesima|trentaquattresima)\s+(domenica|settimana)\b/gi,
+    (_, ord, noun) => {
+      const roman = LIT_ORDINAL_ROMAN[ord.toLowerCase()];
+      return roman ? `${roman} ${noun.toLowerCase()}` : `${ord} ${noun}`;
+    }
+  );
+
+  s = s.replace(/\s+Messa della vigilia\b/i, ' — Messa della vigilia');
+  return s;
+}
+
+function normalizeCalendarioPack(data) {
+  if (!data?.byDate) return data;
+  const fix = (ev) => {
+    if (!ev || typeof ev !== 'object') return ev;
+    const nome = formatLiturgicalNome(ev.nome, ev.eventKey || ev.event_key);
+    return nome === ev.nome ? ev : { ...ev, nome };
+  };
+  const byDate = {};
+  Object.keys(data.byDate).forEach((d) => {
+    byDate[d] = (data.byDate[d] || []).map(fix);
+  });
+  const events = Array.isArray(data.events) ? data.events.map(fix) : data.events;
+  return { ...data, byDate, events };
+}
+
 function mapLitCalEvent(ev, dateStr, anno) {
   const grade = Number(ev.grade);
   let tipo = 'feriale';
@@ -11875,15 +11936,17 @@ function mapLitCalEvent(ev, dateStr, anno) {
   const colorRaw = Array.isArray(ev.color_lcl) ? ev.color_lcl[0]
     : (ev.color_lcl || (Array.isArray(ev.color) ? ev.color[0] : ev.color) || '');
   const mmdd = dateStr.slice(5).replace('-', '');
+  const eventKey = ev.event_key || '';
 
   return {
     data: dateStr,
-    nome: ev.name || '',
+    nome: formatLiturgicalNome(ev.name || '', eventKey),
     tipo,
     tipoLabel,
     grado,
     colore: mapLitCalColor(colorRaw),
-    url: `https://gcatholic.org/calendar/${anno}/Ambrosian-it#${mmdd}`
+    url: `https://gcatholic.org/calendar/${anno}/Ambrosian-it#${mmdd}`,
+    eventKey: eventKey || undefined
   };
 }
 
@@ -11948,6 +12011,7 @@ async function loadCalendario(refresh) {
     }
 
     if (!data?.byDate) throw new Error('Dati calendario non validi');
+    data = normalizeCalendarioPack(data);
     if (!Object.keys(data.byDate).length) {
       calState.data = data;
       calState.unavailable = true;
