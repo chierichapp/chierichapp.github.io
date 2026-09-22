@@ -4150,16 +4150,6 @@ input[type="radio"] {
     background: rgba(37, 99, 168, 0.1);
   }
 
-  body.appello-focus .mobile-tabbar { display: none; }
-  body.appello-focus .main { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  body.appello-focus .menu-toggle { display: flex; }
-  body.appello-focus .appello-save-bar {
-    bottom: env(safe-area-inset-bottom, 0px);
-  }
-  body.appello-focus .toast-container {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-  }
-
   .appello-sticky-chrome {
     position: sticky;
     top: calc(56px + env(safe-area-inset-top, 0px));
@@ -4180,7 +4170,6 @@ input[type="radio"] {
 
 @media (max-width: 768px) {
   .menu-toggle { display: none; }
-  body.appello-focus .menu-toggle { display: flex; }
   .page-header { min-width: 0; }
   .page-header h2 {
     font-size: 1.2rem;
