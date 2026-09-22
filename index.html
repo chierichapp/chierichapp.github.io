@@ -118,9 +118,10 @@ body.sidebar-open { overflow: hidden; }
 .mobile-tabbar { display: none; }
 
 .sidebar-brand .mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   margin-bottom: 14px;
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
@@ -437,6 +438,23 @@ body.sidebar-open { overflow: hidden; }
   color: var(--ink);
   flex-shrink: 0;
   touch-action: manipulation;
+}
+
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar-brand {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
 }
 
 .page-header h2 {
@@ -1428,6 +1446,20 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  padding: 12px 14px 16px;
+}
+
+.cal-section-head {
+  margin-bottom: 20px;
+}
+
+.cal-section-head .cal-legend {
+  margin-bottom: 14px;
 }
 
 .cal-month-shell .month-nav {
@@ -1453,6 +1485,10 @@ input[type="radio"] {
 .messe-legend i.domenica { background: var(--ink); }
 .messe-legend i.eccezione { background: var(--gold); }
 .messe-legend i.turno { background: var(--success); }
+
+.messe-section-panel {
+  margin-bottom: 24px;
+}
 
 .messe-toolbar {
   display: flex;
@@ -1741,10 +1777,17 @@ input[type="radio"] {
 .cal-side-panel {
   position: sticky;
   top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cal-day-panel {
+  margin-bottom: 0;
 }
 
 .day-detail {
-  min-height: 200px;
+  min-height: 160px;
 }
 
 .day-detail-date {
@@ -1772,17 +1815,21 @@ input[type="radio"] {
 
 .liturgy-item-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 4px;
 }
 
 .liturgy-item-name {
+  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.98rem;
+  line-height: 1.35;
   margin: 0;
   color: var(--ink);
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .liturgy-rank {
@@ -1889,6 +1936,32 @@ input[type="radio"] {
 .empty-state p {
   margin: 0;
   font-size: 0.9rem;
+}
+
+.empty-state-inline {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Motion — respect reduced preference */
+@media (prefers-reduced-motion: reduce) {
+  .section,
+  .today-hero,
+  .modal-overlay {
+    animation: none !important;
+  }
+  .quick-action,
+  .stat-card,
+  .today-messa-row {
+    transition: none !important;
+  }
+  .quick-action:hover,
+  .stat-card:hover,
+  .today-messa-row:hover {
+    transform: none !important;
+  }
 }
 
 /* ── Modal ───────────────────────────────────────────────── */
@@ -2018,11 +2091,49 @@ input[type="radio"] {
 }
 
 /* ── Cerimoniere: Oggi & azioni rapide ───────────────────── */
+.today-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 20px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.today-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.today-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.today-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
 }
 
 .quick-action {
@@ -2036,14 +2147,14 @@ input[type="radio"] {
   cursor: pointer;
   text-align: left;
   font-family: var(--font-ui);
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease);
   box-shadow: var(--shadow-sm);
 }
 
 .quick-action:hover {
   border-color: var(--sky);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .quick-action.primary {
@@ -2086,10 +2197,11 @@ input[type="radio"] {
 }
 
 .today-hero {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   background: linear-gradient(135deg, var(--ink) 0%, #1a3a5c 100%);
   color: #fff;
   border: none;
+  animation: fadeUp 0.45s var(--ease);
 }
 
 .today-hero .panel-head {
@@ -2443,11 +2555,15 @@ input[type="radio"] {
   color: rgba(255,255,255,0.85);
   font-size: 0.82rem;
   font-weight: 600;
-  padding: 0;
+  padding: 8px 0;
+  min-height: 44px;
   border: none;
   background: none;
   cursor: pointer;
   text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+}
   text-underline-offset: 3px;
 }
 
@@ -2466,10 +2582,21 @@ input[type="radio"] {
   background: rgba(255,255,255,0.12);
 }
 
+.today-hero .today-empty,
+.today-hero .empty-state-inline {
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 1;
+}
+
 .today-empty {
   font-size: 0.9rem;
   opacity: 0.75;
   margin: 0;
+}
+
+.today-cal-banner {
+  margin-bottom: 12px;
+  opacity: 1;
 }
 
 .stats-grid.compact {
@@ -2484,9 +2611,9 @@ input[type="radio"] {
 .stat-card.compact .stat-value { font-size: 1.5rem; }
 
 /* ── Appello rapido (presenze) ───────────────────────────── */
-.appello-shell {
+.panel.appello-shell {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .appello-shell-head {
@@ -2726,7 +2853,12 @@ input[type="radio"] {
   gap: 10px;
   overflow-x: auto;
   padding: 2px 0 6px;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.appello-messe-picker::-webkit-scrollbar {
+  display: none;
 }
 
 .appello-messa-pill {
@@ -2831,6 +2963,10 @@ input[type="radio"] {
   padding: 14px 22px 16px;
   border-top: 1px solid var(--border);
   background: var(--cream);
+}
+
+.appello-save-bar.is-hidden {
+  display: none;
 }
 
 .appello-save-hint {
@@ -3980,6 +4116,7 @@ input[type="radio"] {
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   }
   .menu-toggle { display: flex; }
+  .topbar-brand { display: block; }
   .content { padding: 16px 14px 24px; }
   .topbar {
     padding: max(10px, env(safe-area-inset-top, 0px)) 12px 10px;
@@ -4032,14 +4169,178 @@ input[type="radio"] {
     background: rgba(37, 99, 168, 0.1);
   }
 
-  body.appello-focus .mobile-tabbar { display: none; }
-  body.appello-focus .main { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  body.appello-focus .menu-toggle { display: flex; }
-  body.appello-focus .appello-save-bar {
-    bottom: env(safe-area-inset-bottom, 0px);
+  /* Mobile «Altro» bottom sheet */
+  .mobile-more-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 160;
+    background: rgba(12, 24, 41, 0.45);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.28s var(--ease);
   }
-  body.appello-focus .toast-container {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  .mobile-more-overlay.is-open { display: block; }
+  .mobile-more-sheet {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 180;
+    max-height: min(88vh, 720px);
+    padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, #fffefb 0%, var(--cream) 100%);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -16px 48px rgba(12, 24, 41, 0.22);
+    flex-direction: column;
+    gap: 6px;
+    transform: translateY(110%);
+    transition: transform 0.28s var(--ease);
+    touch-action: none;
+  }
+  .mobile-more-sheet.is-open {
+    display: flex;
+    transform: translateY(0);
+    touch-action: pan-y;
+  }
+  .mobile-more-sheet.is-dragging {
+    display: flex;
+    transition: none;
+  }
+  .mobile-more-handle {
+    width: 48px;
+    height: 5px;
+    margin: 6px auto 10px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .mobile-more-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px -40px;
+  }
+  .mobile-more-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 2px 6px;
+    padding: 10px 12px;
+    background: var(--ink);
+    border-radius: var(--radius-lg);
+    color: #fff;
+  }
+  .mobile-more-brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  }
+  .mobile-more-brand-text { min-width: 0; }
+  .mobile-more-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .mobile-more-sub {
+    margin: 2px 0 0;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.58);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobile-more-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0;
+  }
+  .mobile-more-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-shadow: var(--shadow-sm);
+  }
+  .mobile-more-item:active { background: var(--cream-dark); }
+  .mobile-more-item.is-active {
+    background: var(--sky-muted);
+    border-color: rgba(37, 99, 168, 0.22);
+    color: var(--sky);
+  }
+  .mobile-more-ico {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--cream);
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+  .mobile-more-ico svg { width: 18px; height: 18px; }
+  .mobile-more-item.is-active .mobile-more-ico {
+    background: rgba(37, 99, 168, 0.16);
+    color: var(--sky);
+  }
+  .mobile-more-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .mobile-more-user { min-width: 0; }
+  .mobile-more-user-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .mobile-more-user-name {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body.more-sheet-open { overflow: hidden; }
+  body.more-sheet-open .mobile-tabbar {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  body.more-sheet-open #mobile-tab-altro {
+    color: var(--ink);
+    background: rgba(37, 99, 168, 0.1);
   }
 
   .appello-sticky-chrome {
@@ -4062,7 +4363,14 @@ input[type="radio"] {
 
 @media (max-width: 768px) {
   .menu-toggle { display: none; }
-  body.appello-focus .menu-toggle { display: flex; }
+  .topbar-brand { width: 40px; height: 40px; border-radius: 11px; }
+  /* Su telefono niente drawer laterale: solo bottom sheet «Altro» */
+  .sidebar,
+  .sidebar-overlay { display: none !important; }
+  .mobile-more-sheet {
+    bottom: 0;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
   .page-header { min-width: 0; }
   .page-header h2 {
     font-size: 1.2rem;
@@ -4085,6 +4393,10 @@ input[type="radio"] {
   .stat-card.compact .stat-icon { width: 36px; height: 36px; }
   .stat-card.compact .stat-value { font-size: 1.25rem; }
   .stat-card.compact .stat-label { font-size: 0.68rem; }
+  .today-stats-strip { margin-bottom: 16px; }
+  .today-stat { padding: 10px 6px; }
+  .today-stat-value { font-size: 1.2rem; }
+  .today-stat-label { font-size: 0.65rem; }
   .registro-stats { grid-template-columns: 1fr; }
   .registro-toolbar { flex-direction: column; align-items: stretch; }
   .registro-filters select,
@@ -4097,6 +4409,14 @@ input[type="radio"] {
   .topbar-date { display: none; }
   .quick-actions { grid-template-columns: 1fr; }
   .quick-action { min-height: 56px; }
+  .quick-action.primary { order: -1; }
+  #dashboard.active {
+    display: flex;
+    flex-direction: column;
+  }
+  #dashboard .today-hero { order: 1; }
+  #dashboard .quick-actions { order: 2; }
+  #dashboard .today-stats-strip { order: 3; margin-bottom: 0; }
   .section-tabs {
     width: 100%;
     overflow-x: auto;
@@ -4166,12 +4486,19 @@ input[type="radio"] {
     background: var(--cream);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 6px 16px rgba(12, 24, 41, 0.06);
+    padding-bottom: 4px;
   }
   .appello-shell-head {
     padding: 10px 14px 8px;
     border-bottom: none;
   }
-  .appello-messe-picker-wrap { padding: 0 14px 8px; }
+  .appello-messe-picker-wrap { padding: 0 14px 10px; }
+  .appello-messa-pill {
+    padding: 10px 12px;
+    min-width: 118px;
+    gap: 4px;
+  }
+  .appello-messa-pill-time { font-size: 0.85rem; }
   .appello-stats-row {
     width: 100%;
     margin-left: 0;
@@ -4185,6 +4512,7 @@ input[type="radio"] {
     font-size: 0.72rem;
     padding: 5px 8px;
   }
+  .appello-shell-divider { margin-top: 10px; }
   .appello-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -4255,6 +4583,10 @@ input[type="radio"] {
   .appello-save-actions { width: 100%; }
   .appello-save-actions .btn { flex: 1; min-height: 48px; }
   #presenze:not(.active) .appello-save-bar { display: none; }
+  .appello-save-bar.is-hidden { display: none !important; }
+  body.appello-focus .appello-list:has(+ .appello-save-bar.is-hidden) {
+    padding-bottom: 24px;
+  }
   .toast-container {
     bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
     right: 14px;
@@ -4312,14 +4644,51 @@ input[type="radio"] {
   .prossima-messa-actions .btn { width: 100%; }
 
   /* Messe */
+  #messe > .panel { margin-bottom: 12px; }
+  #messe .messe-section-panel { margin-bottom: 12px; }
+  #messe > .panel > .panel-head { padding-bottom: 10px; }
+  #messe > .panel > .panel-head p { display: none; }
+  #messe .messe-legend {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+  #messe .messe-legend::-webkit-scrollbar { display: none; }
+  #messe .messe-legend span {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 0.72rem;
+  }
+  #messe .messe-agenda-summary {
+    margin: 0 0 12px;
+    font-size: 0.78rem;
+  }
+  #messe .cal-filter {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #messe .messe-toolbar .btn-ghost,
+  #messe .messe-toolbar select {
+    min-height: 44px;
+  }
   .messe-toolbar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
   }
   .messe-toolbar-left {
     flex-direction: column;
     align-items: stretch;
     width: 100%;
+    gap: 8px;
   }
   .messe-toolbar .btn { width: 100%; }
   .messe-layout { grid-template-columns: 1fr; }
@@ -4349,13 +4718,29 @@ input[type="radio"] {
   .cal-filter { min-height: 44px; }
 
   /* Turni & Gruppi */
-  .turni-layout-grid { grid-template-columns: 1fr; }
-  .turni-form-panel { position: static; }
+  .turni-layout-grid { grid-template-columns: 1fr; gap: 16px; }
+  .turni-form-panel { position: static; order: 2; }
+  .turni-layout-grid > .panel:first-child { order: 1; }
   .turni-footer-actions {
     flex-direction: column;
     align-items: stretch;
   }
   .turni-footer-actions .btn { width: 100%; }
+  .gruppi-gestione-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .gruppi-gestione-lists { order: 1; }
+  .gruppi-gestione-form {
+    order: 2;
+    margin-bottom: 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--cream);
+  }
+  .gruppi-gestione-form-title:first-child { margin-top: 0; }
   .rotazione-actions {
     flex-direction: column;
   }
@@ -4471,7 +4856,7 @@ input[type="radio"] {
     background: var(--sky);
     color: #fff;
   }
-  #calendario .cal-side-panel > .panel:first-child {
+  #calendario .cal-day-panel {
     scroll-margin-top: 12px;
   }
 
@@ -4511,6 +4896,7 @@ input[type="radio"] {
   .section-tab { padding: 10px 12px; font-size: 0.8rem; }
   .stats-grid.compact { grid-template-columns: 1fr; }
   .stat-card.compact { flex-direction: row; }
+  .today-stat-value { font-size: 1.1rem; }
   .panel-head p { display: none; }
   .messe-agenda-day { font-size: 1.25rem; }
   .calendar-weekdays span {
@@ -4705,6 +5091,38 @@ input[type="radio"] {
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
+}
+
+.gruppi-gestione-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.gruppi-gestione-lists {
+  min-width: 0;
+}
+
+.gruppi-gestione-form-note {
+  margin: 14px 0 0;
+}
+
+.gruppi-unassigned-hint {
+  margin: -4px 0 10px;
+}
+
+.gruppi-unassigned-actions {
+  margin-top: 12px;
+}
+
+.btn-inline-link {
+  padding: 0;
+  font-size: inherit;
+}
+
+.btn-sm {
+  font-size: 0.82rem;
+  padding: 8px 12px;
 }
 
 .gruppi-gestione-form-title {
@@ -5070,7 +5488,7 @@ input[type="radio"] {
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="mark" aria-hidden="true">
-        <img src="/icons/icon-192x192.png" width="42" height="42" alt="" decoding="async">
+        <img src="/icons/icon-192x192.png" width="48" height="48" alt="" decoding="async">
       </div>
       <div class="sidebar-brand-text">
         <h1>ChierichApp</h1>
@@ -5148,10 +5566,11 @@ input[type="radio"] {
 
   <div class="main">
     <header class="topbar">
-      <div style="display:flex;align-items:center;gap:14px;">
+      <div class="topbar-start">
         <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Apri menu" aria-expanded="false">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
+        <img class="topbar-brand" src="/icons/icon-192x192.png" width="36" height="36" alt="ChierichApp" decoding="async">
         <div class="page-header">
           <h2 id="page-title">Oggi</h2>
           <p id="page-subtitle">Agenda messe, turni e appello</p>
@@ -5165,6 +5584,33 @@ input[type="radio"] {
 
       <!-- Oggi (dashboard cerimoniere) -->
       <section id="dashboard" class="section active">
+        <div class="panel today-hero">
+          <div class="panel-head">
+            <h3 id="today-hero-title">Prossima messa</h3>
+            <p id="today-date-label">—</p>
+          </div>
+          <div class="panel-body">
+            <div id="today-agenda-preview">
+              <p class="today-empty empty-state-inline">Caricamento agenda…</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="today-stats-strip" role="group" aria-label="Riepilogo">
+          <div class="today-stat">
+            <span class="today-stat-value" id="presenze-oggi">0</span>
+            <span class="today-stat-label">Presenti</span>
+          </div>
+          <div class="today-stat">
+            <span class="today-stat-value" id="turni-oggi-count">0</span>
+            <span class="today-stat-label">Messe</span>
+          </div>
+          <div class="today-stat">
+            <span class="today-stat-value" id="total-chierichetti">0</span>
+            <span class="today-stat-label">Chierichetti</span>
+          </div>
+        </div>
+
         <div class="quick-actions">
           <button type="button" class="quick-action primary" onclick="openAppello()">
             <span class="quick-action-icon">
@@ -5184,48 +5630,6 @@ input[type="radio"] {
               <span class="quick-action-hint" id="quick-turni-hint">—</span>
             </span>
           </button>
-        </div>
-
-        <div class="panel today-hero">
-          <div class="panel-head">
-            <h3 id="today-hero-title">Prossima messa</h3>
-            <p id="today-date-label">—</p>
-          </div>
-          <div class="panel-body">
-            <div id="today-agenda-preview">
-              <p class="today-empty">Caricamento agenda…</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="stats-grid compact" style="margin-bottom:24px;">
-          <div class="stat-card compact">
-            <div class="stat-icon green">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div>
-              <p class="stat-value" id="presenze-oggi">0</p>
-              <p class="stat-label">Presenti oggi</p>
-            </div>
-          </div>
-          <div class="stat-card compact">
-            <div class="stat-icon gold">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            </div>
-            <div>
-              <p class="stat-value" id="turni-oggi-count">0</p>
-              <p class="stat-label">Messe di servizio oggi</p>
-            </div>
-          </div>
-          <div class="stat-card compact">
-            <div class="stat-icon blue">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            </div>
-            <div>
-              <p class="stat-value" id="total-chierichetti">0</p>
-              <p class="stat-label">Chierichetti</p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -5529,6 +5933,7 @@ input[type="radio"] {
               <p>Rinomina le squadre, assegna i chierichetti o aggiungine di nuove</p>
             </div>
             <div class="panel-body">
+              <div class="gruppi-gestione-stack">
               <div class="gruppi-gestione-form" id="gruppi-gestione-form-wrap">
                 <p class="gruppi-gestione-form-title">Aggiungi squadra</p>
                 <form id="nuovoGruppoForm">
@@ -5566,27 +5971,30 @@ input[type="radio"] {
                   </label>
                   <button type="submit" class="btn btn-primary btn-full">Aggiungi gruppo</button>
                 </form>
-                <p class="liturgy-meta" style="margin:14px 0 0">
+                <p class="liturgy-meta gruppi-gestione-form-note">
                   <strong id="gruppi-attivi-count">3</strong> gruppi attivi.
                   Per rimuovere un gruppo, togli la squadra dalla messa in
-                  <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('turni')">Turni</button>.
+                  <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('turni')">Turni</button>.
                 </p>
               </div>
+              <div class="gruppi-gestione-lists">
               <p class="gruppi-gestione-form-title">Squadre attuali</p>
               <div id="gruppi-gestione-list"></div>
               <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
                 <h4 class="config-section-title">Assegna chierichetti</h4>
-                <p class="liturgy-meta" id="gruppi-unassigned-hint" style="margin:-4px 0 10px"></p>
+                <p class="liturgy-meta gruppi-unassigned-hint" id="gruppi-unassigned-hint"></p>
                 <div id="gruppi-non-assegnati" class="gruppo-member-chips"></div>
-                <div class="gruppo-add-row" id="gruppi-unassigned-actions" style="display:none;margin-top:12px">
+                <div class="gruppo-add-row gruppi-unassigned-actions" id="gruppi-unassigned-actions" style="display:none">
                   <select id="unassigned-chi-select" aria-label="Chierichetto o cerimoniere">
                     <option value="">Seleziona chierichetto o cerimoniere…</option>
                   </select>
                   <select id="unassigned-gruppo-select" aria-label="Gruppo">
                     <option value="">Seleziona gruppo…</option>
                   </select>
-                  <button type="button" class="btn btn-primary" style="font-size:0.82rem;padding:8px 12px" onclick="assignFromUnassignedPanel()">Assegna</button>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="assignFromUnassignedPanel()">Assegna</button>
                 </div>
+              </div>
+              </div>
               </div>
             </div>
           </div>
@@ -5736,7 +6144,7 @@ input[type="radio"] {
 
       <!-- Agenda messe pastorali -->
       <section id="messe" class="section">
-        <div class="panel" style="margin-bottom:24px;">
+        <div class="panel messe-section-panel">
           <div class="panel-head">
             <h3>Agenda messe con chierichetti</h3>
             <p>Celebrazioni domenicali della comunità pastorale, più le messe straordinarie aggiunte manualmente</p>
@@ -5747,7 +6155,7 @@ input[type="radio"] {
               <span><i class="eccezione"></i> Eccezione</span>
               <span><i class="turno"></i> Squadra assegnata</span>
             </div>
-            <p class="liturgy-meta" style="margin:-8px 0 16px" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
+            <p class="liturgy-meta messe-agenda-summary" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
 
             <div class="messe-layout">
               <div>
@@ -5759,7 +6167,7 @@ input[type="radio"] {
                       <option value="2026" selected>2026</option>
                       <option value="2027">2027</option>
                     </select>
-                    <label class="cal-filter">
+                    <label class="cal-filter" for="messe-show-past">
                       <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
                       Mostra messe passate
                     </label>
@@ -5778,7 +6186,7 @@ input[type="radio"] {
                     <p>Liturgia e messe del giorno selezionato</p>
                   </div>
                   <div class="panel-body day-detail" id="messa-detail">
-                    <p class="day-detail-empty">Seleziona una messa dall'agenda</p>
+                    <p class="day-detail-empty empty-state-inline">Seleziona una messa dall'agenda</p>
                   </div>
                 </div>
 
@@ -5823,74 +6231,68 @@ input[type="radio"] {
 
       <!-- Calendario liturgico completo -->
       <section id="calendario" class="section">
-        <div class="panel" style="margin-bottom:24px;">
-          <div class="panel-head">
-            <h3>Calendario liturgico completo</h3>
-            <p>Tutte le celebrazioni del rito ambrosiano — aggiornabile online (link schede GCatholic)</p>
+        <div class="cal-section-head">
+          <div class="cal-legend" aria-label="Legenda gradi liturgici">
+            <span><i class="solemnity"></i> S — Solennità</span>
+            <span><i class="feast"></i> F — Festa</span>
+            <span><i class="memorial"></i> M — Memoria</span>
+            <span><i class="feriale"></i> m — Memoria facoltativa</span>
           </div>
-          <div class="panel-body">
-            <div class="cal-legend" aria-label="Legenda gradi liturgici">
-              <span><i class="solemnity"></i> S — Solennità</span>
-              <span><i class="feast"></i> F — Festa</span>
-              <span><i class="memorial"></i> M — Memoria</span>
-              <span><i class="feriale"></i> m — Memoria facoltativa</span>
+
+          <div class="calendar-toolbar">
+            <div class="calendar-toolbar-left">
+              <label for="anno-calendario">Anno</label>
+              <select id="anno-calendario" onchange="onCalYearChange()">
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+              </select>
+              <button type="button" class="btn btn-secondary" onclick="loadCalendario(true)">Aggiorna calendario</button>
             </div>
-
-            <div class="calendar-toolbar">
-              <div class="calendar-toolbar-left">
-                <label for="anno-calendario">Anno</label>
-                <select id="anno-calendario" onchange="onCalYearChange()">
-                  <option value="2025">2025</option>
-                  <option value="2026" selected>2026</option>
-                  <option value="2027">2027</option>
-                </select>
-                <button type="button" class="btn btn-secondary" onclick="loadCalendario(true)">Aggiorna calendario</button>
-              </div>
-              <label class="cal-filter">
-                <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
-                Evidenzia solo solennità, feste e memorie
-              </label>
-            </div>
-
-            <div class="cal-layout">
-              <div class="cal-month-shell">
-                <div class="month-nav">
-                  <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(-1)" aria-label="Mese precedente">‹</button>
-                  <h4 id="cal-month-label">—</h4>
-                  <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(1)" aria-label="Mese successivo">›</button>
-                  <button type="button" class="btn btn-ghost" onclick="goCalToday()">Oggi</button>
-                </div>
-                <div id="calendario-container">
-                  <div class="cal-loading">Caricamento calendario liturgico…</div>
-                </div>
-              </div>
-
-              <div class="cal-side-panel">
-                <div class="panel" style="margin-bottom:16px;">
-                  <div class="panel-head">
-                    <h3>Dettaglio giorno</h3>
-                    <p>Celebrazioni del giorno selezionato</p>
-                  </div>
-                  <div class="panel-body day-detail" id="day-detail">
-                    <p class="day-detail-empty">Seleziona un giorno nel calendario</p>
-                  </div>
-                </div>
-
-                <div class="panel">
-                  <div class="panel-head">
-                    <h3>Prossime celebrazioni</h3>
-                    <p>Solennità, feste e memorie in arrivo</p>
-                  </div>
-                  <div class="panel-body">
-                    <div class="celebration-list" id="prossime-celebrazioni"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p class="cal-source" id="cal-source"></p>
+            <label class="cal-filter">
+              <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
+              Evidenzia solo solennità, feste e memorie
+            </label>
           </div>
         </div>
+
+        <div class="cal-layout">
+          <div class="cal-month-shell">
+            <div class="month-nav">
+              <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(-1)" aria-label="Mese precedente">‹</button>
+              <h4 id="cal-month-label">—</h4>
+              <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(1)" aria-label="Mese successivo">›</button>
+              <button type="button" class="btn btn-ghost" onclick="goCalToday()">Oggi</button>
+            </div>
+            <div id="calendario-container">
+              <div class="cal-loading">Caricamento calendario liturgico…</div>
+            </div>
+          </div>
+
+          <div class="cal-side-panel">
+            <div class="panel cal-day-panel">
+              <div class="panel-head">
+                <h3>Dettaglio giorno</h3>
+                <p>Celebrazioni del giorno selezionato</p>
+              </div>
+              <div class="panel-body day-detail" id="day-detail">
+                <p class="day-detail-empty empty-state-inline">Seleziona un giorno nel calendario</p>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Prossime celebrazioni</h3>
+                <p>Solennità, feste e memorie in arrivo</p>
+              </div>
+              <div class="panel-body">
+                <div class="celebration-list" id="prossime-celebrazioni"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="cal-source" id="cal-source"></p>
       </section>
 
     </div>
@@ -5909,11 +6311,64 @@ input[type="radio"] {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M10 22v-5h4v5"/></svg>
       Messe
     </button>
-    <button type="button" class="mobile-tab" id="mobile-tab-altro" onclick="openSidebar()">
+    <button type="button" class="mobile-tab" id="mobile-tab-altro" onclick="openAltroMenu()" aria-haspopup="dialog" aria-controls="mobile-more-sheet" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       Altro
     </button>
   </nav>
+
+  <div class="mobile-more-overlay" id="mobile-more-overlay" hidden onclick="closeMobileMore()"></div>
+  <div class="mobile-more-sheet" id="mobile-more-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mobile-more-title">
+    <div class="mobile-more-handle" aria-hidden="true"></div>
+    <div class="mobile-more-brand">
+      <img class="mobile-more-brand-mark" src="/icons/icon-192x192.png" width="44" height="44" alt="" decoding="async">
+      <div class="mobile-more-brand-text">
+        <h2 class="mobile-more-title" id="mobile-more-title">ChierichApp</h2>
+        <p class="mobile-more-sub">Rito ambrosiano · Parrocchia</p>
+      </div>
+    </div>
+    <nav class="mobile-more-nav" aria-label="Tutte le sezioni">
+      <button type="button" class="mobile-more-item" data-section="dashboard" onclick="showSection('dashboard')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg></span>
+        Oggi
+      </button>
+      <button type="button" class="mobile-more-item" data-section="presenze" onclick="openAppello()">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg></span>
+        Appello
+      </button>
+      <button type="button" class="mobile-more-item" data-section="registro" onclick="showSection('registro')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg></span>
+        Registro
+      </button>
+      <button type="button" class="mobile-more-item" data-section="messe" onclick="showSection('messe')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M10 22v-5h4v5"/></svg></span>
+        Messe
+      </button>
+      <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
+        Liturgia
+      </button>
+      <button type="button" class="mobile-more-item" data-section="gruppi" onclick="showSection('gruppi')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        Gruppi
+      </button>
+      <button type="button" class="mobile-more-item" data-section="turni" onclick="showSection('turni')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/><path d="M12 7v5l3 2"/></svg></span>
+        Turni
+      </button>
+      <button type="button" class="mobile-more-item" data-section="anagrafica" onclick="showSection('anagrafica')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg></span>
+        Anagrafica
+      </button>
+    </nav>
+    <div class="mobile-more-footer">
+      <div class="mobile-more-user">
+        <span class="mobile-more-user-label">Account</span>
+        <span class="mobile-more-user-name" id="mobile-more-user-name">—</span>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="logout()">Esci</button>
+    </div>
+  </div>
 </div>
 
 <!-- Modal rimosso — dettaglio in pannello Liturgia/Messe -->
@@ -6050,6 +6505,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cerimoniereForm').addEventListener('submit', handleCerimoniereFormSubmit);
   if (isGAS) prepareGoogleAuthUi();
   else if (isSupabase) prepareSupabaseAuthUi();
+  initMobileMoreGestures();
   checkAuthAndInit();
 });
 
@@ -6344,6 +6800,7 @@ function showAppShell() {
   document.getElementById('auth-gate').classList.add('hidden');
   document.getElementById('auth-gate').setAttribute('aria-hidden', 'true');
   document.getElementById('app-shell').classList.remove('hidden');
+  initMobileMoreGestures();
 }
 
 function gasRun(fn, ...args) {
@@ -6771,9 +7228,9 @@ function isCalendarioUnavailable() {
 function calendarioUnavailableHtml(opts = {}) {
   const withCta = opts.withCta !== false;
   const cta = withCta
-    ? `<div class="today-agenda-footer"><button type="button" class="btn-ghost-light" onclick="showSection('liturgia')">Apri Liturgia e aggiorna</button></div>`
+    ? `<div class="today-agenda-footer"><button type="button" class="btn-ghost-light" onclick="showSection('calendario')">Apri Liturgia e aggiorna</button></div>`
     : '';
-  return `<p class="today-empty">Calendario liturgico non disponibile — riprova da Liturgia.</p>${cta}`;
+  return `<p class="today-empty empty-state-inline">Calendario liturgico non disponibile — riprova da Liturgia.</p>${cta}`;
 }
 
 function updateTopbarDate() {
@@ -6783,8 +7240,188 @@ function updateTopbarDate() {
   });
 }
 
-// ── Sidebar ─────────────────────────────────────────────────
+// ── Sidebar / mobile «Altro» ─────────────────────────────────
+function isPhoneShell() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function openAltroMenu() {
+  if (isPhoneShell()) {
+    if (document.getElementById('mobile-more-sheet')?.classList.contains('is-open')) closeMobileMore();
+    else openMobileMore();
+    return;
+  }
+  openSidebar();
+}
+
+function openMobileMore() {
+  closeSidebar();
+  const sheet = document.getElementById('mobile-more-sheet');
+  const overlay = document.getElementById('mobile-more-overlay');
+  const altro = document.getElementById('mobile-tab-altro');
+  if (!sheet || !overlay) return;
+  const nameSrc = document.getElementById('sidebar-user-name')?.textContent || '—';
+  const nameEl = document.getElementById('mobile-more-user-name');
+  if (nameEl) nameEl.textContent = nameSrc;
+  const activeId = document.querySelector('.section.active')?.id;
+  sheet.querySelectorAll('.mobile-more-item').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.section === activeId);
+  });
+  overlay.hidden = false;
+  sheet.hidden = false;
+  sheet.style.transform = '';
+  overlay.style.opacity = '';
+  requestAnimationFrame(() => {
+    overlay.classList.add('is-open');
+    sheet.classList.add('is-open');
+  });
+  document.body.classList.add('more-sheet-open');
+  if (altro) altro.setAttribute('aria-expanded', 'true');
+}
+
+function closeMobileMore() {
+  const sheet = document.getElementById('mobile-more-sheet');
+  const overlay = document.getElementById('mobile-more-overlay');
+  const altro = document.getElementById('mobile-tab-altro');
+  if (!sheet || !overlay) return;
+  overlay.classList.remove('is-open');
+  sheet.classList.remove('is-open');
+  sheet.style.transform = '';
+  overlay.style.opacity = '';
+  document.body.classList.remove('more-sheet-open');
+  if (altro) altro.setAttribute('aria-expanded', 'false');
+  window.setTimeout(() => {
+    if (!sheet.classList.contains('is-open')) {
+      overlay.hidden = true;
+      sheet.hidden = true;
+    }
+  }, 280);
+}
+
+/** Swipe-up dalla tab bar / bordo basso → apre; swipe-down sul foglio → chiude. */
+function initMobileMoreGestures() {
+  if (initMobileMoreGestures.done) return;
+  initMobileMoreGestures.done = true;
+
+  const sheet = document.getElementById('mobile-more-sheet');
+  const overlay = document.getElementById('mobile-more-overlay');
+  const tabbar = document.getElementById('mobile-tabbar');
+  if (!sheet || !overlay || !tabbar) return;
+
+  const EDGE_PX = 28;
+  const OPEN_DY = 56;
+  const CLOSE_DY = 64;
+  let track = null;
+
+  function isSheetOpen() {
+    return sheet.classList.contains('is-open');
+  }
+
+  function onStart(e) {
+    if (!isPhoneShell() || e.touches.length !== 1) return;
+    if (document.getElementById('app-shell')?.classList.contains('hidden')) return;
+    const t = e.touches[0];
+    const handleOrChrome = e.target.closest('.mobile-more-handle, .mobile-more-brand, .mobile-more-footer');
+    const nav = sheet.querySelector('.mobile-more-nav');
+    const atTop = !nav || nav.scrollTop <= 0;
+    const fromSheet = isSheetOpen() && sheet.contains(e.target) && (handleOrChrome || atTop);
+    const fromTabbar = !isSheetOpen() && tabbar.contains(e.target);
+    const fromBottomEdge = !isSheetOpen()
+      && t.clientY >= window.innerHeight - (tabbar.getBoundingClientRect().height + EDGE_PX);
+    if (!fromSheet && !fromTabbar && !fromBottomEdge) return;
+    track = {
+      x0: t.clientX,
+      y0: t.clientY,
+      y: t.clientY,
+      mode: fromSheet ? 'close' : 'open',
+      moved: false
+    };
+  }
+
+  function onMove(e) {
+    if (!track || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dy = t.clientY - track.y0;
+    const dx = t.clientX - track.x0;
+    track.y = t.clientY;
+    if (!track.moved) {
+      if (Math.abs(dy) < 10 && Math.abs(dx) < 10) return;
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        track = null;
+        return;
+      }
+      track.moved = true;
+    }
+    if (track.mode === 'close' && dy > 0) {
+      e.preventDefault();
+      sheet.classList.add('is-dragging');
+      sheet.style.transform = `translateY(${dy}px)`;
+      overlay.style.opacity = String(Math.max(0.15, 1 - dy / 280));
+    } else if (track.mode === 'open' && dy < 0) {
+      e.preventDefault();
+      if (sheet.hidden) {
+        sheet.hidden = false;
+        overlay.hidden = false;
+        overlay.classList.add('is-open');
+        sheet.classList.add('is-dragging');
+      }
+      const h = Math.max(sheet.offsetHeight, 280);
+      const progress = Math.min(1, -dy / (OPEN_DY * 1.4));
+      sheet.style.transform = `translateY(${h * (1 - progress)}px)`;
+      overlay.style.opacity = String(0.15 + progress * 0.85);
+    }
+  }
+
+  function onEnd() {
+    if (!track) return;
+    const dy = track.y - track.y0;
+    const { mode, moved } = track;
+    track = null;
+    sheet.classList.remove('is-dragging');
+
+    if (!moved) {
+      sheet.style.transform = '';
+      overlay.style.opacity = '';
+      return;
+    }
+
+    if (mode === 'close') {
+      if (dy > CLOSE_DY) closeMobileMore();
+      else {
+        sheet.style.transform = '';
+        overlay.style.opacity = '';
+      }
+      return;
+    }
+
+    if (dy < -OPEN_DY) {
+      sheet.style.transform = '';
+      overlay.style.opacity = '';
+      openMobileMore();
+    } else {
+      sheet.style.transform = '';
+      overlay.style.opacity = '';
+      if (!isSheetOpen()) {
+        overlay.classList.remove('is-open');
+        sheet.classList.remove('is-open');
+        overlay.hidden = true;
+        sheet.hidden = true;
+      }
+    }
+  }
+
+  document.addEventListener('touchstart', onStart, { passive: true });
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd, { passive: true });
+  document.addEventListener('touchcancel', onEnd, { passive: true });
+}
+
 function openSidebar() {
+  if (isPhoneShell()) {
+    openMobileMore();
+    return;
+  }
+  closeMobileMore();
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('sidebar-overlay').classList.add('visible');
   document.body.classList.add('sidebar-open');
@@ -6793,20 +7430,22 @@ function openSidebar() {
 }
 
 function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('visible');
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('visible');
   document.body.classList.remove('sidebar-open');
   const toggle = document.getElementById('menu-toggle');
   if (toggle) toggle.setAttribute('aria-expanded', 'false');
 }
 
 function toggleSidebar() {
-  if (document.getElementById('sidebar').classList.contains('open')) closeSidebar();
+  if (document.getElementById('sidebar')?.classList.contains('open')) closeSidebar();
   else openSidebar();
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeSidebar();
+  if (e.key !== 'Escape') return;
+  closeMobileMore();
+  closeSidebar();
 });
 
 function updateMobileNav(sectionId) {
@@ -6819,6 +7458,9 @@ function updateMobileNav(sectionId) {
   });
   const altro = document.getElementById('mobile-tab-altro');
   if (altro) altro.classList.toggle('active', !primary[sectionId]);
+  document.querySelectorAll('.mobile-more-item').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.section === sectionId);
+  });
 }
 
 // ── Navigation ──────────────────────────────────────────────
@@ -6862,7 +7504,12 @@ async function showSection(sectionId) {
   }
 
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById(sectionId).classList.add('active');
+  const next = document.getElementById(sectionId);
+  next.classList.add('active');
+  // Re-trigger section enter animation
+  next.style.animation = 'none';
+  void next.offsetWidth;
+  next.style.animation = '';
   document.body.classList.toggle('appello-focus', sectionId === 'presenze');
 
   document.querySelectorAll('.nav-item').forEach(btn => {
@@ -6877,6 +7524,7 @@ async function showSection(sectionId) {
   }
 
   closeSidebar();
+  closeMobileMore();
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
@@ -8781,7 +9429,7 @@ function renderTodayAgendaPreview(today, nextSlot) {
     heroTitle.textContent = 'Agenda messe';
     if (dateLabel) dateLabel.textContent = 'Nessuna celebrazione in programma';
     container.innerHTML = `
-      <p class="today-empty">Nessuna messa in agenda per questo anno.</p>
+      <p class="today-empty empty-state-inline">Nessuna messa in agenda per questo anno.</p>
       <div class="today-agenda-footer">
         <button type="button" class="btn-ghost-light" onclick="showSection('messe')">Apri agenda messe</button>
       </div>
@@ -8790,7 +9438,7 @@ function renderTodayAgendaPreview(today, nextSlot) {
   }
 
   const calBanner = isCalendarioUnavailable()
-    ? `<p class="today-empty" style="margin-bottom:12px">Calendario liturgico non disponibile — i titoli delle messe possono essere generici. <button type="button" class="btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('liturgia')">Apri Liturgia</button></p>`
+    ? `<p class="today-empty empty-state-inline today-cal-banner">Calendario liturgico non disponibile — i titoli delle messe possono essere generici. <button type="button" class="btn-ghost-light btn-inline-link" onclick="showSection('calendario')">Apri Liturgia</button></p>`
     : '';
 
   const domenicaRef = nextSlot.domenicaRef ||
@@ -8823,14 +9471,28 @@ function renderTodayAgendaPreview(today, nextSlot) {
   }
 
   const { slot: highlightSlot, tag: highlightTag } = getTodayHeroHighlightInfo(slots, nextSlot);
+  const { shown, more } = limitTodayHeroSlots(slots, highlightSlot);
 
   container.innerHTML = `
     ${calBanner}
-    ${groupTodaySlotsByDay(slots).map(g => renderTodayDayGroup(g, today, highlightSlot, highlightTag)).join('')}
+    ${groupTodaySlotsByDay(shown).map(g => renderTodayDayGroup(g, today, highlightSlot, highlightTag)).join('')}
     <div class="today-agenda-footer">
-      <button type="button" class="btn-ghost-light" onclick="showSection('messe')">Vedi tutta l'agenda →</button>
+      <button type="button" class="btn-ghost-light" onclick="showSection('messe')">${more > 0 ? `Altre ${more} · vedi agenda →` : 'Vedi tutta l\'agenda →'}</button>
     </div>
   `;
+}
+
+/** Max 4 slot in hero (prossima + fino a 3 successive). */
+function limitTodayHeroSlots(slots, highlightSlot) {
+  const list = Array.isArray(slots) ? slots : [];
+  if (list.length <= 4) return { shown: list, more: 0 };
+  const keyOf = (s) => `${s.data}|${s.ora || ''}|${s.sede || ''}`;
+  const hiKey = highlightSlot ? keyOf(highlightSlot) : '';
+  let shown = list.slice(0, 4);
+  if (hiKey && !shown.some((s) => keyOf(s) === hiKey)) {
+    shown = [highlightSlot, ...list.filter((s) => keyOf(s) !== hiKey).slice(0, 3)];
+  }
+  return { shown, more: list.length - shown.length };
 }
 
 function goToMessa(dateStr) {
@@ -9507,7 +10169,12 @@ function setDraftPresente(uuid, dateStr, slot, present) {
   }
 }
 
-function updateAppelloSaveBar(dateStr, slot) {
+function updateAppelloSaveBar(dateStr, slot, opts = {}) {
+  const bar = document.querySelector('.appello-save-bar');
+  const hasPeople = opts.hasPeople;
+  if (bar && typeof hasPeople === 'boolean') {
+    bar.classList.toggle('is-hidden', !hasPeople);
+  }
   const dirty = isAppelloDraftDirty(dateStr, slot);
   const hint = document.getElementById('appello-save-hint');
   const saveBtn = document.getElementById('btn-save-appello');
@@ -9757,8 +10424,8 @@ function renderAppelloMessePicker(celebrations, dateStr) {
 
   if (!celebrations.length) {
     wrap.innerHTML = selfHtml
-      ? `<div class="appello-messe-picker-row">${selfHtml}</div><p class="appello-no-messe">Nessuna messa in agenda — appello giornaliero</p>`
-      : '<p class="appello-no-messe">Nessuna messa in agenda — appello giornaliero</p>';
+      ? `<div class="appello-messe-picker-row">${selfHtml}</div>`
+      : '';
     return;
   }
   ensureAppelloMessaSelection(celebrations);
@@ -11465,7 +12132,7 @@ async function renderAppello() {
     console.error(err);
     container.innerHTML = `<p class="empty-state">Impossibile caricare l'appello.<br>${esc(err.message || 'Riprova')}</p>`;
     if (subtitle) subtitle.textContent = 'Errore di caricamento';
-    updateAppelloSaveBar(dateStr, null);
+    updateAppelloSaveBar(dateStr, null, { hasPeople: false });
     return;
   }
 
@@ -11480,22 +12147,26 @@ async function renderAppello() {
   if (!celebrations.length) {
     resetAppelloSummary(dateStr, null);
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
+    const { list } = getAppelloFilteredList();
+    const people = getAppelloTabChierichetti(null);
     const isToday = dateStr === getTodayStr();
     if (subtitle) {
-      subtitle.textContent = isToday
-        ? 'Nessuna messa in agenda per oggi'
-        : 'Nessuna messa in agenda per questa data';
+      subtitle.textContent = people.length
+        ? 'Nessuna messa — appello giornaliero'
+        : (isToday ? 'Nessuna messa in agenda per oggi' : 'Nessuna messa in agenda');
     }
-    const { list } = getAppelloFilteredList();
-    container.innerHTML = `
-      <div class="empty-state appello-empty-messe">
-        <p>${isToday
-          ? 'Nessuna messa in agenda per oggi. Controlla l\'agenda messe oppure segna un appello giornaliero qui sotto.'
-          : 'Nessuna messa in agenda per questa data.'}</p>
-        <button type="button" class="btn btn-secondary" onclick="showSection('messe')">Apri agenda messe</button>
-      </div>
-      ${list.length ? renderAppelloFallback(dateStr, list, primaryGruppo) : ''}`;
-    updateAppelloSaveBar(dateStr, null);
+    if (people.length) {
+      container.innerHTML = renderAppelloFallback(dateStr, list, primaryGruppo);
+    } else {
+      container.innerHTML = `
+        <div class="empty-state appello-empty-messe">
+          <p>${isToday
+            ? 'Controlla l\'agenda messe o cambia data per fare l\'appello.'
+            : 'Seleziona un\'altra data oppure apri l\'agenda messe.'}</p>
+          <button type="button" class="btn btn-secondary" onclick="showSection('messe')">Apri agenda messe</button>
+        </div>`;
+    }
+    updateAppelloSaveBar(dateStr, null, { hasPeople: people.length > 0 });
     return;
   }
 
@@ -11503,7 +12174,8 @@ async function renderAppello() {
     updateAppelloSummary(dateStr, slot);
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(slot, primaryGruppo);
     container.innerHTML = renderAppelloMessaContent(slot, dateStr);
-    updateAppelloSaveBar(dateStr, slot);
+    const people = getAppelloTabChierichetti(slot);
+    updateAppelloSaveBar(dateStr, slot, { hasPeople: people.length > 0 });
     return;
   }
 
@@ -11513,7 +12185,7 @@ async function renderAppello() {
     if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
     if (subtitle) subtitle.textContent = 'Nessun risultato';
     container.innerHTML = '<p class="empty-state">Nessun chierichetto corrisponde alla ricerca.</p>';
-    updateAppelloSaveBar(dateStr, null);
+    updateAppelloSaveBar(dateStr, null, { hasPeople: false });
     return;
   }
 
@@ -11521,7 +12193,7 @@ async function renderAppello() {
   if (tabsWrap) tabsWrap.innerHTML = renderAppelloParrocchiaTabsForSlot(null, primaryGruppo);
   if (subtitle) subtitle.textContent = 'Appello giornaliero';
   container.innerHTML = renderAppelloFallback(dateStr, list, primaryGruppo);
-  updateAppelloSaveBar(dateStr, null);
+  updateAppelloSaveBar(dateStr, null, { hasPeople: getAppelloTabChierichetti(null).length > 0 });
 }
 
 // ── Agenda messe (domeniche + eccezioni) ────────────────────
@@ -11598,7 +12270,7 @@ function toggleMessePast() {
 function onMesseYearChange() {
   messeState.selectedDate = null;
   document.getElementById('messa-detail').innerHTML =
-    '<p class="day-detail-empty">Seleziona una messa dall\'agenda</p>';
+    '<p class="day-detail-empty empty-state-inline">Seleziona una messa dall\'agenda</p>';
   loadMesseAgenda();
 }
 
@@ -11729,7 +12401,7 @@ function renderMessaDetail(dateStr) {
   if (!massInfo) {
     container.innerHTML = `
       <p class="day-detail-date">${esc(dateLabel)}</p>
-      <p class="day-detail-empty">Non è una messa in agenda (solo domeniche e eccezioni).</p>
+      <p class="day-detail-empty empty-state-inline">Non è una messa in agenda (solo domeniche e eccezioni).</p>
       <div class="messa-actions">
         <button type="button" class="btn btn-primary" onclick="prefillMessaExtra('${dateStr}')">Aggiungi messa straordinaria</button>
       </div>
@@ -12150,7 +12822,7 @@ function renderDayDetail(dateStr) {
     : '';
 
   if (!events.length) {
-    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty">Nessuna celebrazione registrata per questa data.</p>${massBtn}`;
+    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty empty-state-inline">Nessuna celebrazione registrata per questa data.</p>${massBtn}`;
     return;
   }
 
