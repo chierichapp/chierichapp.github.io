@@ -3,15 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0c1829">
+<meta name="description" content="Gestione chierichetti · anagrafica, turni, appello e liturgia ambrosiana">
+<meta name="theme-color" content="#f7f4ef">
+<meta name="color-scheme" content="light">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ChierichApp">
+<meta name="format-detection" content="telephone=no">
 <title>ChierichApp</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<meta name="application-name" content="ChierichApp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
@@ -66,6 +71,26 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  /* Evita che lo status bar Android (edge-to-edge) resti senza contrasto */
+  .topbar {
+    background: var(--cream);
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
 }
 
 body.sidebar-open { overflow: hidden; }
@@ -7121,7 +7146,9 @@ function initApp() {
   document.getElementById('anno-messe').value = String(year);
   document.getElementById('anno-calendario').value = String(year);
 
-  showSection('dashboard');
+  const launchSection = getLaunchSection();
+  if (launchSection === 'presenze') openAppello();
+  else showSection(launchSection || 'dashboard');
   syncMessaDomenicaleFormDay();
   void bootstrapFromServer().then(() => {
     if (calState.data?.byDate) {
@@ -7130,6 +7157,24 @@ function initApp() {
       void ensureCalendarioForToday();
     }
   });
+}
+
+function getLaunchSection() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    const allowed = new Set([
+      'dashboard', 'presenze', 'registro', 'messe',
+      'calendario', 'gruppi', 'turni', 'anagrafica'
+    ]);
+    if (!section || !allowed.has(section)) return null;
+    params.delete('section');
+    const qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : '') + location.hash);
+    return section;
+  } catch {
+    return null;
+  }
 }
 
 async function bootstrapFromServer() {
@@ -13089,6 +13134,41 @@ if (!isGAS) {
     getPresenze: () => state.presenze
   };
 }
+
+// ── PWA service worker ──────────────────────────────────────
+(function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (location.protocol !== 'https:' && !isLocal) return;
+
+  let refreshing = false;
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
+    if (refreshing) return;
+    refreshing = true;
+    location.reload();
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then((reg) => {
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              showToast('Nuova versione in arrivo…');
+            }
+          });
+        });
+      })
+      .catch((err) => console.warn('[ChierichApp] SW register failed', err));
+  });
+})();
 </script>
 
 </body>
