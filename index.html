@@ -5228,6 +5228,7 @@ input[type="radio"] {
             <div class="panel-head">
               <h3 id="form-cerimoniere-title">Nuovo accesso</h3>
               <p id="form-cerimoniere-sub">Login app per cerimonieri e sacerdoti (Don)</p>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-open-my-profile" onclick="openMyProfile()" style="margin-top:10px">Il mio profilo</button>
             </div>
             <div class="panel-body">
               <form id="cerimoniereForm">
@@ -5265,6 +5266,13 @@ input[type="radio"] {
                   <label for="cerimoniere-password" id="cerimoniere-password-label">Password</label>
                   <input type="password" id="cerimoniere-password" minlength="6" autocomplete="new-password" placeholder="Minimo 6 caratteri">
                 </div>
+                <div class="form-group" id="cerimoniere-password2-wrap" style="display:none">
+                  <label for="cerimoniere-password2">Conferma password</label>
+                  <input type="password" id="cerimoniere-password2" minlength="6" autocomplete="new-password" placeholder="Ripeti la nuova password">
+                </div>
+                <p class="form-hint" id="cerimoniere-profile-hint" style="display:none;margin:0 0 12px;font-size:0.85rem;color:var(--muted)">
+                  Lascia vuota la password per non cambiarla. Se cambi email riceverai un link di conferma.
+                </p>
                 <div class="form-actions" style="display:flex;gap:10px;">
                   <button type="submit" class="btn btn-primary btn-full" id="btn-save-cerimoniere">Crea account</button>
                   <button type="button" class="btn btn-secondary" id="btn-cancel-cerimoniere-edit" style="display:none" onclick="cancelCerimoniereEdit()">Annulla</button>
@@ -5936,13 +5944,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function prepareSupabaseAuthUi() {
   const sub = document.getElementById('form-cerimoniere-sub');
-  if (sub) sub.textContent = 'Login per cerimonieri e Don — stessa email su Supabase Auth';
+  if (sub) sub.textContent = 'Crea login email/password per cerimonieri e Don (Supabase Auth)';
   const googleBlock = document.getElementById('auth-google-block');
   if (googleBlock) googleBlock.hidden = true;
   const pwdWrap = document.getElementById('cerimoniere-password-wrap');
-  if (pwdWrap) pwdWrap.hidden = true;
+  if (pwdWrap) {
+    pwdWrap.hidden = false;
+    pwdWrap.style.display = '';
+  }
   const pwd = document.getElementById('cerimoniere-password');
-  if (pwd) pwd.required = false;
+  if (pwd) pwd.required = true;
   onCerimoniereRuoloChange();
 }
 
@@ -6073,9 +6084,36 @@ function isCurrentUserAdmin() {
 function syncCerimonieriAdminUi() {
   const panel = document.getElementById('cerimoniere-form-panel');
   if (!panel) return;
-  panel.style.display = isCurrentUserAdmin() ? '' : 'none';
+  // Tutti vedono il form: admin crea/modifica altri; gli altri editano il proprio profilo
+  panel.style.display = '';
   const grid = document.getElementById('anag-panel-cerimonieri');
-  if (grid) grid.classList.toggle('cerimonieri-readonly', (isGAS || isSupabase) && !isCurrentUserAdmin());
+  if (grid) grid.classList.remove('cerimonieri-readonly');
+  const ruoloSelect = document.getElementById('cerimoniere-ruolo');
+  if (ruoloSelect) ruoloSelect.disabled = false;
+}
+
+function isEditingOwnCerimoniere() {
+  const uuid = document.getElementById('edit-cerimoniere-uuid')?.value;
+  return !!(uuid && currentUser?.uuid && uuid === currentUser.uuid);
+}
+
+function openMyProfile() {
+  if (!currentUser?.uuid) return;
+  const exists = cerimonieriAccounts.some(c => c.uuid === currentUser.uuid);
+  if (!exists && currentUser) {
+    // fallback: usa i dati sessione
+    cerimonieriAccounts = cerimonieriAccounts.concat([{
+      uuid: currentUser.uuid,
+      nome: currentUser.nome,
+      email: currentUser.email,
+      parrocchia: currentUser.parrocchia || '',
+      chierichettoUuid: currentUser.chierichettoUuid || '',
+      ruolo: currentUser.ruolo === 'prete' ? 'prete' : 'cerimoniere',
+      admin: !!currentUser.admin,
+      attivo: true
+    }]);
+  }
+  editCerimoniere(currentUser.uuid, { asProfile: true });
 }
 
 function updateSidebarUser() {
@@ -9654,8 +9692,15 @@ function switchAnagraficaTab(ruolo, keepForm) {
     else updateAnagraficaFormLabels();
     renderChierichetti();
   } else {
-    if (!keepForm) cancelCerimoniereEdit();
-    loadCerimonieriAccounts().then(() => renderCerimonieri());
+    loadCerimonieriAccounts().then(() => {
+      renderCerimonieri();
+      if (!keepForm) {
+        if (isCurrentUserAdmin()) cancelCerimoniereEdit();
+        else openMyProfile();
+      } else if (!isCurrentUserAdmin()) {
+        openMyProfile();
+      }
+    });
   }
 }
 
@@ -9855,7 +9900,8 @@ function onCerimoniereRuoloChange() {
   const ruolo = document.getElementById('cerimoniere-ruolo')?.value || 'cerimoniere';
   const isPrete = ruolo === 'prete';
   const linkWrap = document.getElementById('cerimoniere-chierichetto-wrap');
-  if (linkWrap) linkWrap.style.display = isPrete ? 'none' : '';
+  const hideLink = isPrete || (!isCurrentUserAdmin() && isEditingOwnCerimoniere());
+  if (linkWrap) linkWrap.style.display = hideLink ? 'none' : '';
   const nome = document.getElementById('cerimoniere-nome');
   if (nome && !editingCerimoniereUuid) {
     nome.placeholder = isPrete ? 'Don Mario Rossi' : 'Mario Rossi';
@@ -9931,8 +9977,8 @@ function renderCerimonieri() {
       : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina" onclick="setCerimoniereAttivo(${jsStr(c.uuid)}, true)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         </button>`);
-    const editBtn = canManage
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editCerimoniere(${jsStr(c.uuid)})">
+    const editBtn = (canManage || isSelf)
+      ? `<button type="button" class="btn btn-ghost btn-icon" title="${isSelf ? 'Il mio profilo' : 'Modifica'}" onclick="editCerimoniere(${jsStr(c.uuid)}${isSelf && !canManage ? ', { asProfile: true }' : ''})">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>`
       : '';
@@ -9958,23 +10004,57 @@ function renderCerimonieri() {
   }).join('');
 }
 
-function editCerimoniere(uuid) {
+function editCerimoniere(uuid, opts = {}) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
   if (!c) return;
+  const asProfile = !!opts.asProfile || (currentUser?.uuid === uuid && !isCurrentUserAdmin());
+  if (!isCurrentUserAdmin() && currentUser?.uuid !== uuid) {
+    showToast('Puoi modificare solo il tuo profilo');
+    return;
+  }
   editingCerimoniereUuid = uuid;
   document.getElementById('cerimoniere-ruolo').value = c.ruolo === 'prete' ? 'prete' : 'cerimoniere';
+  document.getElementById('cerimoniere-ruolo').disabled = asProfile && !isCurrentUserAdmin();
   document.getElementById('cerimoniere-nome').value = c.nome;
   document.getElementById('cerimoniere-email').value = c.email;
   document.getElementById('cerimoniere-parrocchia').value = c.parrocchia || '';
   populateCerimoniereChierichettoSelect(c.chierichettoUuid || '');
   document.getElementById('cerimoniere-password').value = '';
   document.getElementById('cerimoniere-password').required = false;
+  const pwd2 = document.getElementById('cerimoniere-password2');
+  if (pwd2) pwd2.value = '';
   document.getElementById('edit-cerimoniere-uuid').value = uuid;
-  document.getElementById('form-cerimoniere-title').textContent = c.ruolo === 'prete' ? 'Modifica Don' : 'Modifica cerimoniere';
-  document.getElementById('form-cerimoniere-sub').textContent = c.nome;
-  document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
-  document.getElementById('btn-save-cerimoniere').textContent = 'Aggiorna';
-  document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'block';
+
+  const isSelf = currentUser?.uuid === uuid;
+  const showAuthPwd = isSupabase && isSelf;
+  document.getElementById('cerimoniere-password-wrap').style.display = (showAuthPwd || (!uuid && !isGAS)) ? '' : (isGAS ? 'none' : '');
+  if (isSelf && isSupabase) {
+    document.getElementById('cerimoniere-password-wrap').style.display = '';
+  }
+  document.getElementById('cerimoniere-password2-wrap').style.display = showAuthPwd ? '' : 'none';
+  document.getElementById('cerimoniere-profile-hint').style.display = showAuthPwd ? '' : 'none';
+
+  if (asProfile || isSelf) {
+    document.getElementById('form-cerimoniere-title').textContent = 'Il mio profilo';
+    document.getElementById('form-cerimoniere-sub').textContent = 'Nome, email e password di accesso';
+    document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
+    document.getElementById('btn-save-cerimoniere').textContent = 'Salva profilo';
+    document.getElementById('btn-cancel-cerimoniere-edit').style.display = isCurrentUserAdmin() ? 'block' : 'none';
+    const linkWrap = document.getElementById('cerimoniere-chierichetto-wrap');
+    if (linkWrap && !isCurrentUserAdmin()) linkWrap.style.display = 'none';
+  } else {
+    document.getElementById('form-cerimoniere-title').textContent = c.ruolo === 'prete' ? 'Modifica Don' : 'Modifica cerimoniere';
+    document.getElementById('form-cerimoniere-sub').textContent = c.nome;
+    document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
+    document.getElementById('btn-save-cerimoniere').textContent = 'Aggiorna';
+    document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'block';
+    // Admin che modifica un altro: niente cambio password Auth da qui
+    if (isSupabase && !isSelf) {
+      document.getElementById('cerimoniere-password-wrap').style.display = 'none';
+      document.getElementById('cerimoniere-password2-wrap').style.display = 'none';
+      document.getElementById('cerimoniere-profile-hint').style.display = 'none';
+    }
+  }
   onCerimoniereRuoloChange();
 }
 
@@ -9983,6 +10063,15 @@ function cancelCerimoniereEdit() {
   document.getElementById('cerimoniereForm').reset();
   document.getElementById('edit-cerimoniere-uuid').value = '';
   document.getElementById('cerimoniere-ruolo').value = 'cerimoniere';
+  document.getElementById('cerimoniere-ruolo').disabled = false;
+  document.getElementById('cerimoniere-password2-wrap').style.display = 'none';
+  document.getElementById('cerimoniere-profile-hint').style.display = 'none';
+
+  if (!isCurrentUserAdmin()) {
+    openMyProfile();
+    return;
+  }
+
   document.getElementById('form-cerimoniere-title').textContent = 'Nuovo accesso';
   document.getElementById('form-cerimoniere-sub').textContent = isGAS
     ? 'Autorizzano l\'accesso con Account Google — cerimonieri e sacerdoti'
@@ -9991,6 +10080,7 @@ function cancelCerimoniereEdit() {
       : 'Login app per cerimonieri e sacerdoti (Don)';
   document.getElementById('cerimoniere-password-label').textContent = 'Password';
   document.getElementById('cerimoniere-password').required = !isGAS;
+  document.getElementById('cerimoniere-password-wrap').style.display = isGAS ? 'none' : '';
   document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
   populateCerimoniereChierichettoSelect('');
@@ -9999,30 +10089,64 @@ function cancelCerimoniereEdit() {
 
 async function handleCerimoniereFormSubmit(e) {
   e.preventDefault();
-  if ((isGAS || isSupabase) && !isCurrentUserAdmin()) {
-    showToast('Solo l\'admin può gestire gli accessi');
+  const uuid = document.getElementById('edit-cerimoniere-uuid').value;
+  const isSelf = !!(uuid && currentUser?.uuid === uuid);
+  const canAdmin = isCurrentUserAdmin();
+
+  if ((isGAS || isSupabase) && !canAdmin && !isSelf) {
+    showToast('Puoi modificare solo il tuo profilo');
     return;
   }
-  const uuid = document.getElementById('edit-cerimoniere-uuid').value;
+  if (!uuid && !canAdmin) {
+    showToast('Solo l\'admin può creare nuovi accessi');
+    return;
+  }
+
   const ruolo = document.getElementById('cerimoniere-ruolo').value === 'prete' ? 'prete' : 'cerimoniere';
+  const password = document.getElementById('cerimoniere-password').value;
+  const password2 = document.getElementById('cerimoniere-password2')?.value || '';
   const dati = {
     nome: document.getElementById('cerimoniere-nome').value.trim(),
     email: document.getElementById('cerimoniere-email').value.trim(),
     parrocchia: document.getElementById('cerimoniere-parrocchia').value,
     chierichettoUuid: ruolo === 'prete' ? '' : (document.getElementById('cerimoniere-chierichetto').value || ''),
     ruolo,
-    password: document.getElementById('cerimoniere-password').value
+    password
   };
+
+  if (isSelf && isSupabase && password) {
+    if (password.length < 6) {
+      showToast('Password di almeno 6 caratteri');
+      return;
+    }
+    if (password !== password2) {
+      showToast('Le password non coincidono');
+      return;
+    }
+  }
 
   if (!uuid && !isGAS && (!dati.password || dati.password.length < 6)) {
     showToast('Password di almeno 6 caratteri');
     return;
   }
   if (isGAS) delete dati.password;
-  if (uuid && isSupabase) delete dati.password;
+  // Admin che aggiorna un altro: niente password Auth
+  if (uuid && isSupabase && !isSelf) delete dati.password;
 
   let result;
-  if (isGAS) {
+  if (isSelf && isSupabase) {
+    result = await window.ChierichSupabase.aggiornaIlMioProfilo({
+      nome: dati.nome,
+      email: dati.email,
+      parrocchia: dati.parrocchia,
+      chierichettoUuid: canAdmin ? dati.chierichettoUuid : undefined,
+      password: password || undefined
+    });
+    if (result.success && result.user) {
+      saveSession(authToken || 'supabase', result.user);
+      updateSidebarUser();
+    }
+  } else if (isGAS) {
     result = uuid
       ? await gasRun('aggiornaCerimoniere', uuid, dati)
       : await gasRun('salvaCerimoniere', dati);
@@ -10042,8 +10166,9 @@ async function handleCerimoniereFormSubmit(e) {
     return;
   }
 
-  showToast(uuid ? 'Account aggiornato' : (result.message || (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')));
-  cancelCerimoniereEdit();
+  showToast(result.message || (uuid ? (isSelf ? 'Profilo aggiornato' : 'Account aggiornato') : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')));
+  if (canAdmin) cancelCerimoniereEdit();
+  else openMyProfile();
   await loadCerimonieriAccounts(true);
   renderCerimonieri();
   if (anagraficaTab === 'chierichetto') renderChierichetti();

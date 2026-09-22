@@ -554,6 +554,64 @@
     return { success: true };
   }
 
+  /**
+   * Aggiorna il proprio profilo (Auth + riga cerimonieri).
+   * Password/email passano da sb.auth.updateUser; anagrafica via RPC update_my_profile.
+   */
+  async function aggiornaIlMioProfilo(dati) {
+    const sb = requireClient();
+    const status = await getAuthStatus();
+    if (!status.authenticated || !status.user?.uuid) {
+      return { success: false, message: 'Non autenticato' };
+    }
+
+    const nome = String(dati.nome || '').trim();
+    const email = String(dati.email || '').trim().toLowerCase();
+    const password = String(dati.password || '');
+    const parrocchia = dati.parrocchia !== undefined ? (dati.parrocchia || '') : null;
+
+    if (!nome || !email) {
+      return { success: false, message: 'Nome e email obbligatori' };
+    }
+    if (password && password.length < 6) {
+      return { success: false, message: 'Password di almeno 6 caratteri' };
+    }
+
+    const authPatch = {};
+    const currentEmail = String(status.user.email || '').trim().toLowerCase();
+    if (email && email !== currentEmail) authPatch.email = email;
+    if (password) authPatch.password = password;
+
+    let needsEmailConfirm = false;
+    if (Object.keys(authPatch).length) {
+      const { data: updated, error: authErr } = await sb.auth.updateUser(authPatch);
+      if (authErr) return { success: false, message: authErr.message };
+      if (authPatch.email) {
+        const sessionEmail = String(updated?.user?.email || '').toLowerCase();
+        needsEmailConfirm = sessionEmail !== email;
+      }
+    }
+
+    const { data: row, error } = await sb.rpc('update_my_profile', {
+      p_nome: nome,
+      p_email: email,
+      p_parrocchia: parrocchia,
+      p_chierichetto_uuid: dati.chierichettoUuid || null,
+      p_set_chierichetto: dati.chierichettoUuid !== undefined
+    });
+    if (error) return { success: false, message: error.message };
+
+    const refreshed = await getAuthStatus();
+    return {
+      success: true,
+      needsEmailConfirm,
+      user: refreshed.user || (row ? mapCer(Array.isArray(row) ? row[0] : row) : status.user),
+      message: needsEmailConfirm
+        ? 'Profilo aggiornato. Controlla la nuova email e conferma il link prima di usarla per accedere.'
+        : (password ? 'Profilo e password aggiornati' : 'Profilo aggiornato')
+    };
+  }
+
   async function eliminaCerimoniere(uuid) {
     const sb = requireClient();
     const { error } = await sb.from('cerimonieri').delete().eq('uuid', uuid);
@@ -597,6 +655,7 @@
     getCerimonieri,
     salvaCerimoniere,
     aggiornaCerimoniere,
+    aggiornaIlMioProfilo,
     eliminaCerimoniere,
     getCalendarioLiturgico,
     salvaCalendarioLiturgico
