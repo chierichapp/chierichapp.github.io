@@ -47,6 +47,8 @@
   --info: #0b6e99;
   --sidebar-w: 260px;
   --tabbar-h: 64px;
+  --sticky-below-topbar: calc(52px + env(safe-area-inset-top, 0px));
+  --sticky-tabs-h: 40px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -4952,7 +4954,7 @@ body.anag-sheet-open { overflow: hidden; }
 
   .appello-sticky-chrome {
     position: sticky;
-    top: calc(56px + env(safe-area-inset-top, 0px));
+    top: var(--sticky-below-topbar);
     z-index: 55;
     background: var(--cream);
     border-bottom: 1px solid var(--border);
@@ -5077,6 +5079,87 @@ body.anag-sheet-open { overflow: hidden; }
   }
   .tab-label-full { display: none; }
   .tab-label-short { display: inline; }
+
+  /* Chrome sticky sotto la topbar (tab, filtri, nav mese) */
+  #anagrafica > .section-tabs,
+  #gruppi > .section-tabs,
+  #turni > .section-tabs,
+  #registro > .section-tabs {
+    position: sticky;
+    top: var(--sticky-below-topbar);
+    z-index: 45;
+    background: var(--cream);
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+  }
+
+  #registro .registro-toolbar {
+    position: sticky;
+    top: calc(var(--sticky-below-topbar) + var(--sticky-tabs-h));
+    z-index: 44;
+    background: var(--cream);
+    margin-left: -14px;
+    margin-right: -14px;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+  }
+
+  #registro .registro-stats {
+    margin-top: 4px;
+  }
+
+  #messe .messe-toolbar {
+    position: sticky;
+    top: var(--sticky-below-topbar);
+    z-index: 44;
+    background: var(--cream);
+    margin: 0 -14px 10px;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+  }
+
+  #messe .messe-agenda-month-title {
+    top: calc(var(--sticky-below-topbar) + 52px);
+    background: var(--cream);
+    z-index: 3;
+  }
+
+  #calendario .cal-section-head {
+    position: sticky;
+    top: var(--sticky-below-topbar);
+    z-index: 44;
+    background: var(--cream);
+    margin: 0 -14px 8px;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+  }
+
+  #calendario .cal-legend {
+    display: none;
+  }
+
+  #calendario .cal-month-shell .month-nav {
+    position: sticky;
+    top: calc(var(--sticky-below-topbar) + 48px);
+    z-index: 43;
+    background: var(--cream);
+    margin: 0 -14px 6px;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+  }
+
+  .appello-sticky-chrome {
+    top: var(--sticky-below-topbar);
+  }
+
   .config-item {
     grid-template-columns: 1fr;
     align-items: start;
@@ -5128,7 +5211,7 @@ body.anag-sheet-open { overflow: hidden; }
   .appello-today-btn { min-height: 44px; }
   .appello-sticky-chrome {
     position: sticky;
-    top: calc(52px + env(safe-area-inset-top, 0px));
+    top: var(--sticky-below-topbar);
     z-index: 55;
     background: var(--cream);
     border-bottom: 1px solid var(--border);
@@ -5345,18 +5428,22 @@ body.anag-sheet-open { overflow: hidden; }
     min-height: 44px;
   }
   .messe-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 12px;
   }
   .messe-toolbar-left {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+    flex: 1;
+    min-width: 0;
     gap: 8px;
   }
-  .messe-toolbar .btn { width: 100%; }
+  .messe-toolbar .btn { width: auto; flex-shrink: 0; }
   .messe-layout { grid-template-columns: 1fr; }
   .messe-agenda {
     max-height: none;
@@ -5528,21 +5615,16 @@ body.anag-sheet-open { overflow: hidden; }
   .cal-filter { min-height: 44px; }
   .calendar-toolbar,
   .calendar-toolbar-left {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     width: 100%;
+    gap: 8px;
   }
-  .calendar-toolbar .btn { width: 100%; }
+  .calendar-toolbar .btn { width: auto; }
   .cal-month-shell .month-nav {
-    position: sticky;
-    top: calc(52px + env(safe-area-inset-top, 0px));
-    z-index: 5;
     width: 100%;
     justify-content: space-between;
-    margin: 0 -2px 6px;
-    padding: 8px 2px 10px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
   }
   .month-nav h4 {
     min-width: 0;
@@ -5864,14 +5946,18 @@ body.anag-sheet-open { overflow: hidden; }
     box-sizing: border-box;
   }
   #anagrafica > .section-tabs {
-    margin: 0 14px 8px;
-    width: auto;
+    margin: 0;
+    width: 100%;
     max-width: none;
-    background: transparent;
-    padding: 0;
+    background: var(--cream);
+    padding: 0 14px;
     gap: 0;
     border-bottom: 1px solid var(--border);
     border-radius: 0;
+    position: sticky;
+    top: var(--sticky-below-topbar);
+    z-index: 45;
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
   }
   #anagrafica > .section-tabs .section-tab {
     flex: 1;
@@ -5923,11 +6009,16 @@ body.anag-sheet-open { overflow: hidden; }
     box-sizing: border-box;
   }
   #anagrafica .anag-chrome {
+    position: sticky;
+    top: calc(var(--sticky-below-topbar) + var(--sticky-tabs-h));
+    z-index: 44;
     gap: 8px;
     margin: 0;
-    padding: 0 14px 10px;
-    background: transparent;
+    padding: 8px 14px 10px;
+    background: var(--cream);
     border: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
   }
   #anagrafica .anag-list-toolbar {
     gap: 8px;
