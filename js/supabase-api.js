@@ -76,7 +76,7 @@
       email: row.email || '',
       telefono: row.telefono || '',
       ruolo: row.ruolo || 'chierichetto',
-      cerimoniereTurno: !!row.cerimoniere_turno,
+      cerimoniereTurno: false,
       attivo: row.attivo !== false,
       createdAt: row.created_at || ''
     };
@@ -428,7 +428,7 @@
       email: dati.email || '',
       telefono: dati.telefono || '',
       ruolo: dati.ruolo || 'chierichetto',
-      cerimoniere_turno: !!dati.cerimoniereTurno,
+      cerimoniere_turno: false,
       attivo: dati.attivo === false || dati.attivo === 'false' ? false : true,
       created_at: dati.createdAt || new Date().toISOString()
     };
@@ -445,10 +445,10 @@
     else if (dati.classe) patch.anno_nascita = String(dati.classe);
     if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia;
     if (dati.gruppo !== undefined) patch.gruppo = dati.gruppo;
-    if (dati.email) patch.email = dati.email;
+    if (dati.email !== undefined) patch.email = dati.email || '';
     if (dati.telefono !== undefined) patch.telefono = dati.telefono || '';
     if (dati.ruolo) patch.ruolo = dati.ruolo;
-    if (dati.cerimoniereTurno !== undefined) patch.cerimoniere_turno = !!dati.cerimoniereTurno;
+    patch.cerimoniere_turno = false;
     if (dati.attivo !== undefined) patch.attivo = !(dati.attivo === false || dati.attivo === 'false');
     const { error } = await sb.from('chierichetti').update(patch).eq('uuid', uuid);
     if (error) return { success: false, message: error.message };

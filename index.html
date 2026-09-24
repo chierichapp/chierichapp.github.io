@@ -6017,7 +6017,7 @@ input[type="radio"] {
             <div class="panel-head">
               <div>
                 <h3 id="form-chierichetto-title">Nuovo chierichetto</h3>
-                <p id="form-chierichetto-sub">Parrocchia, anno di nascita e contatti</p>
+                <p id="form-chierichetto-sub">Nome, parrocchia e telefono genitori — il gruppo si assegna in Gruppi</p>
               </div>
               <button type="button" class="btn btn-secondary btn-sm anag-form-toggle" id="btn-toggle-anag-form" onclick="toggleAnagForm()" aria-expanded="false" aria-controls="chierichettoForm">Apri</button>
             </div>
@@ -6031,38 +6031,25 @@ input[type="radio"] {
                 </div>
                 <div class="form-row" id="anag-chierichetto-fields">
                   <div class="form-group">
-                    <label for="anno-nascita">Anno di nascita</label>
-                    <select id="anno-nascita" name="annoNascita" required>
-                      <option value="">Seleziona</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
                     <label for="parrocchia">Parrocchia</label>
-                    <select id="parrocchia" name="parrocchia">
+                    <select id="parrocchia" name="parrocchia" required>
                       <option value="">Seleziona</option>
                       <option value="vanzago">Vanzago</option>
                       <option value="mantegazza">Mantegazza</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="anno-nascita">Anno di nascita <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
+                    <select id="anno-nascita" name="annoNascita">
+                      <option value="">Seleziona</option>
                     </select>
                   </div>
                 </div>
                 <p class="liturgy-meta" id="anag-gruppo-hint" style="display:none;margin:-4px 0 12px">
                   Il gruppo si assegna dalla pagina <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('gruppi')">Gruppi</button>.
                 </p>
-                <div class="form-check-group" id="anag-cerimoniere-turno-wrap">
-                  <label class="form-check">
-                    <input type="checkbox" id="cerimoniere-turno" name="cerimoniereTurno">
-                    <span class="form-check-body">
-                      <span class="form-check-title">Cerimoniere di turno</span>
-                      <span class="form-check-desc">Capo squadra — in grassetto nel tabellone gruppi</span>
-                    </span>
-                  </label>
-                </div>
                 <div class="form-group">
-                  <label for="email">Email</label>
-                  <input type="email" id="email" name="email" required placeholder="mario.rossi@email.com" autocomplete="email">
-                </div>
-                <div class="form-group">
-                  <label for="telefono">Telefono <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
+                  <label for="telefono">Telefono genitori o tutori <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
                   <input type="tel" id="telefono" name="telefono" placeholder="+39 333 123 4567" autocomplete="tel">
                 </div>
                 <div class="form-actions" style="display:flex;gap:10px;">
@@ -6087,7 +6074,7 @@ input[type="radio"] {
                 <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
               </div>
               <div class="anag-list-toolbar">
-                <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca nome o email…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
+                <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca nome o telefono…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
                 <div class="anag-filters">
                   <select id="filter-anno-nascita" onchange="renderChierichetti()" aria-label="Filtra per anno di nascita">
                     <option value="">Tutti gli anni</option>
@@ -8194,14 +8181,10 @@ function populateAnnoNascitaFilter() {
 }
 
 function migrateCerimoniereTurno() {
+  // I chierichetti non sono più «cerimoniere di turno»: azzera il flag su tutti
   state.chierichetti.forEach(c => {
-    if (c.ruolo === 'cerimoniere') {
-      c.cerimoniereTurno = true;
-      c.ruolo = 'chierichetto';
-    }
-    if (c.cerimoniereTurno === 'true') c.cerimoniereTurno = true;
-    else if (c.cerimoniereTurno === 'false') c.cerimoniereTurno = false;
-    else if (c.cerimoniereTurno === undefined) c.cerimoniereTurno = false;
+    if (c.ruolo === 'cerimoniere') c.ruolo = 'chierichetto';
+    c.cerimoniereTurno = false;
   });
 }
 
@@ -11303,15 +11286,16 @@ function updateAnagraficaFormLabels() {
   const editing = !!editingUuid;
   document.getElementById('form-chierichetto-title').textContent = editing ? 'Modifica chierichetto' : 'Nuovo chierichetto';
   if (!editing) {
-    document.getElementById('form-chierichetto-sub').textContent = 'Parrocchia, anno di nascita e contatti — il gruppo si assegna in Gruppi';
+    document.getElementById('form-chierichetto-sub').textContent = 'Nome, parrocchia e telefono genitori — il gruppo si assegna in Gruppi';
   }
   document.getElementById('anag-gruppo-hint').style.display = '';
   document.getElementById('anag-list-title').textContent = 'Elenco';
   document.getElementById('anag-list-count-label').textContent =
     anagraficaStatusFilter === 'ex' ? 'ex' : 'attivi';
   const search = document.getElementById('search-chierichetti');
-  if (search) search.placeholder = 'Cerca nome o email…';
-  document.getElementById('anno-nascita').required = true;
+  if (search) search.placeholder = 'Cerca nome o telefono…';
+  const annoEl = document.getElementById('anno-nascita');
+  if (annoEl) annoEl.required = false;
   const parrocchiaEl = document.getElementById('parrocchia');
   if (parrocchiaEl) parrocchiaEl.required = true;
 }
@@ -11328,18 +11312,18 @@ async function setChierichettoAttivo(uuid, attivo) {
     ...c,
     attivo: !!attivo,
     gruppo: attivo ? c.gruppo : '',
-    cerimoniereTurno: attivo ? c.cerimoniereTurno : false
+    cerimoniereTurno: false
   };
   state.chierichetti[idx] = next;
   saveData();
   const ok = await persistPersona({
     nome: next.nome,
-    email: next.email,
+    email: '',
     telefono: next.telefono || '',
     ruolo: 'chierichetto',
     annoNascita: next.annoNascita,
     parrocchia: next.parrocchia,
-    cerimoniereTurno: !!next.cerimoniereTurno,
+    cerimoniereTurno: false,
     gruppo: next.gruppo || '',
     attivo: !!attivo
   }, uuid);
@@ -11446,7 +11430,6 @@ async function renderChierichetti() {
     const matchParrocchia = !filterParrocchia || c.parrocchia === filterParrocchia;
     const matchSearch = !search ||
       c.nome.toLowerCase().includes(search) ||
-      (c.email || '').toLowerCase().includes(search) ||
       (c.telefono || '').toLowerCase().includes(search);
     return matchAnno && matchParrocchia && matchSearch;
   });
@@ -11469,12 +11452,10 @@ async function renderChierichetti() {
 
   container.innerHTML = filtered.map(c => {
     const attivo = isPersonaAttiva(c);
-    const isCer = isCerimoniereTurno(c);
-    const avatarClass = !attivo ? 'is-ex' : (isCer ? 'is-cer' : '');
+    const avatarClass = !attivo ? 'is-ex' : '';
     const chips = [];
     if (c.parrocchia) chips.push(`<span class="anag-chip">${esc(getParrocchiaLabel(c.parrocchia))}</span>`);
     if (c.annoNascita) chips.push(`<span class="anag-chip">${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>`);
-    if (isCer) chips.push('<span class="anag-chip gold">Cer. di turno</span>');
     if (attivo) {
       chips.push(c.gruppo
         ? `<span class="anag-chip ok">${esc(getGruppoLabel(c.gruppo))}</span>`
@@ -11483,7 +11464,6 @@ async function renderChierichetti() {
       chips.push('<span class="anag-chip">Ex</span>');
     }
     const contacts = [];
-    if (c.email) contacts.push(`<span>${esc(c.email)}</span>`);
     if (c.telefono) {
       contacts.push(`<a href="tel:${esc(c.telefono.replace(/\s/g, ''))}">${esc(c.telefono)}</a>`);
     }
@@ -11524,8 +11504,7 @@ function populateCerimoniereChierichettoSelect(selectedUuid) {
     .slice()
     .sort(sortChierichettiInGruppo)
     .map(c => {
-      const tag = isCerimoniereTurno(c) ? ' · cerimoniere di turno' : '';
-      return `<option value="${esc(c.uuid)}"${c.uuid === selectedUuid ? ' selected' : ''}>${esc(c.nome)}${tag}</option>`;
+      return `<option value="${esc(c.uuid)}"${c.uuid === selectedUuid ? ' selected' : ''}>${esc(c.nome)}</option>`;
     });
   sel.innerHTML = '<option value="">— Nessun collegamento —</option>' + options.join('');
 }
@@ -11941,9 +11920,7 @@ function editChierichetto(uuid) {
   document.getElementById('nome').value = c.nome;
   populateAnnoNascitaSelect(c.annoNascita || '');
   document.getElementById('parrocchia').value = c.parrocchia || '';
-  document.getElementById('email').value = c.email;
   document.getElementById('telefono').value = c.telefono || '';
-  document.getElementById('cerimoniere-turno').checked = isCerimoniereTurno(c);
   document.getElementById('edit-uuid').value = uuid;
   document.getElementById('persona-ruolo').value = getRuoloPersona(c);
 
@@ -11989,7 +11966,6 @@ function cancelEdit() {
   editingUuid = null;
   document.getElementById('chierichettoForm').reset();
   populateAnnoNascitaSelect();
-  document.getElementById('cerimoniere-turno').checked = false;
   document.getElementById('edit-uuid').value = '';
   document.getElementById('persona-ruolo').value = anagraficaTab;
   updateAnagraficaFormLabels();
@@ -12487,7 +12463,7 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   );
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: chi.email, telefono: chi.telefono, ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: chi.cerimoniereTurno, gruppo: gruppoId }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -12515,7 +12491,7 @@ async function unassignChierichettoFromGruppo(uuid) {
   chi.gruppo = '';
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: chi.email, telefono: chi.telefono, ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: chi.cerimoniereTurno, gruppo: '' }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: '' }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -13559,11 +13535,12 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
 document.getElementById('chierichettoForm').addEventListener('submit', async e => {
   e.preventDefault();
 
+  const nome = document.getElementById('nome').value.trim();
   const annoNascita = document.getElementById('anno-nascita').value;
   const parrocchia = document.getElementById('parrocchia').value;
 
-  if (!annoNascita) {
-    showToast('Seleziona l\'anno di nascita del chierichetto');
+  if (!nome) {
+    showToast('Inserisci nome e cognome');
     return;
   }
   if (!parrocchia) {
@@ -13574,13 +13551,13 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
   const existing = editingUuid ? state.chierichetti.find(c => c.uuid === editingUuid) : null;
 
   const dati = {
-    nome: document.getElementById('nome').value.trim(),
-    email: document.getElementById('email').value.trim(),
+    nome,
+    email: '',
     telefono: document.getElementById('telefono').value.trim(),
     ruolo: 'chierichetto',
     annoNascita,
     parrocchia,
-    cerimoniereTurno: document.getElementById('cerimoniere-turno').checked,
+    cerimoniereTurno: false,
     gruppo: existing?.gruppo || '',
     attivo: existing ? isPersonaAttiva(existing) : true
   };
@@ -13588,11 +13565,6 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
   if (existing?.gruppo && dati.parrocchia !== existing.parrocchia && !chierichettoCanJoinGruppo({ ...existing, parrocchia: dati.parrocchia }, existing.gruppo)) {
     if (!confirm(`Cambiando parrocchia, ${dati.nome} non sarà più compatibile con ${getGruppoLabel(existing.gruppo)}. Rimuoverlo dal gruppo?`)) return;
     dati.gruppo = '';
-  }
-
-  if (emailExists(dati.email, editingUuid || '')) {
-    showToast('Email già registrata per un\'altra persona');
-    return;
   }
 
   const btn = document.getElementById('btn-save-chierichetto');
@@ -13624,6 +13596,7 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
       renderChierichetti();
       showToast('Chierichetto registrato');
       e.target.reset();
+      populateAnnoNascitaSelect();
       const ok = await persistPersona({ ...dati, uuid: nuovo.uuid });
       if (!ok) {
         state.chierichetti = state.chierichetti.filter(c => c.uuid !== nuovo.uuid);
