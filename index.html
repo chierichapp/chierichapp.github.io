@@ -5576,18 +5576,173 @@ body.anag-sheet-open { overflow: hidden; }
   .gruppi-gestione-stack {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
   }
   .gruppi-gestione-lists { order: 1; }
   .gruppi-gestione-form {
     order: 2;
-    margin-bottom: 0;
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--cream);
   }
-  .gruppi-gestione-form-title:first-child { margin-top: 0; }
+
+  /* Gestione gruppi — lista first, form a sheet, FAB */
+  #gruppi-panel-gestione .gruppi-gestione-panel {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+  }
+  #gruppi-panel-gestione .panel-head { display: none; }
+  #gruppi-panel-gestione .panel-body {
+    padding: 0 0 100px;
+  }
+  #gruppi-panel-gestione .gruppi-list-title {
+    padding: 0 14px;
+    margin: 4px 0 8px;
+  }
+  #gruppi-gestione-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  #gruppi-gestione-list .gruppo-squadra-card {
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    padding: 12px 14px 14px;
+    box-shadow: none;
+  }
+  #gruppi-gestione-list .gruppo-squadra-card:first-child { border-top: none; }
+  #gruppi-gestione-list .gruppo-add-row .btn {
+    width: 100%;
+  }
+  #gruppi-gestione-list .empty-state {
+    padding: 28px 14px;
+    margin: 0;
+  }
+
+  #gruppi-panel-gestione .gruppi-unassigned-panel {
+    position: sticky;
+    bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
+    z-index: 35;
+    margin: 12px 14px 0;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid rgba(196, 92, 18, 0.28);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(12, 24, 41, 0.12);
+  }
+  #gruppi-panel-gestione .gruppi-unassigned-panel .config-section-title {
+    font-size: 0.72rem;
+    margin: 0 0 4px;
+  }
+  #gruppi-panel-gestione .gruppi-unassigned-hint {
+    font-size: 0.75rem;
+    margin: 0 0 8px;
+  }
+  #gruppi-panel-gestione .gruppi-parrocchia-title {
+    font-size: 0.7rem;
+    margin: 6px 0 4px;
+  }
+
+  #gruppi-gestione-form-wrap.gruppi-gestione-form {
+    display: none;
+    order: unset;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: var(--surface);
+  }
+  #gruppi-gestione-form-wrap.gruppi-gestione-form:not(.is-collapsed) {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    overflow: hidden;
+  }
+  body.gruppi-sheet-open { overflow: hidden; }
+  body.gruppi-sheet-open .mobile-tabbar,
+  body.gruppi-sheet-open .gruppi-fab {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #gruppi-gestione-form-wrap .gruppi-form-desktop-title { display: none; }
+  #gruppi-gestione-form-wrap .gruppi-form-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  #gruppi-gestione-form-wrap .gruppi-gestione-form-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-transform: none;
+    color: var(--ink);
+  }
+  #gruppi-gestione-form-wrap .gruppi-form-sheet-sub {
+    display: block;
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  #gruppi-gestione-form-wrap .anag-sheet-close { display: inline-flex; }
+  #gruppi-gestione-form-wrap form {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 14px 8px;
+  }
+  #gruppi-gestione-form-wrap .gruppi-form-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 8px -14px -8px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, transparent, var(--surface) 28%);
+    border-top: 1px solid var(--border);
+  }
+  #gruppi-gestione-form-wrap .gruppi-gestione-form-note {
+    display: none;
+  }
+
+  .gruppi-fab {
+    display: none;
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
+    z-index: 90;
+    width: 52px;
+    height: 52px;
+    border: none;
+    border-radius: 16px;
+    background: var(--sky);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(37, 99, 168, 0.28);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .gruppi-fab svg { width: 24px; height: 24px; }
+  .gruppi-fab.is-visible { display: inline-flex; }
+
+  #gruppi-panel-squadre .panel-head p,
+  #gruppi-panel-squadre .gruppo-cerimonieri-hint { display: none; }
+  #gruppi-panel-cronologia .panel-head p { display: none; }
+
   .rotazione-actions {
     flex-direction: column;
   }
@@ -6327,6 +6482,10 @@ body.anag-sheet-open { overflow: hidden; }
 .gruppo-member-chip.is-readonly {
   padding-right: 10px;
 }
+
+.gruppi-form-sheet-head { display: none; }
+.gruppi-form-sheet-sub { display: none; }
+.gruppi-fab { display: none; }
 
 .gruppi-gestione-form {
   margin-bottom: 20px;
@@ -7243,15 +7402,24 @@ body.anag-sheet-open { overflow: hidden; }
         </div>
 
         <div id="gruppi-panel-gestione" class="gruppi-tab-panel">
-          <div class="panel">
+          <div class="panel gruppi-gestione-panel">
             <div class="panel-head">
               <h3>Gestione gruppi</h3>
               <p>Rinomina le squadre, assegna i chierichetti o aggiungine di nuove</p>
             </div>
             <div class="panel-body">
               <div class="gruppi-gestione-stack">
-              <div class="gruppi-gestione-form" id="gruppi-gestione-form-wrap">
-                <p class="gruppi-gestione-form-title">Aggiungi squadra</p>
+              <div class="gruppi-gestione-form is-collapsed" id="gruppi-gestione-form-wrap">
+                <div class="gruppi-form-sheet-head">
+                  <div>
+                    <h3 class="gruppi-gestione-form-title">Aggiungi squadra</h3>
+                    <p class="gruppi-form-sheet-sub">Crea un gruppo legato a una messa del turno</p>
+                  </div>
+                  <button type="button" class="anag-sheet-close" id="btn-gruppi-sheet-close" onclick="closeGruppiFormSheet()" aria-label="Chiudi">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <p class="gruppi-gestione-form-title gruppi-form-desktop-title">Aggiungi squadra</p>
                 <form id="nuovoGruppoForm">
                   <div class="form-group">
                     <label for="nuovo-gruppo-nome">Nome squadra</label>
@@ -7285,7 +7453,9 @@ body.anag-sheet-open { overflow: hidden; }
                       <span class="form-check-desc">Messa del sabato sera</span>
                     </span>
                   </label>
-                  <button type="submit" class="btn btn-primary btn-full">Aggiungi gruppo</button>
+                  <div class="form-actions gruppi-form-actions">
+                    <button type="submit" class="btn btn-primary btn-full">Aggiungi gruppo</button>
+                  </div>
                 </form>
                 <p class="liturgy-meta gruppi-gestione-form-note">
                   <strong id="gruppi-attivi-count">3</strong> gruppi attivi.
@@ -7294,15 +7464,15 @@ body.anag-sheet-open { overflow: hidden; }
                 </p>
               </div>
               <div class="gruppi-gestione-lists">
-              <p class="gruppi-gestione-form-title">Squadre attuali</p>
+              <p class="gruppi-gestione-form-title gruppi-list-title">Squadre attuali</p>
               <div id="gruppi-gestione-list"></div>
               <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
-                <h4 class="config-section-title">Assegna chierichetti</h4>
+                <h4 class="config-section-title">Senza gruppo</h4>
                 <p class="liturgy-meta gruppi-unassigned-hint" id="gruppi-unassigned-hint"></p>
                 <div id="gruppi-non-assegnati" class="gruppo-member-chips"></div>
                 <div class="gruppo-add-row gruppi-unassigned-actions" id="gruppi-unassigned-actions" style="display:none">
                   <select id="unassigned-chi-select" aria-label="Chierichetto o cerimoniere">
-                    <option value="">Seleziona chierichetto o cerimoniere…</option>
+                    <option value="">Seleziona persona…</option>
                   </select>
                   <select id="unassigned-gruppo-select" aria-label="Gruppo">
                     <option value="">Seleziona gruppo…</option>
@@ -7742,6 +7912,9 @@ body.anag-sheet-open { overflow: hidden; }
 <button type="button" class="messe-fab" id="messe-fab" onclick="openMesseExtraSheet()" aria-label="Aggiungi messa straordinaria" hidden>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
 </button>
+<button type="button" class="gruppi-fab" id="gruppi-fab" onclick="openGruppiFormSheet()" aria-label="Aggiungi squadra" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+</button>
 <div class="anag-action-overlay" id="anag-action-overlay" hidden onclick="closeAnagPersonMenu()"></div>
 <div class="anag-action-sheet" id="anag-action-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="anag-action-title">
   <div class="anag-action-handle" aria-hidden="true"></div>
@@ -8131,11 +8304,19 @@ function syncChierichettiAdminUi() {
 
 function syncGruppiAdminUi() {
   const formWrap = document.getElementById('gruppi-gestione-form-wrap');
-  if (formWrap) formWrap.style.display = isCurrentUserAdmin() ? '' : 'none';
+  if (formWrap) {
+    if (!isCurrentUserAdmin()) {
+      formWrap.style.display = 'none';
+      closeGruppiFormSheet();
+    } else {
+      formWrap.style.display = '';
+    }
+  }
   const unassignedActions = document.getElementById('gruppi-unassigned-actions');
   if (unassignedActions && !isCurrentUserAdmin()) unassignedActions.style.display = 'none';
   const turniForm = document.querySelector('.turni-form-panel');
   if (turniForm) turniForm.style.display = isCurrentUserAdmin() ? '' : 'none';
+  syncGruppiFab();
 }
 
 function isEditingOwnCerimoniere() {
@@ -8964,6 +9145,10 @@ document.addEventListener('keydown', (e) => {
     closeMesseSheet();
     return;
   }
+  if (document.body.classList.contains('gruppi-sheet-open')) {
+    closeGruppiFormSheet();
+    return;
+  }
   closeMobileMore();
   closeSidebar();
 });
@@ -8971,9 +9156,11 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => {
   syncAnagFab();
   syncMesseFab();
+  syncGruppiFab();
   if (!isAnagMobile()) {
     document.body.classList.remove('anag-sheet-open');
     document.body.classList.remove('messe-sheet-open');
+    closeGruppiFormSheet();
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
     const tel = document.getElementById('anag-telefoni-fields');
@@ -9072,8 +9259,10 @@ async function showSection(sectionId) {
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
+  if (sectionId !== 'gruppi') closeGruppiFormSheet();
   syncAnagFab();
   syncMesseFab();
+  syncGruppiFab();
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
@@ -10423,6 +10612,8 @@ function switchGruppiTab(tab) {
   document.getElementById('gruppi-panel-squadre')?.classList.toggle('active', tab === 'squadre');
   document.getElementById('gruppi-panel-gestione')?.classList.toggle('active', tab === 'gestione');
   document.getElementById('gruppi-panel-cronologia')?.classList.toggle('active', tab === 'cronologia');
+  if (tab !== 'gestione') closeGruppiFormSheet();
+  else syncGruppiFab();
   if (tab === 'cronologia') renderGruppiCronologia();
 }
 
@@ -10597,6 +10788,7 @@ function createNuovoGruppoFromForm(e) {
   document.getElementById('nuovo-gruppo-day').value = '0';
   document.getElementById('nuovo-gruppo-ora').value = '10:00';
   syncNuovoGruppoFormDay();
+  closeGruppiFormSheet();
   switchGruppiTab('gestione');
   afterGruppiConfigChange();
   showToast(newGruppo ? `${newGruppo.nome} creato` : 'Gruppo creato');
@@ -13522,6 +13714,7 @@ async function renderGruppi() {
   renderGruppiCronologia();
   updateNuovoGruppoFormDefaults();
   syncNuovoGruppoFormDay();
+  syncGruppiFab();
 }
 
 function getGruppiAttivi() {
@@ -14052,7 +14245,7 @@ function renderGruppiGestioneList() {
 
   if (!gruppi.length) {
     container.innerHTML = isCurrentUserAdmin()
-      ? '<p class="empty-state">Nessun gruppo — aggiungine uno con il modulo sopra</p>'
+      ? '<p class="empty-state">Nessun gruppo — creane uno</p>'
       : '<p class="empty-state">Nessuna squadra configurata — chiedi all\'admin di crearne una</p>';
   } else {
     container.innerHTML = gruppi.map(g => buildGruppoCardHtml(g)).join('');
@@ -14562,6 +14755,40 @@ function openMesseExtraSheet() {
     document.getElementById('messe-extra-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('messa-extra-data')?.focus();
   });
+}
+
+function isGruppiMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function syncGruppiFab() {
+  const fab = document.getElementById('gruppi-fab');
+  if (!fab) return;
+  const onGruppi = document.getElementById('gruppi')?.classList.contains('active');
+  const onGestione = gruppiTab === 'gestione';
+  const sheetOpen = document.body.classList.contains('gruppi-sheet-open');
+  const show = !!(onGruppi && onGestione && isGruppiMobile() && !sheetOpen && isCurrentUserAdmin());
+  fab.hidden = !show;
+  fab.classList.toggle('is-visible', show);
+}
+
+function openGruppiFormSheet() {
+  if (!isGruppiMobile()) return;
+  const wrap = document.getElementById('gruppi-gestione-form-wrap');
+  if (!wrap) return;
+  wrap.classList.remove('is-collapsed');
+  document.body.classList.add('gruppi-sheet-open');
+  syncGruppiFab();
+  requestAnimationFrame(() => {
+    document.getElementById('nuovo-gruppo-nome')?.focus();
+  });
+}
+
+function closeGruppiFormSheet() {
+  const wrap = document.getElementById('gruppi-gestione-form-wrap');
+  if (wrap) wrap.classList.add('is-collapsed');
+  document.body.classList.remove('gruppi-sheet-open');
+  syncGruppiFab();
 }
 
 function toggleRegistroFilters() {
