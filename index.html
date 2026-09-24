@@ -5627,28 +5627,104 @@ body.anag-sheet-open { overflow: hidden; }
     margin: 0;
   }
 
+  /* Gestione: senza gruppo in cima, squadre compatte, assegna solo dal pannello */
+  #gruppi-panel-gestione .gruppi-gestione-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
   #gruppi-panel-gestione .gruppi-unassigned-panel {
-    position: sticky;
-    bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
-    z-index: 35;
-    margin: 12px 14px 0;
-    padding: 12px;
+    order: -1;
+    position: static;
+    z-index: auto;
+    margin: 0 0 12px;
+    padding: 12px 14px 14px;
     background: var(--surface);
-    border: 1px solid rgba(196, 92, 18, 0.28);
-    border-radius: 14px;
-    box-shadow: 0 8px 24px rgba(12, 24, 41, 0.12);
+    border: none;
+    border-bottom: 1px solid rgba(196, 92, 18, 0.22);
+    border-radius: 0;
+    box-shadow: none;
   }
   #gruppi-panel-gestione .gruppi-unassigned-panel .config-section-title {
     font-size: 0.72rem;
     margin: 0 0 4px;
   }
   #gruppi-panel-gestione .gruppi-unassigned-hint {
-    font-size: 0.75rem;
-    margin: 0 0 8px;
+    font-size: 0.78rem;
+    margin: 0 0 10px;
+    line-height: 1.35;
   }
   #gruppi-panel-gestione .gruppi-parrocchia-title {
-    font-size: 0.7rem;
-    margin: 6px 0 4px;
+    font-size: 0.68rem;
+    margin: 8px 0 6px;
+    letter-spacing: 0.04em;
+  }
+  #gruppi-panel-gestione .gruppi-parrocchia-section:first-child .gruppi-parrocchia-title {
+    margin-top: 0;
+  }
+  #gruppi-panel-gestione #gruppi-non-assegnati {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chip {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-family: inherit;
+    line-height: 1.2;
+    border-radius: 999px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #gruppi-panel-gestione #gruppi-non-assegnati button.gruppo-member-chip {
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chip.is-selected {
+    border-color: rgba(37, 99, 168, 0.45);
+    background: var(--sky-muted);
+    color: var(--sky);
+    font-weight: 600;
+  }
+  #gruppi-panel-gestione .gruppi-unassigned-actions {
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  #gruppi-panel-gestione .gruppi-unassigned-actions select,
+  #gruppi-panel-gestione .gruppi-unassigned-actions .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+  #gruppi-panel-gestione .gruppi-list-title {
+    order: 0;
+    padding: 4px 14px 8px;
+    margin: 0;
+  }
+  #gruppi-gestione-list { order: 1; }
+  #gruppi-gestione-list .gruppo-add-row { display: none; }
+  #gruppi-gestione-list .gruppo-squadra-card {
+    padding: 12px 14px;
+  }
+  #gruppi-gestione-list .gruppo-squadra-head {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  #gruppi-gestione-list .gruppo-servizio-meta {
+    font-size: 0.74rem;
+    line-height: 1.3;
+  }
+  #gruppi-gestione-list .gruppo-member-chips .liturgy-meta {
+    display: none;
   }
 
   #gruppi-gestione-form-wrap.gruppi-gestione-form {
@@ -6145,9 +6221,11 @@ body.anag-sheet-open { overflow: hidden; }
     border-right: none;
     box-shadow: none;
     background: transparent;
+    overflow: visible;
   }
   #anagrafica .anag-list-panel {
     background: transparent;
+    overflow: visible;
   }
   #anagrafica .panel-body {
     padding: 0 0 8px;
@@ -10408,11 +10486,18 @@ function formatTurnoSlotBrief(slot) {
   return `${day} ${slot.ora}${vig} · ${sede}`;
 }
 
-function formatGruppoServizioMeta(gruppoId) {
+function formatGruppoServizioMeta(gruppoId, opts = {}) {
+  const compact = !!opts.compact;
   const assignments = getTurniAssignmentsForGruppo(gruppoId);
   if (!assignments.length) return '';
 
   if (isRotazioneAttiva()) {
+    if (compact) {
+      const current = getCurrentWeekAssignmentForGruppo(gruppoId);
+      if (current) return `Questa sett. · ${formatTurnoSlotBrief(current.slot)}`;
+      const first = assignments[0];
+      return first ? formatTurnoSlotBrief(first.slot) : '';
+    }
     const cicli = assignments.map(({ slot, rotationWeek }) =>
       `${formatRotazioneTurnoLabel(rotationWeek + 1)}: ${formatMessaServizioLabel(slot.turnoNum)} ${formatTurnoSlotBrief(slot)}`
     ).join(' · ');
@@ -10426,6 +10511,7 @@ function formatGruppoServizioMeta(gruppoId) {
   const turnoNum = getFixedTurnoNumForGruppo(gruppoId);
   const slot = getTurniSlot().find(s => s.turnoNum === turnoNum);
   if (!slot) return '';
+  if (compact) return formatTurnoSlotBrief(slot);
   return `Servizio fisso — ${formatMessaServizioLabel(turnoNum)}: ${formatTurnoSlotBrief(slot)} · ${getSlotParrocchiaLabel(slot.sede)}`;
 }
 
@@ -13042,7 +13128,7 @@ async function renderChierichetti() {
     if (promosso) metaParts.push(linkedAcc?.email || 'Ora cerimoniere');
     else if (!attivo) metaParts.push('Ex');
     else if (c.gruppo) metaParts.push(getGruppoLabel(c.gruppo));
-    else if (!mobile) metaParts.push('Senza gruppo');
+    else metaParts.push('Senza gruppo');
     if (c.annoNascita && !mobile) metaParts.push(formatAnnoNascitaLabel(c.annoNascita));
     const metaLine = metaParts.join(' · ');
     const chips = [];
@@ -13811,7 +13897,8 @@ function buildGruppoVetrinaCardHtml(g) {
 
 function buildGruppoCardHtml(g) {
   const members = getChierichettiInGruppo(g.id);
-  const servizioMeta = formatGruppoServizioMeta(g.id);
+  const mobile = window.matchMedia('(max-width: 768px)').matches;
+  const servizioMeta = formatGruppoServizioMeta(g.id, { compact: mobile });
   const nCer = members.filter(isAppelloCerimoniere).length;
   const canManage = isCurrentUserAdmin();
 
@@ -13822,7 +13909,7 @@ function buildGruppoCardHtml(g) {
         ${canManage ? `<button type="button" title="Rimuovi dal gruppo" onclick="unassignChierichettoFromGruppo('${esc(c.uuid)}')" aria-label="Rimuovi">×</button>` : ''}
       </span>
     `).join('')
-    : '<span class="liturgy-meta">Squadra vuota — aggiungi chierichetti o cerimonieri sotto</span>';
+    : (mobile ? '' : '<span class="liturgy-meta">Squadra vuota — aggiungi chierichetti o cerimonieri sotto</span>');
 
   return `
     <div class="gruppo-squadra-card">
@@ -13838,7 +13925,7 @@ function buildGruppoCardHtml(g) {
           </button>` : ''}
         </div>
       </div>
-      <div class="gruppo-member-chips">${membersHtml}</div>
+      ${membersHtml ? `<div class="gruppo-member-chips">${membersHtml}</div>` : ''}
       ${canManage ? renderGruppoAddRow(g.id) : ''}
     </div>
   `;
@@ -14092,23 +14179,43 @@ function renderUnassignedPanel(unassigned, gruppi) {
   const actionsEl = document.getElementById('gruppi-unassigned-actions');
   const chiSelect = document.getElementById('unassigned-chi-select');
   const gruppoSelect = document.getElementById('unassigned-gruppo-select');
+  const titleEl = document.querySelector('#gruppi-unassigned-wrap .config-section-title');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
+  const mobile = window.matchMedia('(max-width: 768px)').matches;
+  const canManage = isCurrentUserAdmin();
 
   if (!allChi.length) {
-    if (hintEl) hintEl.textContent = 'Prima registra i chierichetti in Anagrafica (Vanzago o Mantegazza), poi torna qui per assegnarli ai gruppi.';
+    if (titleEl) titleEl.textContent = 'Senza gruppo';
+    if (hintEl) hintEl.textContent = 'Prima registra i chierichetti in Anagrafica, poi torna qui per assegnarli.';
     if (chipsEl) chipsEl.innerHTML = '';
     if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
   if (!unassigned.length) {
+    if (titleEl) titleEl.textContent = 'Senza gruppo';
     if (hintEl) hintEl.textContent = '';
     if (chipsEl) chipsEl.innerHTML = '';
     if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
-  if (hintEl) hintEl.textContent = `${unassigned.length} chierichetti o cerimonieri senza gruppo — assegnali a una squadra compatibile con le messe del turno.`;
+  if (titleEl) titleEl.textContent = `Senza gruppo · ${unassigned.length}`;
+  if (hintEl) {
+    hintEl.textContent = mobile
+      ? 'Tocca un nome, scegli la squadra e assegna.'
+      : `${unassigned.length} chierichetti o cerimonieri senza gruppo — assegnali a una squadra compatibile con le messe del turno.`;
+  }
+
+  const chipHtml = (c) => {
+    const label = mobile
+      ? esc(c.nome)
+      : `${esc(c.nome)} · ${esc(formatAnnoNascitaLabel(c.annoNascita))}`;
+    if (mobile && canManage) {
+      return `<button type="button" class="gruppo-member-chip" data-unassigned-uuid="${esc(c.uuid)}" onclick="selectUnassignedPerson('${esc(c.uuid)}')">${label}</button>`;
+    }
+    return `<span class="gruppo-member-chip">${label}</span>`;
+  };
 
   const byParrocchia = (id) => unassigned.filter(c => c.parrocchia === id);
   const sections = ['vanzago', 'mantegazza'].map(pid => {
@@ -14118,9 +14225,7 @@ function renderUnassignedPanel(unassigned, gruppi) {
       <div class="gruppi-parrocchia-section">
         <p class="gruppi-parrocchia-title">${esc(getParrocchiaLabel(pid))}</p>
         <div class="gruppo-member-chips">
-          ${list.map(c => `
-            <span class="gruppo-member-chip">${esc(c.nome)} · ${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>
-          `).join('')}
+          ${list.map(chipHtml).join('')}
         </div>
       </div>
     `;
@@ -14131,9 +14236,7 @@ function renderUnassignedPanel(unassigned, gruppi) {
     <div class="gruppi-parrocchia-section">
       <p class="gruppi-parrocchia-title">Parrocchia da impostare</p>
       <div class="gruppo-member-chips">
-        ${senzaParrocchia.map(c => `
-          <span class="gruppo-member-chip">${esc(c.nome)} · ${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>
-        `).join('')}
+        ${senzaParrocchia.map(chipHtml).join('')}
       </div>
     </div>
   ` : '';
@@ -14144,10 +14247,30 @@ function renderUnassignedPanel(unassigned, gruppi) {
     chiSelect.innerHTML = '<option value="">Seleziona chierichetto o cerimoniere…</option>' +
       buildGruppoPersonaSelectOptions(unassigned);
     chiSelect.setAttribute('aria-label', 'Chierichetto o cerimoniere');
-    chiSelect.onchange = () => populateUnassignedGruppoSelect(gruppi);
+    chiSelect.onchange = () => {
+      syncUnassignedChipSelection(chiSelect.value);
+      populateUnassignedGruppoSelect(gruppi);
+    };
   }
   populateUnassignedGruppoSelect(gruppi);
-  if (actionsEl) actionsEl.style.display = 'flex';
+  if (actionsEl) actionsEl.style.display = canManage ? 'flex' : 'none';
+}
+
+function selectUnassignedPerson(uuid) {
+  const chiSelect = document.getElementById('unassigned-chi-select');
+  if (!chiSelect) return;
+  chiSelect.value = uuid || '';
+  syncUnassignedChipSelection(uuid);
+  populateUnassignedGruppoSelect(getGruppiAttivi());
+  requestAnimationFrame(() => {
+    document.getElementById('unassigned-gruppo-select')?.focus();
+  });
+}
+
+function syncUnassignedChipSelection(uuid) {
+  document.querySelectorAll('#gruppi-non-assegnati [data-unassigned-uuid]').forEach(el => {
+    el.classList.toggle('is-selected', el.getAttribute('data-unassigned-uuid') === uuid);
+  });
 }
 
 function populateUnassignedGruppoSelect(gruppi) {
