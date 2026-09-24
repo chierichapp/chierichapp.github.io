@@ -6009,7 +6009,7 @@ input[type="radio"] {
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
-          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Accessi</button>
+          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Cerimonieri e Don</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -11409,7 +11409,7 @@ async function renderChierichetti() {
   const nEx = anagChi.length - nAttivi;
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
   const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nCerAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nCerAttivi})`;
 
   const statusAttivi = document.getElementById('anag-status-attivi');
   const statusEx = document.getElementById('anag-status-ex');
@@ -11559,7 +11559,7 @@ function renderCerimonieri() {
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
   const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nAttivi})`;
   const cerAttiviBtn = document.getElementById('anag-cer-status-attivi');
   const cerExBtn = document.getElementById('anag-cer-status-ex');
   if (cerAttiviBtn) cerAttiviBtn.textContent = `Attivi (${nAttivi})`;
