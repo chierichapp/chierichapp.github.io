@@ -577,7 +577,7 @@
     const sb = requireClient();
     const me = await getCurrentCerimoniere();
     if (!me?.admin) {
-      return { success: false, message: 'Solo l\'admin può creare nuovi accessi' };
+      return { success: false, message: 'Solo l\'admin può promuovere o creare accessi' };
     }
     const email = String(dati.email || '').trim().toLowerCase();
     const password = String(dati.password || '');

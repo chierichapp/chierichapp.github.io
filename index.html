@@ -2296,7 +2296,7 @@ input[type="radio"] {
   right: 20px;
   left: auto;
   bottom: auto;
-  z-index: 1100;
+  z-index: 1400;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2312,7 +2312,7 @@ input[type="radio"] {
   gap: 12px;
   width: 100%;
   padding: 13px 16px;
-  background: var(--surface);
+  background: #ffffff;
   color: var(--ink);
   border-radius: 14px;
   font-size: 0.875rem;
@@ -2321,9 +2321,11 @@ input[type="radio"] {
   box-shadow:
     0 10px 28px rgba(12, 24, 41, 0.14),
     0 2px 6px rgba(12, 24, 41, 0.06);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-left: 4px solid var(--sky);
   animation: toastIn 0.38s var(--ease);
+  opacity: 1;
+  isolation: isolate;
 }
 
 .toast-icon {
@@ -2348,10 +2350,10 @@ input[type="radio"] {
 }
 
 .toast.is-success {
-  background: color-mix(in srgb, var(--success-bg) 70%, var(--surface));
-  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
+  background: #eaf6f0;
+  border-color: #b7dfc9;
   border-left-color: var(--success);
-  color: color-mix(in srgb, var(--success) 55%, var(--ink));
+  color: #0f5c3d;
 }
 
 .toast.is-success .toast-icon {
@@ -2360,10 +2362,10 @@ input[type="radio"] {
 }
 
 .toast.is-error {
-  background: color-mix(in srgb, var(--danger-bg) 70%, var(--surface));
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: #fbf0ef;
+  border-color: #efc4bf;
   border-left-color: var(--danger);
-  color: color-mix(in srgb, var(--danger) 55%, var(--ink));
+  color: #8f1c15;
 }
 
 .toast.is-error .toast-icon {
@@ -2372,8 +2374,9 @@ input[type="radio"] {
 }
 
 .toast.is-info {
-  background: var(--surface);
+  background: #ffffff;
   border-left-color: var(--sky);
+  color: var(--ink);
 }
 
 .toast.is-info .toast-icon {
@@ -7310,7 +7313,7 @@ function isCurrentUserAdmin() {
 
 function requireAdminAction(msg) {
   if (isCurrentUserAdmin()) return true;
-  showToast(msg || 'Solo l\'admin può modificare questa sezione');
+  showToast(msg || 'Solo l\'admin può modificare questa sezione', 'error');
   return false;
 }
 
@@ -11636,7 +11639,10 @@ function setChierichettoFormMode(mode) {
 }
 
 function startPromoteChierichetto(uuid) {
-  if (!requireAdminAction('Solo l\'admin può promuovere a cerimoniere')) return;
+  if (!isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può promuovere a cerimoniere', 'error');
+    return;
+  }
   const c = state.chierichetti.find(ch => ch.uuid === uuid);
   if (!c || !isChierichettoPersona(c) || isChierichettoPromosso(c) || !isPersonaAttiva(c)) return;
 
@@ -11667,7 +11673,11 @@ function cancelPromoteChierichetto() {
 
 async function handlePromoteChierichettoSubmit(e) {
   e.preventDefault();
-  if (!requireAdminAction('Solo l\'admin può promuovere a cerimoniere')) return;
+  if (!isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può promuovere a cerimoniere', 'error');
+    cancelPromoteChierichetto();
+    return;
+  }
 
   const uuid = document.getElementById('promote-uuid').value || promotingUuid;
   const c = state.chierichetti.find(ch => ch.uuid === uuid);
@@ -11773,6 +11783,8 @@ async function handlePromoteChierichettoSubmit(e) {
 
 async function renderChierichetti() {
   await loadCerimonieriAccounts();
+  if (syncCurrentUserAdminFlag()) updateSidebarUser();
+  if (promotingUuid && !isCurrentUserAdmin()) cancelPromoteChierichetto();
   syncAnagraficaStatusTabs();
 
   const anagChi = state.chierichetti.filter(isAnagraficaChierichetto);
