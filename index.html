@@ -1070,6 +1070,36 @@ input[type="radio"] {
   border-left: none;
 }
 
+.anag-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.anag-filter-status {
+  display: none;
+}
+
+.anag-status-hint {
+  display: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.anag-status-hint button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sky);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .anag-person-meta {
   display: none;
   margin: 4px 0 0;
@@ -1079,6 +1109,23 @@ input[type="radio"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.anag-avatar {
+  position: relative;
+}
+
+.anag-avatar.is-nogroup::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warning);
+  border: 2px solid var(--surface);
+  box-sizing: border-box;
 }
 
 .anag-filters {
@@ -5635,6 +5682,7 @@ body.anag-sheet-open { overflow: hidden; }
   }
 
   body:has(#anagrafica.active) .page-header p { display: none; }
+  body:has(#anagrafica.active) .content { padding-top: 8px; }
 
   #anagrafica.section.active {
     margin-left: -14px;
@@ -5644,7 +5692,7 @@ body.anag-sheet-open { overflow: hidden; }
     box-sizing: border-box;
   }
   #anagrafica > .section-tabs {
-    margin: 0 14px 6px;
+    margin: 0 14px 8px;
     width: auto;
     max-width: none;
     background: transparent;
@@ -5655,9 +5703,9 @@ body.anag-sheet-open { overflow: hidden; }
   }
   #anagrafica > .section-tabs .section-tab {
     flex: 1;
-    min-height: 40px;
-    padding: 8px 6px 10px;
-    font-size: 0.82rem;
+    min-height: 36px;
+    padding: 6px 4px 8px;
+    font-size: 0.8rem;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
@@ -5683,9 +5731,13 @@ body.anag-sheet-open { overflow: hidden; }
     border-left: none;
     border-right: none;
     box-shadow: none;
+    background: transparent;
+  }
+  #anagrafica .anag-list-panel {
+    background: transparent;
   }
   #anagrafica .panel-body {
-    padding: 6px 0 8px;
+    padding: 0 0 8px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -5693,45 +5745,47 @@ body.anag-sheet-open { overflow: hidden; }
   #anagrafica .anag-form-panel .panel-body,
   #anagrafica #cerimoniere-form-panel .panel-head,
   #anagrafica #cerimoniere-form-panel .panel-body,
-  #anagrafica .anag-list-toolbar,
   #anagrafica .toolbar {
     padding-left: 14px;
     padding-right: 14px;
     box-sizing: border-box;
   }
-  #anagrafica .anag-status-tabs {
-    display: flex;
-    width: calc(100% - 28px);
-    margin: 0 14px 8px;
-    padding: 0;
-    gap: 6px;
+  #anagrafica .anag-chrome {
+    gap: 8px;
+    margin: 0;
+    padding: 0 14px 10px;
     background: transparent;
-    border-radius: 0;
-    box-sizing: border-box;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    border: none;
   }
-  #anagrafica .anag-status-tab {
-    flex: 0 0 auto;
-    min-height: 30px;
-    padding: 5px 11px;
-    text-align: center;
-    white-space: nowrap;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 999px;
-    background: var(--cream-dark);
-    color: var(--muted);
-    box-shadow: none;
+  #anagrafica .anag-list-toolbar {
+    gap: 8px;
+    margin: 0;
+    padding: 0;
   }
-  #anagrafica .anag-status-tab.active {
-    background: var(--ink);
-    color: #fff;
+  #anagrafica .anag-status-tabs {
+    display: none;
+  }
+  #anagrafica .anag-filter-status {
+    display: block;
+    grid-column: 1 / -1;
+  }
+  #anagrafica .anag-filters.is-open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  #anagrafica .anag-status-hint {
+    display: block;
+    margin: -2px 0 0;
+  }
+  #anagrafica .anag-status-hint[hidden] {
+    display: none !important;
   }
   #anagrafica .list {
     gap: 0;
     width: 100%;
     padding-bottom: 88px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
   }
   #anagrafica .list-item.anag-person,
   #anagrafica .list-item {
@@ -5745,24 +5799,36 @@ body.anag-sheet-open { overflow: hidden; }
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 11px 14px;
+    padding: 9px 14px;
     gap: 12px;
     background: var(--surface);
+    cursor: pointer;
+    transition: background 0.12s var(--ease);
+  }
+  #anagrafica .list-item.anag-person:active {
+    background: var(--cream);
   }
   #anagrafica .list-item + .list-item { border-top: 1px solid var(--border); }
   #anagrafica .anag-avatar {
-    width: 38px;
-    height: 38px;
-    font-size: 0.82rem;
+    width: 34px;
+    height: 34px;
+    font-size: 0.74rem;
     border-radius: 50%;
   }
   #anagrafica .anag-chips { display: none; }
   #anagrafica .anag-contact { display: none; }
-  #anagrafica .anag-person-meta { display: block; }
+  #anagrafica .anag-person-meta {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.74rem;
+    color: var(--muted);
+  }
   #anagrafica .list-item-title {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    font-weight: 600;
     line-height: 1.2;
     margin: 0;
+    color: var(--ink);
   }
   #anagrafica .anag-person-body,
   #anagrafica .list-item-main {
@@ -5775,9 +5841,27 @@ body.anag-sheet-open { overflow: hidden; }
     flex-shrink: 0;
     justify-content: flex-end;
   }
+  #anagrafica .anag-person-menu-btn {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    color: var(--muted-light);
+    border-radius: 10px;
+  }
+  #anagrafica .anag-person-menu-btn:active {
+    background: var(--cream-dark);
+    color: var(--ink);
+  }
   #anagrafica .anag-empty {
-    margin: 0 14px 100px;
+    margin: 24px 14px 100px;
     width: auto;
+  }
+  .anag-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(37, 99, 168, 0.28);
   }
 }
 
@@ -6636,29 +6720,37 @@ body.anag-sheet-open { overflow: hidden; }
               <button type="button" class="btn btn-primary btn-sm" id="btn-anag-add" onclick="startNewChierichetto()" style="margin:16px 16px 0 0">Aggiungi</button>
             </div>
             <div class="panel-body">
-              <div class="anag-status-tabs" role="tablist" aria-label="Stato chierichetti">
-                <button type="button" class="anag-status-tab active" id="anag-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
-                <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
-                <button type="button" class="anag-status-tab" id="anag-status-promossi" onclick="setAnagraficaStatusFilter('promossi')">Ora cer.</button>
-              </div>
-              <div class="anag-list-toolbar">
-                <div class="anag-search-bar">
-                  <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
-                  <button type="button" class="anag-filters-toggle" id="btn-anag-filters" onclick="toggleAnagFilters()" aria-expanded="false" aria-controls="anag-filters" title="Filtri" aria-label="Filtri">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
-                    <span class="anag-filters-toggle-label">Filtri</span>
-                  </button>
+              <div class="anag-chrome">
+                <div class="anag-status-tabs" role="tablist" aria-label="Stato chierichetti">
+                  <button type="button" class="anag-status-tab active" id="anag-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
+                  <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
+                  <button type="button" class="anag-status-tab" id="anag-status-promossi" onclick="setAnagraficaStatusFilter('promossi')">Ora cer.</button>
                 </div>
-                <div class="anag-filters" id="anag-filters">
-                  <select id="filter-anno-nascita" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per anno di nascita">
-                    <option value="">Tutti gli anni</option>
-                  </select>
-                  <select id="filter-parrocchia" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per parrocchia">
-                    <option value="">Tutte le parrocchie</option>
-                    <option value="vanzago">Vanzago</option>
-                    <option value="mantegazza">Mantegazza</option>
-                  </select>
+                <div class="anag-list-toolbar">
+                  <div class="anag-search-bar">
+                    <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
+                    <button type="button" class="anag-filters-toggle" id="btn-anag-filters" onclick="toggleAnagFilters()" aria-expanded="false" aria-controls="anag-filters" title="Filtri" aria-label="Filtri">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
+                      <span class="anag-filters-toggle-label">Filtri</span>
+                    </button>
+                  </div>
+                  <div class="anag-filters" id="anag-filters">
+                    <select id="filter-anag-status" class="anag-filter-status" onchange="setAnagraficaStatusFilter(this.value)" aria-label="Stato">
+                      <option value="attivi">Attivi</option>
+                      <option value="ex">Ex</option>
+                      <option value="promossi">Promossi</option>
+                    </select>
+                    <select id="filter-anno-nascita" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per anno di nascita">
+                      <option value="">Tutti gli anni</option>
+                    </select>
+                    <select id="filter-parrocchia" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per parrocchia">
+                      <option value="">Tutte le parrocchie</option>
+                      <option value="vanzago">Vanzago</option>
+                      <option value="mantegazza">Mantegazza</option>
+                    </select>
+                  </div>
                 </div>
+                <p class="anag-status-hint" id="anag-status-hint" hidden></p>
               </div>
               <div class="list" id="chierichetti-list"></div>
             </div>
@@ -11879,6 +11971,8 @@ function syncAnagraficaStatusTabs() {
   document.getElementById('anag-status-promossi')?.classList.toggle('active', filter === 'promossi');
   document.getElementById('anag-cer-status-attivi')?.classList.toggle('active', filter === 'attivi');
   document.getElementById('anag-cer-status-ex')?.classList.toggle('active', filter === 'ex');
+  const statusSelect = document.getElementById('filter-anag-status');
+  if (statusSelect && statusSelect.value !== filter) statusSelect.value = filter;
 }
 
 function setAnagraficaStatusFilter(status) {
@@ -12099,8 +12193,9 @@ function syncAnagFiltersToggle() {
   if (!btn) return;
   const anno = document.getElementById('filter-anno-nascita')?.value;
   const parro = document.getElementById('filter-parrocchia')?.value;
+  const statusOff = anagraficaStatusFilter !== 'attivi';
   const open = !!filters?.classList.contains('is-open');
-  const active = open || !!(anno || parro);
+  const active = open || !!(anno || parro || statusOff);
   btn.classList.toggle('is-active', active);
 }
 
@@ -12314,6 +12409,18 @@ async function renderChierichetti() {
   const search = document.getElementById('search-chierichetti').value.toLowerCase();
   const statusFilter = anagraficaStatusFilter;
 
+  const statusHint = document.getElementById('anag-status-hint');
+  if (statusHint) {
+    if (mobile && statusFilter !== 'attivi') {
+      const label = statusFilter === 'ex' ? `Ex (${nEx})` : `Promossi (${nPromossi})`;
+      statusHint.hidden = false;
+      statusHint.innerHTML = `Vista <strong>${esc(label)}</strong> · <button type="button" onclick="setAnagraficaStatusFilter('attivi')">Torna agli attivi</button>`;
+    } else {
+      statusHint.hidden = true;
+      statusHint.textContent = '';
+    }
+  }
+
   const filtered = anagChi.filter(c => {
     const promosso = isChierichettoPromosso(c);
     if (statusFilter === 'promossi') {
@@ -12361,12 +12468,17 @@ async function renderChierichetti() {
     const attivo = isPersonaAttiva(c);
     const promosso = isChierichettoPromosso(c);
     const linkedAcc = cerimonieriAccounts.find(a => a.chierichettoUuid === c.uuid);
-    const avatarClass = promosso ? 'is-cer' : (!attivo ? 'is-ex' : '');
+    const noGroup = !!(attivo && !promosso && !c.gruppo);
+    const avatarClass = [
+      promosso ? 'is-cer' : (!attivo ? 'is-ex' : ''),
+      noGroup && mobile ? 'is-nogroup' : ''
+    ].filter(Boolean).join(' ');
     const metaParts = [];
     if (c.parrocchia) metaParts.push(getParrocchiaLabel(c.parrocchia));
     if (promosso) metaParts.push(linkedAcc?.email || 'Ora cerimoniere');
-    else if (attivo) metaParts.push(c.gruppo ? getGruppoLabel(c.gruppo) : 'Senza gruppo');
-    else metaParts.push('Ex');
+    else if (!attivo) metaParts.push('Ex');
+    else if (c.gruppo) metaParts.push(getGruppoLabel(c.gruppo));
+    else if (!mobile) metaParts.push('Senza gruppo');
     if (c.annoNascita && !mobile) metaParts.push(formatAnnoNascitaLabel(c.annoNascita));
     const metaLine = metaParts.join(' · ');
     const chips = [];
@@ -12390,17 +12502,20 @@ async function renderChierichetti() {
     };
     pushTel(c.telefono, c.telefonoChi);
     pushTel(c.telefono2, c.telefono2Chi);
+    const rowAction = promosso
+      ? `openAnagPersonMenu(${jsStr(c.uuid)})`
+      : `editChierichetto(${jsStr(c.uuid)})`;
     return `
-    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}">
+    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
       <div class="anag-person-body">
         <p class="list-item-title">${chierichettoNomeHtml(c)}</p>
-        <p class="anag-person-meta">${esc(metaLine)}</p>
+        ${metaLine ? `<p class="anag-person-meta">${esc(metaLine)}</p>` : ''}
         <div class="anag-chips">${chips.join('')}</div>
         ${contacts.length ? `<div class="anag-contact">${contacts.join('')}</div>` : ''}
       </div>
       <div class="list-item-actions">
-        <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="openAnagPersonMenu(${jsStr(c.uuid)})">
+        <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagPersonMenu(${jsStr(c.uuid)})">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
         </button>
       </div>
