@@ -7947,10 +7947,22 @@ body.anag-sheet-open { overflow: hidden; }
         <p class="mobile-more-sub">Rito ambrosiano · Parrocchia</p>
       </div>
     </div>
-    <nav class="mobile-more-nav" aria-label="Altre sezioni">
+    <nav class="mobile-more-nav" aria-label="Tutte le sezioni">
+      <button type="button" class="mobile-more-item" data-section="dashboard" onclick="showSection('dashboard')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg></span>
+        Oggi
+      </button>
+      <button type="button" class="mobile-more-item" data-section="presenze" onclick="openAppello()">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg></span>
+        Appello
+      </button>
       <button type="button" class="mobile-more-item" data-section="registro" onclick="showSection('registro')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg></span>
         Registro
+      </button>
+      <button type="button" class="mobile-more-item" data-section="messe" onclick="showSection('messe')">
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg></span>
+        Messe
       </button>
       <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
