@@ -77,6 +77,7 @@
       telefono: row.telefono || '',
       ruolo: row.ruolo || 'chierichetto',
       cerimoniereTurno: false,
+      promosso: !!row.promosso,
       attivo: row.attivo !== false,
       createdAt: row.created_at || ''
     };
@@ -429,6 +430,7 @@
       telefono: dati.telefono || '',
       ruolo: dati.ruolo || 'chierichetto',
       cerimoniere_turno: false,
+      promosso: !!dati.promosso,
       attivo: dati.attivo === false || dati.attivo === 'false' ? false : true,
       created_at: dati.createdAt || new Date().toISOString()
     };
@@ -449,6 +451,7 @@
     if (dati.telefono !== undefined) patch.telefono = dati.telefono || '';
     if (dati.ruolo) patch.ruolo = dati.ruolo;
     patch.cerimoniere_turno = false;
+    if (dati.promosso !== undefined) patch.promosso = !!dati.promosso;
     if (dati.attivo !== undefined) patch.attivo = !(dati.attivo === false || dati.attivo === 'false');
     const { error } = await sb.from('chierichetti').update(patch).eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
