@@ -726,6 +726,10 @@ body.sidebar-open { overflow: hidden; }
   border-radius: var(--radius-sm);
 }
 
+.anag-tel-card > .form-section-label {
+  margin: 0 0 10px;
+}
+
 .anag-tel-card > .form-group {
   margin-bottom: 12px;
 }
@@ -6198,9 +6202,9 @@ input[type="radio"] {
                 <p class="liturgy-meta" id="anag-gruppo-hint" style="display:none;margin:-4px 0 12px">
                   Il gruppo si assegna dalla pagina <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('gruppi')">Gruppi</button>.
                 </p>
-                <p class="form-section-label">Telefoni genitori o tutori <span class="form-opt">(opzionale)</span></p>
                 <div class="form-row" id="anag-telefoni-fields">
                   <div class="anag-tel-card">
+                    <p class="form-section-label">Telefono 1 — Genitori o tutori <span class="form-opt">(opzionale)</span></p>
                     <div class="form-group">
                       <label for="telefono-chi">Chi</label>
                       <input type="text" id="telefono-chi" name="telefonoChi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
@@ -6211,6 +6215,7 @@ input[type="radio"] {
                     </div>
                   </div>
                   <div class="anag-tel-card">
+                    <p class="form-section-label">Telefono 2 — Genitori o tutori <span class="form-opt">(opzionale)</span></p>
                     <div class="form-group">
                       <label for="telefono2-chi">Chi</label>
                       <input type="text" id="telefono2-chi" name="telefono2Chi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
