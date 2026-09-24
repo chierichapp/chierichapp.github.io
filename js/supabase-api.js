@@ -75,6 +75,7 @@
       gruppo: row.gruppo || '',
       email: row.email || '',
       telefono: row.telefono || '',
+      telefono2: row.telefono2 || '',
       ruolo: row.ruolo || 'chierichetto',
       cerimoniereTurno: false,
       promosso: !!row.promosso,
@@ -428,6 +429,7 @@
       gruppo: dati.gruppo || '',
       email: dati.email || '',
       telefono: dati.telefono || '',
+      telefono2: dati.telefono2 || '',
       ruolo: dati.ruolo || 'chierichetto',
       cerimoniere_turno: false,
       promosso: !!dati.promosso,
@@ -449,6 +451,7 @@
     if (dati.gruppo !== undefined) patch.gruppo = dati.gruppo;
     if (dati.email !== undefined) patch.email = dati.email || '';
     if (dati.telefono !== undefined) patch.telefono = dati.telefono || '';
+    if (dati.telefono2 !== undefined) patch.telefono2 = dati.telefono2 || '';
     if (dati.ruolo) patch.ruolo = dati.ruolo;
     patch.cerimoniere_turno = false;
     if (dati.promosso !== undefined) patch.promosso = !!dati.promosso;
