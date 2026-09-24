@@ -718,6 +718,23 @@ body.sidebar-open { overflow: hidden; }
   font-weight: 400;
 }
 
+.anag-tel-card {
+  margin-bottom: 18px;
+  padding: 12px 12px 4px;
+  background: color-mix(in srgb, var(--cream) 65%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.anag-tel-card > .form-group {
+  margin-bottom: 12px;
+}
+
+.anag-tel-card > .form-group > label {
+  min-height: 0;
+  align-items: flex-start;
+}
+
 input, select, textarea {
   width: 100%;
   padding: 10px 14px;
@@ -6180,13 +6197,25 @@ input[type="radio"] {
                 </p>
                 <p class="form-section-label">Telefoni genitori o tutori <span class="form-opt">(opzionale)</span></p>
                 <div class="form-row" id="anag-telefoni-fields">
-                  <div class="form-group">
-                    <label for="telefono">Telefono 1</label>
-                    <input type="tel" id="telefono" name="telefono" placeholder="+39 333 123 4567" autocomplete="tel">
+                  <div class="anag-tel-card">
+                    <div class="form-group">
+                      <label for="telefono-chi">Chi</label>
+                      <input type="text" id="telefono-chi" name="telefonoChi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                      <label for="telefono">Numero</label>
+                      <input type="tel" id="telefono" name="telefono" placeholder="+39 333 123 4567" autocomplete="tel">
+                    </div>
                   </div>
-                  <div class="form-group">
-                    <label for="telefono2">Telefono 2</label>
-                    <input type="tel" id="telefono2" name="telefono2" placeholder="+39 333 987 6543" autocomplete="tel">
+                  <div class="anag-tel-card">
+                    <div class="form-group">
+                      <label for="telefono2-chi">Chi</label>
+                      <input type="text" id="telefono2-chi" name="telefono2Chi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                      <label for="telefono2">Numero</label>
+                      <input type="tel" id="telefono2" name="telefono2" placeholder="+39 333 987 6543" autocomplete="tel">
+                    </div>
                   </div>
                 </div>
                 <div class="form-actions" style="display:flex;gap:10px;">
@@ -11514,6 +11543,8 @@ async function setChierichettoAttivo(uuid, attivo) {
     email: '',
     telefono: next.telefono || '',
     telefono2: next.telefono2 || '',
+    telefonoChi: next.telefonoChi || '',
+    telefono2Chi: next.telefono2Chi || '',
     ruolo: 'chierichetto',
     annoNascita: next.annoNascita,
     parrocchia: next.parrocchia,
@@ -11708,6 +11739,8 @@ async function handlePromoteChierichettoSubmit(e) {
         email: '',
         telefono: next.telefono || '',
         telefono2: next.telefono2 || '',
+        telefonoChi: next.telefonoChi || '',
+        telefono2Chi: next.telefono2Chi || '',
         ruolo: 'chierichetto',
         annoNascita: next.annoNascita,
         parrocchia: next.parrocchia,
@@ -11779,7 +11812,9 @@ async function renderChierichetti() {
     const matchSearch = !search ||
       c.nome.toLowerCase().includes(search) ||
       (c.telefono || '').toLowerCase().includes(search) ||
-      (c.telefono2 || '').toLowerCase().includes(search);
+      (c.telefono2 || '').toLowerCase().includes(search) ||
+      (c.telefonoChi || '').toLowerCase().includes(search) ||
+      (c.telefono2Chi || '').toLowerCase().includes(search);
     return matchAnno && matchParrocchia && matchSearch;
   });
 
@@ -11823,12 +11858,13 @@ async function renderChierichetti() {
       chips.push('<span class="anag-chip">Ex</span>');
     }
     const contacts = [];
-    if (c.telefono) {
-      contacts.push(`<a href="tel:${esc(c.telefono.replace(/\s/g, ''))}">${esc(c.telefono)}</a>`);
-    }
-    if (c.telefono2) {
-      contacts.push(`<a href="tel:${esc(c.telefono2.replace(/\s/g, ''))}">${esc(c.telefono2)}</a>`);
-    }
+    const pushTel = (num, chi) => {
+      if (!num) return;
+      const label = chi ? `${esc(chi)} · ` : '';
+      contacts.push(`<a href="tel:${esc(num.replace(/\s/g, ''))}">${label}${esc(num)}</a>`);
+    };
+    pushTel(c.telefono, c.telefonoChi);
+    pushTel(c.telefono2, c.telefono2Chi);
     let statusBtn = '';
     if (!promosso) {
       statusBtn = attivo
@@ -12272,6 +12308,8 @@ function editChierichetto(uuid) {
   document.getElementById('parrocchia').value = c.parrocchia || '';
   document.getElementById('telefono').value = c.telefono || '';
   document.getElementById('telefono2').value = c.telefono2 || '';
+  document.getElementById('telefono-chi').value = c.telefonoChi || '';
+  document.getElementById('telefono2-chi').value = c.telefono2Chi || '';
   document.getElementById('edit-uuid').value = uuid;
   document.getElementById('persona-ruolo').value = getRuoloPersona(c);
 
@@ -12816,7 +12854,7 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   );
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -12844,7 +12882,7 @@ async function unassignChierichettoFromGruppo(uuid) {
   chi.gruppo = '';
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: '' }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: '' }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -13908,6 +13946,8 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
     email: '',
     telefono: document.getElementById('telefono').value.trim(),
     telefono2: document.getElementById('telefono2').value.trim(),
+    telefonoChi: document.getElementById('telefono-chi').value.trim(),
+    telefono2Chi: document.getElementById('telefono2-chi').value.trim(),
     ruolo: 'chierichetto',
     annoNascita,
     parrocchia,
