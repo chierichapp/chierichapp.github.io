@@ -4685,8 +4685,9 @@ body.anag-sheet-open { overflow: hidden; }
     right: 0;
     bottom: 0;
     z-index: 140;
-    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
-    padding: 4px 6px env(safe-area-inset-bottom, 0px);
+    box-sizing: content-box;
+    height: var(--tabbar-h);
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
     background: rgba(247, 244, 239, 0.94);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -8560,7 +8561,6 @@ function initMobileMoreGestures() {
   const tabbar = document.getElementById('mobile-tabbar');
   if (!sheet || !overlay || !tabbar) return;
 
-  const EDGE_PX = 28;
   const OPEN_DY = 56;
   const CLOSE_DY = 64;
   let track = null;
@@ -8579,10 +8579,9 @@ function initMobileMoreGestures() {
     const nav = sheet.querySelector('.mobile-more-nav');
     const atTop = !nav || nav.scrollTop <= 0;
     const fromSheet = isSheetOpen() && sheet.contains(e.target) && (handleOrChrome || atTop);
+    // Solo dalla tab bar: lo swipe dal bordo contenuto rubava lo scroll e «espandeva» la nav
     const fromTabbar = !isSheetOpen() && tabbar.contains(e.target);
-    const fromBottomEdge = !isSheetOpen()
-      && t.clientY >= window.innerHeight - (tabbar.getBoundingClientRect().height + EDGE_PX);
-    if (!fromSheet && !fromTabbar && !fromBottomEdge) return;
+    if (!fromSheet && !fromTabbar) return;
     track = {
       x0: t.clientX,
       y0: t.clientY,
