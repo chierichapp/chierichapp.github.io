@@ -1050,7 +1050,87 @@ input[type="radio"] {
   margin-bottom: 14px;
 }
 
-.anag-search { width: 100%; }
+.anag-search-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+}
+
+.anag-search-bar .anag-search {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.anag-search-bar .anag-filters-toggle {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+}
+
+.anag-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#anag-cer-filters {
+  display: none;
+}
+
+.anag-filter-status {
+  display: none;
+}
+
+.anag-status-hint {
+  display: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.anag-status-hint button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sky);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.anag-person-meta {
+  display: none;
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anag-avatar {
+  position: relative;
+}
+
+.anag-avatar.is-nogroup::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warning);
+  border: 2px solid var(--surface);
+  box-sizing: border-box;
+}
 
 .anag-filters {
   display: flex;
@@ -1177,6 +1257,129 @@ input[type="radio"] {
 }
 
 .anag-form-toggle { display: none; }
+
+.anag-sheet-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: var(--cream-dark);
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.anag-sheet-close svg { width: 18px; height: 18px; }
+
+.anag-form-overlay {
+  display: none;
+}
+
+.anag-fab {
+  display: none;
+}
+
+.anag-filters-toggle {
+  display: none;
+}
+
+.anag-tel2-toggle {
+  display: none;
+  width: 100%;
+  margin: -6px 0 14px;
+}
+
+.anag-person-menu-btn {
+  flex-shrink: 0;
+}
+
+.anag-action-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(12, 24, 41, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.anag-action-overlay.is-open { display: block; }
+
+.anag-action-sheet {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1510;
+  width: min(360px, calc(100vw - 32px));
+  padding: 8px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(12, 24, 41, 0.22);
+  flex-direction: column;
+  gap: 2px;
+}
+
+.anag-action-sheet.is-open { display: flex; }
+
+.anag-action-handle {
+  display: none;
+}
+
+.anag-action-title {
+  margin: 4px 10px 8px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.anag-action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.anag-action-item:hover,
+.anag-action-item:active {
+  background: var(--cream);
+}
+
+.anag-action-item.is-danger {
+  color: var(--danger);
+}
+
+.anag-action-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.anag-action-cancel {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+body.anag-sheet-open { overflow: hidden; }
 
 #anagrafica .form-check {
   align-items: flex-start;
@@ -2913,10 +3116,9 @@ input[type="radio"] {
   background: none;
   cursor: pointer;
   text-decoration: underline;
+  text-underline-offset: 3px;
   display: inline-flex;
   align-items: center;
-}
-  text-underline-offset: 3px;
 }
 
 .today-turni-inline {
@@ -4483,8 +4685,9 @@ input[type="radio"] {
     right: 0;
     bottom: 0;
     z-index: 140;
-    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
-    padding: 4px 6px env(safe-area-inset-bottom, 0px);
+    box-sizing: content-box;
+    height: var(--tabbar-h);
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
     background: rgba(247, 244, 239, 0.94);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -5278,23 +5481,219 @@ input[type="radio"] {
     min-width: calc(50% - 4px);
   }
 
-  /* Anagrafica — lista a tutta larghezza su telefono */
+  /* Anagrafica — lista a tutta larghezza + sheet mobile */
   .split-grid {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column-reverse;
     gap: 10px;
   }
-  .anag-form-toggle { display: inline-flex; }
-  .anag-form-panel.is-collapsed .panel-body { display: none; }
-  .anag-form-panel.is-collapsed .panel-head {
-    border-bottom: none;
-    padding-bottom: 14px;
+  .anag-form-toggle { display: none !important; }
+  .anag-sheet-close { display: inline-flex; }
+
+  #anagrafica #chierichetto-form-panel.is-collapsed,
+  #anagrafica #cerimoniere-form-panel.is-collapsed {
+    display: none;
   }
-  .anag-form-panel:not(.is-collapsed) {
-    order: -1;
-    scroll-margin-top: calc(12px + env(safe-area-inset-top, 0px));
+
+  #anagrafica #chierichetto-form-panel:not(.is-collapsed),
+  #anagrafica #cerimoniere-form-panel:not(.is-collapsed) {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--surface);
+    order: unset;
+    scroll-margin: 0;
   }
+
+  #anagrafica #chierichetto-form-panel:not(.is-collapsed) .panel-head,
+  #anagrafica #cerimoniere-form-panel:not(.is-collapsed) .panel-head {
+    flex-shrink: 0;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    align-items: flex-start;
+  }
+
+  #anagrafica #chierichetto-form-panel:not(.is-collapsed) .panel-body,
+  #anagrafica #cerimoniere-form-panel:not(.is-collapsed) .panel-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+  }
+
+  #anagrafica #chierichetto-form-panel .form-actions,
+  #anagrafica #cerimoniere-form-panel .form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 8px -14px -8px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, transparent, var(--surface) 28%);
+    border-top: 1px solid var(--border);
+  }
+
+  .anag-form-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1290;
+    background: rgba(12, 24, 41, 0.4);
+  }
+  body.anag-sheet-open .anag-form-overlay { display: block; }
+  body.anag-sheet-open .mobile-tabbar {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #anagrafica #btn-anag-add,
+  #anagrafica #btn-cer-add { display: none !important; }
+
+  .anag-fab {
+    display: none;
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
+    z-index: 90;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: 18px;
+    background: var(--sky);
+    color: #fff;
+    box-shadow: 0 10px 28px rgba(37, 99, 168, 0.35);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .anag-fab svg { width: 24px; height: 24px; }
+  .anag-fab.is-visible { display: inline-flex; }
+  body.anag-sheet-open .anag-fab { display: none !important; }
+
+  .anag-filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    min-width: 42px;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--cream);
+    color: var(--ink-soft);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .anag-filters-toggle.is-active {
+    background: var(--sky-muted);
+    border-color: rgba(37, 99, 168, 0.35);
+    color: var(--sky);
+  }
+  .anag-filters-toggle-label { display: none; }
+
+  #anagrafica .anag-list-head { display: none; }
+
+  #anagrafica .anag-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  #anagrafica .anag-search-bar {
+    width: 100%;
+    background: var(--cream);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #anagrafica .anag-search-bar .anag-search {
+    width: auto !important;
+    min-height: 42px;
+    padding: 0 12px 0 14px;
+    font-size: 0.9rem;
+    line-height: 42px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  #anagrafica .anag-search-bar .anag-search:focus {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #anagrafica .anag-search-bar .anag-filters-toggle {
+    min-height: 42px;
+    min-width: 44px;
+    border: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  #anagrafica .anag-search-bar .anag-filters-toggle.is-active {
+    background: var(--sky-muted);
+    color: var(--sky);
+  }
+
+  #anagrafica .anag-filters {
+    display: none;
+    gap: 8px;
+  }
+  #anagrafica .anag-filters.is-open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  #anagrafica .anag-filters select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .anag-tel2-toggle { display: inline-flex; }
+  #anag-telefoni-fields .anag-tel-card:last-child { display: none; }
+  #anag-telefoni-fields.has-tel2 .anag-tel-card:last-child { display: block; }
+  #anag-telefoni-fields.has-tel2 + .anag-tel2-toggle { display: none; }
+
+  .anag-action-sheet {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    border-radius: 20px 20px 0 0;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .anag-action-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 2px auto 10px;
+    border-radius: 999px;
+    background: var(--cream-dark);
+  }
+
+  body:has(#anagrafica.active) .page-header p { display: none; }
+  body:has(#anagrafica.active) .content { padding-top: 8px; }
 
   #anagrafica.section.active {
     margin-left: -14px;
@@ -5304,9 +5703,33 @@ input[type="radio"] {
     box-sizing: border-box;
   }
   #anagrafica > .section-tabs {
-    margin: 0 14px 10px;
+    margin: 0 14px 8px;
     width: auto;
     max-width: none;
+    background: transparent;
+    padding: 0;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+  }
+  #anagrafica > .section-tabs .section-tab {
+    flex: 1;
+    min-height: 36px;
+    padding: 6px 4px 8px;
+    font-size: 0.8rem;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  #anagrafica > .section-tabs .section-tab.active {
+    color: var(--sky);
+    background: transparent;
+    box-shadow: none;
+    border-bottom-color: var(--sky);
+    font-weight: 700;
   }
   #anagrafica .split-grid {
     width: 100%;
@@ -5319,24 +5742,13 @@ input[type="radio"] {
     border-left: none;
     border-right: none;
     box-shadow: none;
+    background: transparent;
   }
-  #anagrafica .anag-list-head {
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px 0;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  #anagrafica .anag-list-head .panel-head {
-    padding: 0;
-  }
-  #anagrafica #btn-anag-add {
-    margin: 0 !important;
-    flex-shrink: 0;
+  #anagrafica .anag-list-panel {
+    background: transparent;
   }
   #anagrafica .panel-body {
-    padding: 12px 0 8px;
+    padding: 0 0 8px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -5344,42 +5756,56 @@ input[type="radio"] {
   #anagrafica .anag-form-panel .panel-body,
   #anagrafica #cerimoniere-form-panel .panel-head,
   #anagrafica #cerimoniere-form-panel .panel-body,
-  #anagrafica .anag-list-toolbar,
   #anagrafica .toolbar {
     padding-left: 14px;
     padding-right: 14px;
     box-sizing: border-box;
   }
+  #anagrafica .anag-chrome {
+    gap: 8px;
+    margin: 0;
+    padding: 0 14px 10px;
+    background: transparent;
+    border: none;
+  }
+  #anagrafica .anag-list-toolbar {
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+  }
   #anagrafica .anag-status-tabs {
-    display: flex;
-    width: calc(100% - 28px);
-    margin: 0 14px 12px;
-    padding-left: 3px;
-    padding-right: 3px;
-    box-sizing: border-box;
+    display: none;
   }
-  #anagrafica .anag-status-tab { flex: 1; text-align: center; }
-  #anagrafica .anag-list-toolbar,
-  #anagrafica .toolbar {
-    width: 100%;
-    max-width: none;
+  #anagrafica .anag-filter-status {
+    display: block;
+    grid-column: 1 / -1;
   }
-  #anagrafica .anag-search,
-  #anagrafica .toolbar input,
-  #anagrafica .toolbar select,
-  #anagrafica .anag-filters,
-  #anagrafica .anag-filters select {
-    width: 100%;
-    max-width: none;
+  #anagrafica #anag-cer-filters.is-open {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  #anagrafica .anag-filters.is-open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  #anagrafica .anag-status-hint {
+    display: block;
+    margin: -2px 0 0;
+  }
+  #anagrafica .anag-status-hint[hidden] {
+    display: none !important;
   }
   #anagrafica .list {
     gap: 0;
     width: 100%;
+    padding-bottom: 88px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
   }
   #anagrafica .list-item.anag-person,
   #anagrafica .list-item {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     width: 100%;
     max-width: none;
     box-sizing: border-box;
@@ -5388,12 +5814,36 @@ input[type="radio"] {
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 14px;
+    padding: 9px 14px;
     gap: 12px;
     background: var(--surface);
+    cursor: pointer;
+    transition: background 0.12s var(--ease);
   }
-  #anagrafica .list-item + .list-item {
-    border-top: 1px solid var(--border);
+  #anagrafica .list-item.anag-person:active {
+    background: var(--cream);
+  }
+  #anagrafica .list-item + .list-item { border-top: 1px solid var(--border); }
+  #anagrafica .anag-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 0.74rem;
+    border-radius: 50%;
+  }
+  #anagrafica .anag-chips { display: none; }
+  #anagrafica .anag-contact { display: none; }
+  #anagrafica .anag-person-meta {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.74rem;
+    color: var(--muted);
+  }
+  #anagrafica .list-item-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--ink);
   }
   #anagrafica .anag-person-body,
   #anagrafica .list-item-main {
@@ -5406,12 +5856,27 @@ input[type="radio"] {
     flex-shrink: 0;
     justify-content: flex-end;
   }
+  #anagrafica .anag-person-menu-btn {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    color: var(--muted-light);
+    border-radius: 10px;
+  }
+  #anagrafica .anag-person-menu-btn:active {
+    background: var(--cream-dark);
+    color: var(--ink);
+  }
   #anagrafica .anag-empty {
-    margin: 0 14px 14px;
+    margin: 24px 14px 100px;
     width: auto;
   }
-  #anagrafica .anag-form-panel .panel-body {
-    padding-bottom: 16px;
+  .anag-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(37, 99, 168, 0.28);
   }
 }
 
@@ -6173,6 +6638,9 @@ input[type="radio"] {
                 <h3 id="form-chierichetto-title">Nuovo chierichetto</h3>
                 <p id="form-chierichetto-sub">Nome, parrocchia e telefoni genitori — il gruppo si assegna in Gruppi</p>
               </div>
+              <button type="button" class="anag-sheet-close" id="btn-anag-sheet-close" onclick="closeAnagSheet()" aria-label="Chiudi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
               <button type="button" class="btn btn-secondary btn-sm anag-form-toggle" id="btn-toggle-anag-form" onclick="toggleAnagForm()" aria-expanded="false" aria-controls="chierichettoForm">Apri</button>
             </div>
             <div class="panel-body">
@@ -6226,6 +6694,7 @@ input[type="radio"] {
                     </div>
                   </div>
                 </div>
+                <button type="button" class="btn btn-ghost anag-tel2-toggle" id="btn-anag-tel2" onclick="showAnagTel2()">+ Secondo contatto</button>
                 <div class="form-actions" style="display:flex;gap:10px;">
                   <button type="submit" class="btn btn-primary btn-full" id="btn-save-chierichetto">Salva</button>
                   <button type="button" class="btn btn-secondary" id="btn-cancel-edit" style="display:none" onclick="cancelEdit()">Annulla</button>
@@ -6266,23 +6735,37 @@ input[type="radio"] {
               <button type="button" class="btn btn-primary btn-sm" id="btn-anag-add" onclick="startNewChierichetto()" style="margin:16px 16px 0 0">Aggiungi</button>
             </div>
             <div class="panel-body">
-              <div class="anag-status-tabs" role="tablist" aria-label="Stato chierichetti">
-                <button type="button" class="anag-status-tab active" id="anag-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
-                <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
-                <button type="button" class="anag-status-tab" id="anag-status-promossi" onclick="setAnagraficaStatusFilter('promossi')">Ora cerimoniere</button>
-              </div>
-              <div class="anag-list-toolbar">
-                <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca nome o telefono…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
-                <div class="anag-filters">
-                  <select id="filter-anno-nascita" onchange="renderChierichetti()" aria-label="Filtra per anno di nascita">
-                    <option value="">Tutti gli anni</option>
-                  </select>
-                  <select id="filter-parrocchia" onchange="renderChierichetti()" aria-label="Filtra per parrocchia">
-                    <option value="">Tutte le parrocchie</option>
-                    <option value="vanzago">Vanzago</option>
-                    <option value="mantegazza">Mantegazza</option>
-                  </select>
+              <div class="anag-chrome">
+                <div class="anag-status-tabs" role="tablist" aria-label="Stato chierichetti">
+                  <button type="button" class="anag-status-tab active" id="anag-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
+                  <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
+                  <button type="button" class="anag-status-tab" id="anag-status-promossi" onclick="setAnagraficaStatusFilter('promossi')">Ora cer.</button>
                 </div>
+                <div class="anag-list-toolbar">
+                  <div class="anag-search-bar">
+                    <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
+                    <button type="button" class="anag-filters-toggle" id="btn-anag-filters" onclick="toggleAnagFilters()" aria-expanded="false" aria-controls="anag-filters" title="Filtri" aria-label="Filtri">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
+                      <span class="anag-filters-toggle-label">Filtri</span>
+                    </button>
+                  </div>
+                  <div class="anag-filters" id="anag-filters">
+                    <select id="filter-anag-status" class="anag-filter-status" onchange="setAnagraficaStatusFilter(this.value)" aria-label="Stato">
+                      <option value="attivi">Attivi</option>
+                      <option value="ex">Ex</option>
+                      <option value="promossi">Promossi</option>
+                    </select>
+                    <select id="filter-anno-nascita" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per anno di nascita">
+                      <option value="">Tutti gli anni</option>
+                    </select>
+                    <select id="filter-parrocchia" onchange="renderChierichetti();syncAnagFiltersToggle()" aria-label="Filtra per parrocchia">
+                      <option value="">Tutte le parrocchie</option>
+                      <option value="vanzago">Vanzago</option>
+                      <option value="mantegazza">Mantegazza</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="anag-status-hint" id="anag-status-hint" hidden></p>
               </div>
               <div class="list" id="chierichetti-list"></div>
             </div>
@@ -6290,10 +6773,15 @@ input[type="radio"] {
         </div>
 
         <div id="anag-panel-cerimonieri" class="split-grid" style="display:none">
-          <div class="panel" id="cerimoniere-form-panel">
+          <div class="panel anag-form-panel is-collapsed" id="cerimoniere-form-panel">
             <div class="panel-head">
-              <h3 id="form-cerimoniere-title">Nuovo accesso</h3>
-              <p id="form-cerimoniere-sub">Login app per cerimonieri e sacerdoti (Don)</p>
+              <div>
+                <h3 id="form-cerimoniere-title">Nuovo accesso</h3>
+                <p id="form-cerimoniere-sub">Login app per cerimonieri e sacerdoti (Don)</p>
+              </div>
+              <button type="button" class="anag-sheet-close" id="btn-cer-sheet-close" onclick="closeAnagSheet()" aria-label="Chiudi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
             <div class="panel-body">
               <form id="cerimoniereForm">
@@ -6341,18 +6829,36 @@ input[type="radio"] {
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Account con accesso</h3>
-              <p><span id="cerimonieri-count">0</span> <span id="cerimonieri-count-label">attivi</span></p>
+          <div class="panel anag-list-panel">
+            <div class="anag-list-head">
+              <div class="panel-head">
+                <h3>Account con accesso</h3>
+                <p><span id="cerimonieri-count">0</span> <span id="cerimonieri-count-label">attivi</span></p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-cer-add" onclick="startNewCerimoniere()" style="margin:16px 16px 0 0">Aggiungi</button>
             </div>
             <div class="panel-body">
-              <div class="anag-status-tabs" role="tablist" aria-label="Stato accessi">
-                <button type="button" class="anag-status-tab active" id="anag-cer-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
-                <button type="button" class="anag-status-tab" id="anag-cer-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
-              </div>
-              <div class="toolbar">
-                <input type="search" id="search-cerimonieri" placeholder="Cerca per nome o email…" oninput="renderCerimonieri()" aria-label="Cerca account">
+              <div class="anag-chrome">
+                <div class="anag-status-tabs" role="tablist" aria-label="Stato accessi">
+                  <button type="button" class="anag-status-tab active" id="anag-cer-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
+                  <button type="button" class="anag-status-tab" id="anag-cer-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
+                </div>
+                <div class="anag-list-toolbar">
+                  <div class="anag-search-bar">
+                    <input type="search" class="anag-search" id="search-cerimonieri" placeholder="Cerca…" oninput="renderCerimonieri()" aria-label="Cerca account">
+                    <button type="button" class="anag-filters-toggle" id="btn-cer-filters" onclick="toggleCerFilters()" aria-expanded="false" aria-controls="anag-cer-filters" title="Filtri" aria-label="Filtri">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
+                      <span class="anag-filters-toggle-label">Filtri</span>
+                    </button>
+                  </div>
+                  <div class="anag-filters" id="anag-cer-filters">
+                    <select id="filter-cer-status" class="anag-filter-status" onchange="setAnagraficaStatusFilter(this.value)" aria-label="Stato">
+                      <option value="attivi">Attivi</option>
+                      <option value="ex">Ex</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="anag-status-hint" id="anag-cer-status-hint" hidden></p>
               </div>
               <div class="list" id="cerimonieri-list"></div>
             </div>
@@ -6977,6 +7483,17 @@ input[type="radio"] {
 <!-- Modal rimosso — dettaglio in pannello Liturgia/Messe -->
 
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
+<div class="anag-form-overlay" id="anag-form-overlay" onclick="closeAnagSheet()" hidden></div>
+<button type="button" class="anag-fab" id="anag-fab" onclick="onAnagFabClick()" aria-label="Aggiungi" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+<div class="anag-action-overlay" id="anag-action-overlay" hidden onclick="closeAnagPersonMenu()"></div>
+<div class="anag-action-sheet" id="anag-action-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="anag-action-title">
+  <div class="anag-action-handle" aria-hidden="true"></div>
+  <p class="anag-action-title" id="anag-action-title">Azioni</p>
+  <div id="anag-action-items"></div>
+  <button type="button" class="anag-action-item anag-action-cancel" onclick="closeAnagPersonMenu()">Annulla</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!--CHIERICH_CONFIG_INJECT-->
@@ -8044,7 +8561,6 @@ function initMobileMoreGestures() {
   const tabbar = document.getElementById('mobile-tabbar');
   if (!sheet || !overlay || !tabbar) return;
 
-  const EDGE_PX = 28;
   const OPEN_DY = 56;
   const CLOSE_DY = 64;
   let track = null;
@@ -8063,10 +8579,9 @@ function initMobileMoreGestures() {
     const nav = sheet.querySelector('.mobile-more-nav');
     const atTop = !nav || nav.scrollTop <= 0;
     const fromSheet = isSheetOpen() && sheet.contains(e.target) && (handleOrChrome || atTop);
+    // Solo dalla tab bar: lo swipe dal bordo contenuto rubava lo scroll e «espandeva» la nav
     const fromTabbar = !isSheetOpen() && tabbar.contains(e.target);
-    const fromBottomEdge = !isSheetOpen()
-      && t.clientY >= window.innerHeight - (tabbar.getBoundingClientRect().height + EDGE_PX);
-    if (!fromSheet && !fromTabbar && !fromBottomEdge) return;
+    if (!fromSheet && !fromTabbar) return;
     track = {
       x0: t.clientX,
       y0: t.clientY,
@@ -8182,8 +8697,32 @@ function toggleSidebar() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (document.getElementById('anag-action-sheet')?.classList.contains('is-open')) {
+    closeAnagPersonMenu();
+    return;
+  }
+  if (document.body.classList.contains('anag-sheet-open')) {
+    closeAnagSheet();
+    return;
+  }
   closeMobileMore();
   closeSidebar();
+});
+
+window.addEventListener('resize', () => {
+  syncAnagFab();
+  if (!isAnagMobile()) {
+    document.body.classList.remove('anag-sheet-open');
+    const overlay = document.getElementById('anag-form-overlay');
+    if (overlay) overlay.hidden = true;
+    const tel = document.getElementById('anag-telefoni-fields');
+    if (tel) tel.classList.add('has-tel2');
+  } else {
+    const open = isAnagSheetOpen();
+    document.body.classList.toggle('anag-sheet-open', open);
+    const overlay = document.getElementById('anag-form-overlay');
+    if (overlay) overlay.hidden = !open;
+  }
 });
 
 function updateMobileNav(sectionId) {
@@ -8265,6 +8804,13 @@ async function showSection(sectionId) {
 
   closeSidebar();
   closeMobileMore();
+  if (sectionId !== 'anagrafica') {
+    closeAnagPersonMenu();
+    document.body.classList.remove('anag-sheet-open');
+    const overlay = document.getElementById('anag-form-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+  syncAnagFab();
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
@@ -11460,6 +12006,11 @@ function syncAnagraficaStatusTabs() {
   document.getElementById('anag-status-promossi')?.classList.toggle('active', filter === 'promossi');
   document.getElementById('anag-cer-status-attivi')?.classList.toggle('active', filter === 'attivi');
   document.getElementById('anag-cer-status-ex')?.classList.toggle('active', filter === 'ex');
+  const statusSelect = document.getElementById('filter-anag-status');
+  if (statusSelect && statusSelect.value !== filter) statusSelect.value = filter;
+  const cerStatusSelect = document.getElementById('filter-cer-status');
+  const cerVal = filter === 'ex' ? 'ex' : 'attivi';
+  if (cerStatusSelect && cerStatusSelect.value !== cerVal) cerStatusSelect.value = cerVal;
 }
 
 function setAnagraficaStatusFilter(status) {
@@ -11492,6 +12043,10 @@ function switchAnagraficaTab(ruolo, keepForm) {
     else updateAnagraficaFormLabels();
     renderChierichetti();
   } else {
+    closeAnagPersonMenu();
+    setAnagFormOpen(false);
+    setCerFormOpen(false);
+    syncAnagFab();
     loadCerimonieriAccounts().then(() => {
       renderCerimonieri();
       if (!keepForm && isCurrentUserAdmin()) cancelCerimoniereEdit();
@@ -11518,7 +12073,7 @@ function updateAnagraficaFormLabels() {
       : anagraficaStatusFilter === 'promossi' ? 'ora cerimoniere'
       : 'attivi';
   const search = document.getElementById('search-chierichetti');
-  if (search) search.placeholder = 'Cerca nome o telefono…';
+  if (search) search.placeholder = isAnagMobile() ? 'Cerca…' : 'Cerca nome o telefono…';
   const annoEl = document.getElementById('anno-nascita');
   if (annoEl) annoEl.required = false;
   const parrocchiaEl = document.getElementById('parrocchia');
@@ -11606,15 +12161,83 @@ function personInitials(nome) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function isAnagMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function syncAnagFab() {
+  const fab = document.getElementById('anag-fab');
+  if (!fab) return;
+  const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
+  const canAddCer = anagraficaTab === 'cerimoniere' && isCurrentUserAdmin();
+  const show = !!(onAnag && isAnagMobile() && (anagraficaTab === 'chierichetto' || canAddCer));
+  fab.hidden = !show;
+  fab.classList.toggle('is-visible', show);
+  fab.setAttribute('aria-label', anagraficaTab === 'cerimoniere' ? 'Aggiungi accesso' : 'Aggiungi chierichetto');
+}
+
+function onAnagFabClick() {
+  if (anagraficaTab === 'cerimoniere') startNewCerimoniere();
+  else startNewChierichetto();
+}
+
+function isAnagSheetOpen() {
+  const chi = document.getElementById('chierichetto-form-panel');
+  const cer = document.getElementById('cerimoniere-form-panel');
+  return !!(
+    (chi && !chi.classList.contains('is-collapsed')) ||
+    (cer && !cer.classList.contains('is-collapsed') && cer.style.display !== 'none')
+  );
+}
+
 function setAnagFormOpen(open) {
   const panel = document.getElementById('chierichetto-form-panel');
   const toggle = document.getElementById('btn-toggle-anag-form');
+  const overlay = document.getElementById('anag-form-overlay');
   if (!panel) return;
+  if (open) document.getElementById('cerimoniere-form-panel')?.classList.add('is-collapsed');
   panel.classList.toggle('is-collapsed', !open);
+  document.body.classList.toggle('anag-sheet-open', !!(open && isAnagMobile()));
+  if (overlay) {
+    overlay.hidden = !(open && isAnagMobile());
+  }
   if (toggle) {
     toggle.textContent = open ? 'Chiudi' : 'Apri';
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
+  syncAnagFab();
+}
+
+function setCerFormOpen(open) {
+  const panel = document.getElementById('cerimoniere-form-panel');
+  const overlay = document.getElementById('anag-form-overlay');
+  if (!panel) return;
+  if (open) document.getElementById('chierichetto-form-panel')?.classList.add('is-collapsed');
+  panel.classList.toggle('is-collapsed', !open);
+  document.body.classList.toggle('anag-sheet-open', !!(open && isAnagMobile()));
+  if (overlay) {
+    overlay.hidden = !(open && isAnagMobile());
+  }
+  syncAnagFab();
+}
+
+function closeAnagSheet() {
+  const cerPanel = document.getElementById('cerimoniere-form-panel');
+  if (cerPanel && !cerPanel.classList.contains('is-collapsed') && anagraficaTab === 'cerimoniere') {
+    cancelCerimoniereEdit();
+    setCerFormOpen(false);
+    return;
+  }
+  if (promotingUuid) cancelPromoteChierichetto();
+  else if (editingUuid) cancelEdit();
+  else {
+    document.getElementById('chierichettoForm')?.reset();
+    populateAnnoNascitaSelect();
+    syncAnagTel2Visibility(null);
+    setChierichettoFormMode('create');
+    updateAnagraficaFormLabels();
+  }
+  setAnagFormOpen(false);
 }
 
 function toggleAnagForm() {
@@ -11622,16 +12245,88 @@ function toggleAnagForm() {
   const open = panel?.classList.contains('is-collapsed');
   setAnagFormOpen(!!open);
   if (open) {
-    panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!isAnagMobile()) {
+      panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     document.getElementById('nome')?.focus();
   }
+}
+
+function toggleAnagFilters() {
+  const filters = document.getElementById('anag-filters');
+  const btn = document.getElementById('btn-anag-filters');
+  if (!filters) return;
+  const open = !filters.classList.contains('is-open');
+  filters.classList.toggle('is-open', open);
+  syncAnagFiltersToggle();
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function syncAnagFiltersToggle() {
+  const btn = document.getElementById('btn-anag-filters');
+  const filters = document.getElementById('anag-filters');
+  if (!btn) return;
+  const anno = document.getElementById('filter-anno-nascita')?.value;
+  const parro = document.getElementById('filter-parrocchia')?.value;
+  const statusOff = anagraficaStatusFilter !== 'attivi';
+  const open = !!filters?.classList.contains('is-open');
+  const active = open || !!(anno || parro || statusOff);
+  btn.classList.toggle('is-active', active);
+}
+
+function toggleCerFilters() {
+  const filters = document.getElementById('anag-cer-filters');
+  const btn = document.getElementById('btn-cer-filters');
+  if (!filters) return;
+  const open = !filters.classList.contains('is-open');
+  filters.classList.toggle('is-open', open);
+  syncCerFiltersToggle();
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function syncCerFiltersToggle() {
+  const btn = document.getElementById('btn-cer-filters');
+  const filters = document.getElementById('anag-cer-filters');
+  if (!btn) return;
+  const statusOff = anagraficaStatusFilter !== 'attivi';
+  const open = !!filters?.classList.contains('is-open');
+  btn.classList.toggle('is-active', open || statusOff);
+}
+
+function startNewCerimoniere() {
+  if (!requireAdminAction('Solo l\'admin può creare nuovi accessi')) return;
+  cancelCerimoniereEdit();
+  setCerFormOpen(true);
+  const cancelBtn = document.getElementById('btn-cancel-cerimoniere-edit');
+  if (cancelBtn && isAnagMobile()) cancelBtn.style.display = 'block';
+  if (!isAnagMobile()) {
+    document.getElementById('cerimoniere-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('cerimoniere-nome')?.focus();
+}
+
+function showAnagTel2() {
+  document.getElementById('anag-telefoni-fields')?.classList.add('has-tel2');
+  document.getElementById('telefono2-chi')?.focus();
+}
+
+function syncAnagTel2Visibility(c) {
+  const wrap = document.getElementById('anag-telefoni-fields');
+  if (!wrap) return;
+  const hasSecond = !!(c?.telefono2 || c?.telefono2Chi);
+  wrap.classList.toggle('has-tel2', hasSecond || !isAnagMobile());
 }
 
 function startNewChierichetto() {
   cancelPromoteChierichetto();
   cancelEdit();
+  syncAnagTel2Visibility(null);
   setAnagFormOpen(true);
-  document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const cancelBtn = document.getElementById('btn-cancel-edit');
+  if (cancelBtn && isAnagMobile()) cancelBtn.style.display = 'block';
+  if (!isAnagMobile()) {
+    document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   document.getElementById('nome')?.focus();
 }
 
@@ -11662,7 +12357,9 @@ function startPromoteChierichetto(uuid) {
   setChierichettoFormMode('promote');
   updateAnagraficaFormLabels();
   setAnagFormOpen(true);
-  document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!isAnagMobile()) {
+    document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   document.getElementById('promote-email')?.focus();
 }
 
@@ -11673,7 +12370,7 @@ function cancelPromoteChierichetto() {
   document.getElementById('promote-uuid').value = '';
   setChierichettoFormMode('create');
   updateAnagraficaFormLabels();
-  if (window.matchMedia('(max-width: 1024px)').matches) setAnagFormOpen(false);
+  if (isAnagMobile()) setAnagFormOpen(false);
 }
 
 async function handlePromoteChierichettoSubmit(e) {
@@ -11796,16 +12493,19 @@ async function renderChierichetti() {
   const nAttivi = anagChi.filter(c => isPersonaAttiva(c) && !isChierichettoPromosso(c)).length;
   const nEx = anagChi.filter(c => !isPersonaAttiva(c) && !isChierichettoPromosso(c)).length;
   const nPromossi = anagChi.filter(isChierichettoPromosso).length;
+  const mobile = isAnagMobile();
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
   const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nCerAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = mobile
+    ? `Cer. e Don (${nCerAttivi})`
+    : `Cerimonieri e Don (${nCerAttivi})`;
 
   const statusAttivi = document.getElementById('anag-status-attivi');
   const statusEx = document.getElementById('anag-status-ex');
   const statusPromossi = document.getElementById('anag-status-promossi');
   if (statusAttivi) statusAttivi.textContent = `Attivi (${nAttivi})`;
   if (statusEx) statusEx.textContent = `Ex (${nEx})`;
-  if (statusPromossi) statusPromossi.textContent = `Ora cerimoniere (${nPromossi})`;
+  if (statusPromossi) statusPromossi.textContent = mobile ? `Promossi (${nPromossi})` : `Ora cer. (${nPromossi})`;
 
   populateAnnoNascitaFilter();
   updateAnagraficaFormLabels();
@@ -11814,6 +12514,18 @@ async function renderChierichetti() {
   const filterParrocchia = document.getElementById('filter-parrocchia')?.value || '';
   const search = document.getElementById('search-chierichetti').value.toLowerCase();
   const statusFilter = anagraficaStatusFilter;
+
+  const statusHint = document.getElementById('anag-status-hint');
+  if (statusHint) {
+    if (mobile && statusFilter !== 'attivi') {
+      const label = statusFilter === 'ex' ? `Ex (${nEx})` : `Promossi (${nPromossi})`;
+      statusHint.hidden = false;
+      statusHint.innerHTML = `Vista <strong>${esc(label)}</strong> · <button type="button" onclick="setAnagraficaStatusFilter('attivi')">Torna agli attivi</button>`;
+    } else {
+      statusHint.hidden = true;
+      statusHint.textContent = '';
+    }
+  }
 
   const filtered = anagChi.filter(c => {
     const promosso = isChierichettoPromosso(c);
@@ -11842,6 +12554,7 @@ async function renderChierichetti() {
     const hasFilters = !!(search || filterAnno || filterParrocchia);
     if (statusFilter === 'promossi') {
       container.innerHTML = `<div class="anag-empty"><p>${hasFilters ? 'Nessun risultato con i filtri scelti.' : 'Nessun chierichetto promosso a cerimoniere.'}</p></div>`;
+      syncAnagFab();
       return;
     }
     container.innerHTML = statusFilter !== 'ex'
@@ -11852,6 +12565,7 @@ async function renderChierichetti() {
             : `<button type="button" class="btn btn-primary" onclick="startNewChierichetto()">Aggiungi il primo</button>`}
         </div>`
       : `<div class="anag-empty"><p>Nessun ex. Segna un attivo come «ex» per spostarlo qui.</p></div>`;
+    syncAnagFab();
     return;
   }
 
@@ -11860,7 +12574,19 @@ async function renderChierichetti() {
     const attivo = isPersonaAttiva(c);
     const promosso = isChierichettoPromosso(c);
     const linkedAcc = cerimonieriAccounts.find(a => a.chierichettoUuid === c.uuid);
-    const avatarClass = promosso ? 'is-cer' : (!attivo ? 'is-ex' : '');
+    const noGroup = !!(attivo && !promosso && !c.gruppo);
+    const avatarClass = [
+      promosso ? 'is-cer' : (!attivo ? 'is-ex' : ''),
+      noGroup && mobile ? 'is-nogroup' : ''
+    ].filter(Boolean).join(' ');
+    const metaParts = [];
+    if (c.parrocchia) metaParts.push(getParrocchiaLabel(c.parrocchia));
+    if (promosso) metaParts.push(linkedAcc?.email || 'Ora cerimoniere');
+    else if (!attivo) metaParts.push('Ex');
+    else if (c.gruppo) metaParts.push(getGruppoLabel(c.gruppo));
+    else if (!mobile) metaParts.push('Senza gruppo');
+    if (c.annoNascita && !mobile) metaParts.push(formatAnnoNascitaLabel(c.annoNascita));
+    const metaLine = metaParts.join(' · ');
     const chips = [];
     if (c.parrocchia) chips.push(`<span class="anag-chip">${esc(getParrocchiaLabel(c.parrocchia))}</span>`);
     if (c.annoNascita) chips.push(`<span class="anag-chip">${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>`);
@@ -11882,42 +12608,151 @@ async function renderChierichetti() {
     };
     pushTel(c.telefono, c.telefonoChi);
     pushTel(c.telefono2, c.telefono2Chi);
-    let statusBtn = '';
-    if (!promosso) {
-      statusBtn = attivo
-        ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, false)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-          </button>`
-        : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina tra gli attivi" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, true)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-          </button>`;
-    }
-    const promoteBtn = (canPromote && attivo && !promosso)
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Promuovi a cerimoniere" onclick="startPromoteChierichetto(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-        </button>`
-      : '';
+    const rowAction = promosso
+      ? `openAnagPersonMenu(${jsStr(c.uuid)})`
+      : `editChierichetto(${jsStr(c.uuid)})`;
     return `
-    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}">
+    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
       <div class="anag-person-body">
         <p class="list-item-title">${chierichettoNomeHtml(c)}</p>
+        ${metaLine ? `<p class="anag-person-meta">${esc(metaLine)}</p>` : ''}
         <div class="anag-chips">${chips.join('')}</div>
         ${contacts.length ? `<div class="anag-contact">${contacts.join('')}</div>` : ''}
       </div>
       <div class="list-item-actions">
-        ${promosso ? '' : `<button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editChierichetto(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>`}
-        ${promoteBtn}
-        ${statusBtn}
-        ${promosso ? '' : `<button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deletePersona(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>`}
+        <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagPersonMenu(${jsStr(c.uuid)})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </button>
       </div>
     </div>
   `;
   }).join('');
+  syncAnagFab();
+  syncAnagFiltersToggle();
+}
+
+let anagMenuUuid = null;
+let anagMenuKind = 'chi';
+
+function closeAnagPersonMenu() {
+  anagMenuUuid = null;
+  anagMenuKind = 'chi';
+  const sheet = document.getElementById('anag-action-sheet');
+  const overlay = document.getElementById('anag-action-overlay');
+  if (sheet) {
+    sheet.classList.remove('is-open');
+    sheet.hidden = true;
+  }
+  if (overlay) {
+    overlay.classList.remove('is-open');
+    overlay.hidden = true;
+  }
+}
+
+function openAnagPersonMenu(uuid) {
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  if (!c) return;
+  anagMenuUuid = uuid;
+  anagMenuKind = 'chi';
+  const attivo = isPersonaAttiva(c);
+  const promosso = isChierichettoPromosso(c);
+  const canPromote = isCurrentUserAdmin() && attivo && !promosso;
+  const items = [];
+  if (!promosso) {
+    items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
+  }
+  if (canPromote) {
+    items.push({ action: 'promote', label: 'Promuovi a cerimoniere', icon: '<path d="M12 19V5M5 12l7-7 7 7"/>' });
+  }
+  if (!promosso) {
+    items.push(attivo
+      ? { action: 'ex', label: 'Segna come ex', icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/>' }
+      : { action: 'restore', label: 'Ripristina tra gli attivi', icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>' });
+    items.push({ action: 'delete', label: 'Elimina definitivamente', danger: true, icon: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' });
+  }
+  const title = document.getElementById('anag-action-title');
+  const box = document.getElementById('anag-action-items');
+  if (title) title.textContent = c.nome;
+  if (box) {
+    box.innerHTML = items.map(it => `
+      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick="runAnagPersonAction(${jsStr(it.action)})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon}</svg>
+        ${esc(it.label)}
+      </button>
+    `).join('') || '<p class="form-hint" style="padding:8px 12px">Nessuna azione disponibile</p>';
+  }
+  const sheet = document.getElementById('anag-action-sheet');
+  const overlay = document.getElementById('anag-action-overlay');
+  if (overlay) {
+    overlay.hidden = false;
+    overlay.classList.add('is-open');
+  }
+  if (sheet) {
+    sheet.hidden = false;
+    sheet.classList.add('is-open');
+  }
+}
+
+async function runAnagPersonAction(action) {
+  const uuid = anagMenuUuid;
+  const kind = anagMenuKind;
+  closeAnagPersonMenu();
+  if (!uuid) return;
+  if (kind === 'cer') {
+    if (action === 'edit') editCerimoniere(uuid);
+    else if (action === 'ex') await setCerimoniereAttivo(uuid, false);
+    else if (action === 'restore') await setCerimoniereAttivo(uuid, true);
+    else if (action === 'delete') await deleteCerimoniere(uuid);
+    return;
+  }
+  if (action === 'edit') editChierichetto(uuid);
+  else if (action === 'promote') startPromoteChierichetto(uuid);
+  else if (action === 'ex') await setChierichettoAttivo(uuid, false);
+  else if (action === 'restore') await setChierichettoAttivo(uuid, true);
+  else if (action === 'delete') await deletePersona(uuid);
+}
+
+function openAnagCerMenu(uuid) {
+  const c = cerimonieriAccounts.find(ch => ch.uuid === uuid);
+  if (!c) return;
+  anagMenuUuid = uuid;
+  anagMenuKind = 'cer';
+  const attivo = isPersonaAttiva(c);
+  const isSelf = currentUser?.uuid === c.uuid;
+  const isAdminAcc = !!c.admin;
+  const canManage = isCurrentUserAdmin();
+  const items = [];
+  if (canManage || isSelf) {
+    items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
+  }
+  if (canManage && !isSelf && !isAdminAcc) {
+    items.push(attivo
+      ? { action: 'ex', label: 'Segna come ex', icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/>' }
+      : { action: 'restore', label: 'Ripristina tra gli attivi', icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>' });
+    items.push({ action: 'delete', label: 'Elimina definitivamente', danger: true, icon: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' });
+  }
+  const title = document.getElementById('anag-action-title');
+  const box = document.getElementById('anag-action-items');
+  if (title) title.textContent = c.nome;
+  if (box) {
+    box.innerHTML = items.map(it => `
+      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick="runAnagPersonAction(${jsStr(it.action)})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon}</svg>
+        ${esc(it.label)}
+      </button>
+    `).join('') || '<p class="form-hint" style="padding:8px 12px">Nessuna azione disponibile</p>';
+  }
+  const sheet = document.getElementById('anag-action-sheet');
+  const overlay = document.getElementById('anag-action-overlay');
+  if (overlay) {
+    overlay.hidden = false;
+    overlay.classList.add('is-open');
+  }
+  if (sheet) {
+    sheet.hidden = false;
+    sheet.classList.add('is-open');
+  }
 }
 
 async function loadCerimonieriAccounts(force) {
@@ -11960,16 +12795,32 @@ function renderCerimonieri() {
   if (syncCurrentUserAdminFlag()) updateSidebarUser();
   syncCerimonieriAdminUi();
   syncAnagraficaStatusTabs();
+  const mobile = isAnagMobile();
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
   const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = mobile
+    ? `Cer. e Don (${nAttivi})`
+    : `Cerimonieri e Don (${nAttivi})`;
   const cerAttiviBtn = document.getElementById('anag-cer-status-attivi');
   const cerExBtn = document.getElementById('anag-cer-status-ex');
   if (cerAttiviBtn) cerAttiviBtn.textContent = `Attivi (${nAttivi})`;
   if (cerExBtn) cerExBtn.textContent = `Ex (${nEx})`;
   const wantAttivi = anagraficaStatusFilter !== 'ex';
-  const search = (document.getElementById('search-cerimonieri')?.value || '').toLowerCase();
+  const searchEl = document.getElementById('search-cerimonieri');
+  if (searchEl) searchEl.placeholder = mobile ? 'Cerca…' : 'Cerca per nome o email…';
+  const search = (searchEl?.value || '').toLowerCase();
+
+  const statusHint = document.getElementById('anag-cer-status-hint');
+  if (statusHint) {
+    if (mobile && !wantAttivi) {
+      statusHint.hidden = false;
+      statusHint.innerHTML = `Vista <strong>Ex (${nEx})</strong> · <button type="button" onclick="setAnagraficaStatusFilter('attivi')">Torna agli attivi</button>`;
+    } else {
+      statusHint.hidden = true;
+      statusHint.textContent = '';
+    }
+  }
 
   const filtered = cerimonieriAccounts.filter(c => {
     if (isPersonaAttiva(c) !== wantAttivi) return false;
@@ -11992,8 +12843,10 @@ function renderCerimonieri() {
   const canManage = isCurrentUserAdmin();
   if (!filtered.length) {
     container.innerHTML = wantAttivi
-      ? `<div class="anag-empty"><p>${canManage ? 'Nessun account attivo. Crea un accesso dal modulo.' : 'Nessun account attivo.'}</p></div>`
+      ? `<div class="anag-empty"><p>Nessun account attivo.</p>${canManage ? `<button type="button" class="btn btn-primary" onclick="startNewCerimoniere()">Aggiungi il primo</button>` : ''}</div>`
       : '<div class="anag-empty"><p>Nessun ex. Segna un attivo come «ex» per spostarlo qui.</p></div>';
+    syncAnagFab();
+    syncCerFiltersToggle();
     return;
   }
   container.innerHTML = filtered.map(c => {
@@ -12013,39 +12866,38 @@ function renderCerimonieri() {
     if (isSelf) chips.push('<span class="anag-chip">Tu</span>');
     if (!attivo) chips.push('<span class="anag-chip">Ex</span>');
     if (!isPrete && linked) chips.push(`<span class="anag-chip">ex chierichetto → ${esc(linked.nome)}</span>`);
+    const metaParts = mobile
+      ? [accountRuoloLabel(c), c.email].filter(Boolean)
+      : [accountRuoloLabel(c), parrocchia];
+    if (isAdminAcc) metaParts.push('Admin');
+    if (isSelf) metaParts.push('Tu');
+    if (!attivo) metaParts.push('Ex');
+    const metaLine = metaParts.join(' · ');
     const avatarClass = !attivo ? 'is-ex' : (isPrete ? 'is-cer' : '');
-    const statusBtn = (!canManage || isSelf || isAdminAcc) ? '' : (attivo
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setCerimoniereAttivo(${jsStr(c.uuid)}, false)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-        </button>`
-      : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina" onclick="setCerimoniereAttivo(${jsStr(c.uuid)}, true)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-        </button>`);
-    const editBtn = canManage
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editCerimoniere(${jsStr(c.uuid)})">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>`
+    const canRowEdit = canManage || isSelf;
+    const rowAction = canRowEdit
+      ? `editCerimoniere(${jsStr(c.uuid)})`
       : '';
-    const deleteBtn = (canManage && !isSelf && !isAdminAcc)
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deleteCerimoniere(${jsStr(c.uuid)})">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          </button>`
-      : '';
-    const actions = (editBtn || statusBtn || deleteBtn)
-      ? `<div class="list-item-actions">${editBtn}${statusBtn}${deleteBtn}</div>`
-      : '';
+    const showMenu = canManage || isSelf;
     return `
-      <div class="list-item anag-person${attivo ? '' : ' is-ex'}">
+      <div class="list-item anag-person${attivo ? '' : ' is-ex'}"${rowAction ? ` role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}"` : ''}>
         <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
         <div class="anag-person-body">
           <p class="list-item-title">${esc(c.nome)}</p>
+          <p class="anag-person-meta">${esc(metaLine)}</p>
           <div class="anag-chips">${chips.join('')}</div>
           <div class="anag-contact"><span>${esc(c.email)}</span></div>
         </div>
-        ${actions}
+        ${showMenu ? `<div class="list-item-actions">
+          <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagCerMenu(${jsStr(c.uuid)})">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+        </div>` : ''}
       </div>
     `;
   }).join('');
+  syncAnagFab();
+  syncCerFiltersToggle();
 }
 
 function editCerimoniere(uuid, opts = {}) {
@@ -12106,6 +12958,11 @@ function editCerimoniere(uuid, opts = {}) {
     }
   }
   onCerimoniereRuoloChange();
+  setCerFormOpen(true);
+  if (!isAnagMobile()) {
+    document.getElementById('cerimoniere-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('cerimoniere-nome')?.focus();
 }
 
 function cancelCerimoniereEdit() {
@@ -12124,6 +12981,7 @@ function cancelCerimoniereEdit() {
   }
 
   if (!isCurrentUserAdmin()) {
+    setCerFormOpen(false);
     return;
   }
 
@@ -12139,6 +12997,7 @@ function cancelCerimoniereEdit() {
   document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
   onCerimoniereRuoloChange();
+  if (isAnagMobile()) setCerFormOpen(false);
 }
 
 async function handleCerimoniereFormSubmit(e) {
@@ -12282,6 +13141,7 @@ async function handleCerimoniereFormSubmit(e) {
 
   showToast(result.message || (uuid ? (isSelf ? 'Profilo aggiornato' : 'Account aggiornato') : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')));
   if (canAdmin) cancelCerimoniereEdit();
+  else if (isAnagMobile()) setCerFormOpen(false);
   await loadCerimonieriAccounts(true);
   renderCerimonieri();
   if (anagraficaTab === 'chierichetto') renderChierichetti();
@@ -12336,8 +13196,11 @@ function editChierichetto(uuid) {
   document.getElementById('btn-save-chierichetto').textContent = 'Aggiorna';
   document.getElementById('btn-cancel-edit').style.display = 'block';
 
+  syncAnagTel2Visibility(c);
   setAnagFormOpen(true);
-  document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!isAnagMobile()) {
+    document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   document.getElementById('nome').focus();
 }
 
@@ -12376,10 +13239,11 @@ function cancelEdit() {
   document.getElementById('edit-uuid').value = '';
   document.getElementById('persona-ruolo').value = anagraficaTab;
   setChierichettoFormMode('create');
+  syncAnagTel2Visibility(null);
   updateAnagraficaFormLabels();
   document.getElementById('btn-save-chierichetto').textContent = 'Salva';
   document.getElementById('btn-cancel-edit').style.display = 'none';
-  if (window.matchMedia('(max-width: 1024px)').matches && !promotingUuid) setAnagFormOpen(false);
+  if (isAnagMobile() && !promotingUuid) setAnagFormOpen(false);
 }
 
 // ── Gruppi ──────────────────────────────────────────────────
