@@ -1423,6 +1423,30 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: center;
 }
 
+.registro-search-bar {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.registro-search-bar #registro-search {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.registro-search-bar .anag-filters-toggle {
+  display: none;
+}
+
+.tab-label-short { display: none; }
+.tab-label-full { display: inline; }
+
+.messe-sheet-close { display: none; }
+.messe-fab { display: none; }
+
 .registro-filters select,
 .registro-filters input[type="search"] {
   width: auto;
@@ -4669,8 +4693,11 @@ body.anag-sheet-open { overflow: hidden; }
     margin-left: 0;
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   }
-  .menu-toggle { display: flex; }
+  .menu-toggle { display: none; }
   .topbar-brand { display: block; }
+  /* Tablet e telefono: solo tab bar + Altro (niente drawer laterale) */
+  .sidebar,
+  .sidebar-overlay { display: none !important; }
   .content { padding: 16px 14px 24px; }
   .topbar {
     padding: max(10px, env(safe-area-inset-top, 0px)) 12px 10px;
@@ -4944,9 +4971,6 @@ body.anag-sheet-open { overflow: hidden; }
 @media (max-width: 768px) {
   .menu-toggle { display: none; }
   .topbar-brand { width: 40px; height: 40px; border-radius: 11px; }
-  /* Su telefono niente drawer laterale: solo bottom sheet «Altro» */
-  .sidebar,
-  .sidebar-overlay { display: none !important; }
   .mobile-more-sheet {
     bottom: 0;
     padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
@@ -4958,15 +4982,12 @@ body.anag-sheet-open { overflow: hidden; }
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .page-header p {
-    font-size: 0.78rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .page-header p { display: none; }
+  .content { padding: 10px 14px 24px; }
   .panel-head { padding: 16px 16px 12px; }
   .panel-body { padding: 16px; }
   .panel-head h3 { font-size: 1rem; }
+  .panel-head p { display: none; }
   .stats-grid { grid-template-columns: 1fr; }
   .stats-grid.compact { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .stat-card.compact { padding: 12px; flex-direction: column; gap: 8px; }
@@ -4977,11 +4998,55 @@ body.anag-sheet-open { overflow: hidden; }
   .today-stat { padding: 10px 6px; }
   .today-stat-value { font-size: 1.2rem; }
   .today-stat-label { font-size: 0.65rem; }
-  .registro-stats { grid-template-columns: 1fr; }
-  .registro-toolbar { flex-direction: column; align-items: stretch; }
+  .registro-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .registro-stats .stat-card.compact { padding: 10px 8px; }
+  .registro-stats .stat-value { font-size: 1.1rem; }
+  .registro-stats .stat-label { font-size: 0.62rem; }
+  .registro-toolbar { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+  .registro-filters {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .registro-filters.is-open { display: flex; }
   .registro-filters select,
   .registro-filters input[type="search"] { width: 100%; min-width: 0; }
-  .registro-month-nav h4 { min-width: 0; flex: 1; }
+  .registro-search-bar {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+    flex: none;
+    background: var(--cream);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .registro-search-bar #registro-search {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    min-height: 42px;
+    padding: 0 12px 0 14px;
+    box-shadow: none;
+  }
+  .registro-search-bar .anag-filters-toggle {
+    display: inline-flex;
+    min-height: 42px;
+    min-width: 44px;
+    border: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+  }
+  .registro-search-bar .anag-filters-toggle.is-active {
+    background: var(--sky-muted);
+    color: var(--sky);
+  }
+  .registro-month-nav h4 { min-width: 0; flex: 1; font-size: 0.95rem; }
   .registro-day-head { flex-direction: column; align-items: stretch; }
   .form-row { grid-template-columns: 1fr; }
   input, select, textarea { font-size: 16px; }
@@ -5010,6 +5075,8 @@ body.anag-sheet-open { overflow: hidden; }
     padding: 10px 14px;
     min-height: 40px;
   }
+  .tab-label-full { display: none; }
+  .tab-label-short { display: inline; }
   .config-item {
     grid-template-columns: 1fr;
     align-items: start;
@@ -5309,6 +5376,100 @@ body.anag-sheet-open { overflow: hidden; }
     justify-content: flex-start;
   }
   .messe-side { gap: 12px; }
+  #messe .messe-side {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  body.messe-sheet-open #messe .messe-side {
+    display: flex;
+  }
+  body.messe-sheet-open {
+    overflow: hidden;
+  }
+  body.messe-sheet-open .mobile-tabbar {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #messe .messe-side > .panel {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #messe .messe-side > .panel:last-child {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--border);
+    max-height: 42%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #messe .messe-side > .panel .panel-head {
+    flex-shrink: 0;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  #messe .messe-side > .panel:last-child .panel-head {
+    padding-top: 12px;
+  }
+  #messe .messe-side > .panel .panel-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  #messe .messe-side > .panel:last-child .panel-body {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  .messe-sheet-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 12px;
+    background: var(--cream-dark);
+    color: var(--ink);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .messe-sheet-close svg { width: 18px; height: 18px; }
+  .messe-fab {
+    display: none;
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
+    z-index: 90;
+    width: 52px;
+    height: 52px;
+    border: none;
+    border-radius: 16px;
+    background: var(--sky);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(37, 99, 168, 0.28);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .messe-fab svg { width: 24px; height: 24px; }
+  .messe-fab.is-visible { display: inline-flex; }
+  body.messe-sheet-open .messe-fab { display: none !important; }
   .cal-legend {
     padding: 10px 12px;
     gap: 8px 10px;
@@ -5374,7 +5535,7 @@ body.anag-sheet-open { overflow: hidden; }
   .calendar-toolbar .btn { width: 100%; }
   .cal-month-shell .month-nav {
     position: sticky;
-    top: 0;
+    top: calc(52px + env(safe-area-inset-top, 0px));
     z-index: 5;
     width: 100%;
     justify-content: space-between;
@@ -5416,12 +5577,12 @@ body.anag-sheet-open { overflow: hidden; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 14px;
-    height: 14px;
+    min-width: 16px;
+    height: 16px;
     margin-top: 2px;
-    padding: 0 3px;
+    padding: 0 4px;
     border-radius: 999px;
-    font-size: 0.58rem;
+    font-size: 0.62rem;
     font-weight: 800;
     line-height: 1;
   }
@@ -6869,8 +7030,8 @@ body.anag-sheet-open { overflow: hidden; }
       <!-- Turni -->
       <section id="turni" class="section">
         <div class="section-tabs" role="tablist">
-          <button type="button" class="section-tab active" id="tab-turni-messe" onclick="switchTurniTab('messe')">Struttura messe</button>
-          <button type="button" class="section-tab" id="tab-turni-rotazione" onclick="switchTurniTab('rotazione')">Rotazione settimanale</button>
+          <button type="button" class="section-tab active" id="tab-turni-messe" onclick="switchTurniTab('messe')"><span class="tab-label-full">Struttura messe</span><span class="tab-label-short">Messe</span></button>
+          <button type="button" class="section-tab" id="tab-turni-rotazione" onclick="switchTurniTab('rotazione')"><span class="tab-label-full">Rotazione settimanale</span><span class="tab-label-short">Rotazione</span></button>
         </div>
 
         <div id="turni-panel-messe" class="turni-tab-panel active">
@@ -6972,9 +7133,9 @@ body.anag-sheet-open { overflow: hidden; }
       <!-- Gruppi -->
       <section id="gruppi" class="section">
         <div class="section-tabs" role="tablist">
-          <button type="button" class="section-tab active" id="tab-gruppi-squadre" onclick="switchGruppiTab('squadre')">Squadre di turno</button>
-          <button type="button" class="section-tab" id="tab-gruppi-gestione" onclick="switchGruppiTab('gestione')">Gestione gruppi</button>
-          <button type="button" class="section-tab" id="tab-gruppi-cronologia" onclick="switchGruppiTab('cronologia')">Cronologia</button>
+          <button type="button" class="section-tab active" id="tab-gruppi-squadre" onclick="switchGruppiTab('squadre')"><span class="tab-label-full">Squadre di turno</span><span class="tab-label-short">Squadre</span></button>
+          <button type="button" class="section-tab" id="tab-gruppi-gestione" onclick="switchGruppiTab('gestione')"><span class="tab-label-full">Gestione gruppi</span><span class="tab-label-short">Gestione</span></button>
+          <button type="button" class="section-tab" id="tab-gruppi-cronologia" onclick="switchGruppiTab('cronologia')"><span class="tab-label-full">Cronologia</span><span class="tab-label-short">Storia</span></button>
         </div>
 
         <div id="gruppi-panel-squadre" class="gruppi-tab-panel active">
@@ -7136,9 +7297,9 @@ body.anag-sheet-open { overflow: hidden; }
       <!-- Registro presenze e assenze -->
       <section id="registro" class="section">
         <div class="section-tabs" role="tablist">
-          <button type="button" class="section-tab active" id="tab-registro-messa" onclick="switchRegistroTab('messa')">Per messa</button>
-          <button type="button" class="section-tab" id="tab-registro-gruppo" onclick="switchRegistroTab('gruppo')">Per gruppo</button>
-          <button type="button" class="section-tab" id="tab-registro-persone" onclick="switchRegistroTab('persone')">Per persona</button>
+          <button type="button" class="section-tab active" id="tab-registro-messa" onclick="switchRegistroTab('messa')"><span class="tab-label-full">Per messa</span><span class="tab-label-short">Messa</span></button>
+          <button type="button" class="section-tab" id="tab-registro-gruppo" onclick="switchRegistroTab('gruppo')"><span class="tab-label-full">Per gruppo</span><span class="tab-label-short">Gruppo</span></button>
+          <button type="button" class="section-tab" id="tab-registro-persone" onclick="switchRegistroTab('persone')"><span class="tab-label-full">Per persona</span><span class="tab-label-short">Persona</span></button>
         </div>
 
         <div class="registro-toolbar">
@@ -7148,25 +7309,30 @@ body.anag-sheet-open { overflow: hidden; }
             <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroPastoralYear(1)" aria-label="Anno pastorale successivo">›</button>
             <button type="button" class="btn btn-ghost" onclick="goRegistroThisPastoralYear()">Quest'anno</button>
           </div>
-          <div class="registro-filters">
-            <select id="registro-filter-mese" onchange="onRegistroMonthFilterChange()" aria-label="Filtra mese">
+          <div class="registro-search-bar">
+            <input type="search" id="registro-search" placeholder="Cerca…" oninput="renderRegistro()" aria-label="Cerca nel registro">
+            <button type="button" class="anag-filters-toggle" id="btn-registro-filters" onclick="toggleRegistroFilters()" aria-expanded="false" aria-controls="registro-filters" title="Filtri" aria-label="Filtri">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
+            </button>
+          </div>
+          <div class="registro-filters" id="registro-filters">
+            <select id="registro-filter-mese" onchange="onRegistroMonthFilterChange();syncRegistroFiltersToggle()" aria-label="Filtra mese">
               <option value="">Tutto l'anno</option>
             </select>
-            <select id="registro-filter-stato" onchange="renderRegistro()" aria-label="Filtra stato">
+            <select id="registro-filter-stato" onchange="renderRegistro();syncRegistroFiltersToggle()" aria-label="Filtra stato">
               <option value="">Tutti gli stati</option>
               <option value="presente">Solo presenti</option>
               <option value="assente">Solo assenti</option>
             </select>
-            <select id="registro-filter-gruppo" onchange="renderRegistro()" aria-label="Filtra gruppo">
+            <select id="registro-filter-gruppo" onchange="renderRegistro();syncRegistroFiltersToggle()" aria-label="Filtra gruppo">
               <option value="">Tutti i gruppi</option>
             </select>
-            <select id="registro-filter-sede" onchange="renderRegistro()" aria-label="Filtra sede">
+            <select id="registro-filter-sede" onchange="renderRegistro();syncRegistroFiltersToggle()" aria-label="Filtra sede">
               <option value="">Tutte le sedi</option>
               <option value="santuario">Santuario</option>
               <option value="vanzago">Vanzago</option>
               <option value="mantegazza">Mantegazza</option>
             </select>
-            <input type="search" id="registro-search" placeholder="Cerca nome…" oninput="renderRegistro()" aria-label="Cerca nel registro">
           </div>
         </div>
 
@@ -7243,21 +7409,28 @@ body.anag-sheet-open { overflow: hidden; }
                 </div>
               </div>
 
-              <div class="messe-side">
+              <div class="messe-side" id="messe-side">
                 <div class="panel">
                   <div class="panel-head">
-                    <h3>Dettaglio messa</h3>
-                    <p>Liturgia e messe del giorno selezionato</p>
+                    <div>
+                      <h3>Dettaglio messa</h3>
+                      <p>Liturgia e messe del giorno selezionato</p>
+                    </div>
+                    <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
                   </div>
                   <div class="panel-body day-detail" id="messa-detail">
                     <p class="day-detail-empty empty-state-inline">Seleziona una messa dall'agenda</p>
                   </div>
                 </div>
 
-                <div class="panel">
+                <div class="panel" id="messe-extra-panel">
                   <div class="panel-head">
-                    <h3>Aggiungi messa straordinaria</h3>
-                    <p>Vigilie, festività, mercoledì delle Ceneri…</p>
+                    <div>
+                      <h3>Aggiungi messa straordinaria</h3>
+                      <p>Vigilie, festività, mercoledì delle Ceneri…</p>
+                    </div>
                   </div>
                   <div class="panel-body">
                     <form id="messaExtraForm">
@@ -7435,22 +7608,10 @@ body.anag-sheet-open { overflow: hidden; }
         <p class="mobile-more-sub">Rito ambrosiano · Parrocchia</p>
       </div>
     </div>
-    <nav class="mobile-more-nav" aria-label="Tutte le sezioni">
-      <button type="button" class="mobile-more-item" data-section="dashboard" onclick="showSection('dashboard')">
-        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg></span>
-        Oggi
-      </button>
-      <button type="button" class="mobile-more-item" data-section="presenze" onclick="openAppello()">
-        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg></span>
-        Appello
-      </button>
+    <nav class="mobile-more-nav" aria-label="Altre sezioni">
       <button type="button" class="mobile-more-item" data-section="registro" onclick="showSection('registro')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg></span>
         Registro
-      </button>
-      <button type="button" class="mobile-more-item" data-section="messe" onclick="showSection('messe')">
-        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M10 22v-5h4v5"/></svg></span>
-        Messe
       </button>
       <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
@@ -7485,6 +7646,9 @@ body.anag-sheet-open { overflow: hidden; }
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
 <div class="anag-form-overlay" id="anag-form-overlay" onclick="closeAnagSheet()" hidden></div>
 <button type="button" class="anag-fab" id="anag-fab" onclick="onAnagFabClick()" aria-label="Aggiungi" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+<button type="button" class="messe-fab" id="messe-fab" onclick="openMesseExtraSheet()" aria-label="Aggiungi messa straordinaria" hidden>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
 </button>
 <div class="anag-action-overlay" id="anag-action-overlay" hidden onclick="closeAnagPersonMenu()"></div>
@@ -8495,7 +8659,7 @@ function updateTopbarDate() {
 
 // ── Sidebar / mobile «Altro» ─────────────────────────────────
 function isPhoneShell() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return window.matchMedia('(max-width: 1024px)').matches;
 }
 
 function openAltroMenu() {
@@ -8705,14 +8869,20 @@ document.addEventListener('keydown', (e) => {
     closeAnagSheet();
     return;
   }
+  if (document.body.classList.contains('messe-sheet-open')) {
+    closeMesseSheet();
+    return;
+  }
   closeMobileMore();
   closeSidebar();
 });
 
 window.addEventListener('resize', () => {
   syncAnagFab();
+  syncMesseFab();
   if (!isAnagMobile()) {
     document.body.classList.remove('anag-sheet-open');
+    document.body.classList.remove('messe-sheet-open');
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
     const tel = document.getElementById('anag-telefoni-fields');
@@ -8810,7 +8980,9 @@ async function showSection(sectionId) {
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
   }
+  if (sectionId !== 'messe') closeMesseSheet();
   syncAnagFab();
+  syncMesseFab();
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
@@ -8825,7 +8997,10 @@ async function showSection(sectionId) {
   else if (sectionId === 'gruppi') void renderGruppi();
   else if (sectionId === 'messe') loadMesseAgenda();
   else if (sectionId === 'presenze') renderAppello();
-  else if (sectionId === 'registro') renderRegistro();
+  else if (sectionId === 'registro') {
+    renderRegistro();
+    syncRegistroFiltersToggle();
+  }
   else if (sectionId === 'calendario') {
     if (!calState.data || calState.data.anno !== getCalAnno()) loadCalendario();
     else renderCalMonth();
@@ -14256,13 +14431,68 @@ function selectMessaDay(dateStr, scrollIntoView) {
   messeState.selectedDate = dateStr;
   renderMesseAgenda();
   renderMessaDetail(dateStr);
+  openMesseSheet();
 
-  if (scrollIntoView) {
+  if (scrollIntoView && !isMesseMobile()) {
     requestAnimationFrame(() => {
       const el = document.getElementById('messa-item-' + dateStr);
       el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }
+}
+
+function isMesseMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function syncMesseFab() {
+  const fab = document.getElementById('messe-fab');
+  if (!fab) return;
+  const onMesse = document.getElementById('messe')?.classList.contains('active');
+  const show = !!(onMesse && isMesseMobile() && !document.body.classList.contains('messe-sheet-open'));
+  fab.hidden = !show;
+  fab.classList.toggle('is-visible', show);
+}
+
+function openMesseSheet() {
+  if (!isMesseMobile()) return;
+  document.body.classList.add('messe-sheet-open');
+  syncMesseFab();
+}
+
+function closeMesseSheet() {
+  document.body.classList.remove('messe-sheet-open');
+  syncMesseFab();
+}
+
+function openMesseExtraSheet() {
+  openMesseSheet();
+  requestAnimationFrame(() => {
+    document.getElementById('messe-extra-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('messa-extra-data')?.focus();
+  });
+}
+
+function toggleRegistroFilters() {
+  const filters = document.getElementById('registro-filters');
+  const btn = document.getElementById('btn-registro-filters');
+  if (!filters) return;
+  const open = !filters.classList.contains('is-open');
+  filters.classList.toggle('is-open', open);
+  syncRegistroFiltersToggle();
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function syncRegistroFiltersToggle() {
+  const btn = document.getElementById('btn-registro-filters');
+  const filters = document.getElementById('registro-filters');
+  if (!btn) return;
+  const mese = document.getElementById('registro-filter-mese')?.value;
+  const stato = document.getElementById('registro-filter-stato')?.value;
+  const gruppo = document.getElementById('registro-filter-gruppo')?.value;
+  const sede = document.getElementById('registro-filter-sede')?.value;
+  const open = !!filters?.classList.contains('is-open');
+  btn.classList.toggle('is-active', open || !!(mese || stato || gruppo || sede));
 }
 
 function renderMessaDetail(dateStr) {
@@ -14345,7 +14575,8 @@ function removeMessaExtra(uuid) {
 
 function prefillMessaExtra(dateStr) {
   document.getElementById('messa-extra-data').value = dateStr;
-  document.getElementById('messa-extra-nota').focus();
+  openMesseSheet();
+  document.getElementById('messa-extra-nota')?.focus();
 }
 
 // ── Calendario (Ambrosiano) ──────────────────────────────────
