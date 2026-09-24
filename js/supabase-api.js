@@ -75,8 +75,12 @@
       gruppo: row.gruppo || '',
       email: row.email || '',
       telefono: row.telefono || '',
+      telefono2: row.telefono2 || '',
+      telefonoChi: row.telefono_chi || '',
+      telefono2Chi: row.telefono2_chi || '',
       ruolo: row.ruolo || 'chierichetto',
-      cerimoniereTurno: !!row.cerimoniere_turno,
+      cerimoniereTurno: false,
+      promosso: !!row.promosso,
       attivo: row.attivo !== false,
       createdAt: row.created_at || ''
     };
@@ -427,8 +431,12 @@
       gruppo: dati.gruppo || '',
       email: dati.email || '',
       telefono: dati.telefono || '',
+      telefono2: dati.telefono2 || '',
+      telefono_chi: dati.telefonoChi || '',
+      telefono2_chi: dati.telefono2Chi || '',
       ruolo: dati.ruolo || 'chierichetto',
-      cerimoniere_turno: !!dati.cerimoniereTurno,
+      cerimoniere_turno: false,
+      promosso: !!dati.promosso,
       attivo: dati.attivo === false || dati.attivo === 'false' ? false : true,
       created_at: dati.createdAt || new Date().toISOString()
     };
@@ -445,10 +453,14 @@
     else if (dati.classe) patch.anno_nascita = String(dati.classe);
     if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia;
     if (dati.gruppo !== undefined) patch.gruppo = dati.gruppo;
-    if (dati.email) patch.email = dati.email;
+    if (dati.email !== undefined) patch.email = dati.email || '';
     if (dati.telefono !== undefined) patch.telefono = dati.telefono || '';
+    if (dati.telefono2 !== undefined) patch.telefono2 = dati.telefono2 || '';
+    if (dati.telefonoChi !== undefined) patch.telefono_chi = dati.telefonoChi || '';
+    if (dati.telefono2Chi !== undefined) patch.telefono2_chi = dati.telefono2Chi || '';
     if (dati.ruolo) patch.ruolo = dati.ruolo;
-    if (dati.cerimoniereTurno !== undefined) patch.cerimoniere_turno = !!dati.cerimoniereTurno;
+    patch.cerimoniere_turno = false;
+    if (dati.promosso !== undefined) patch.promosso = !!dati.promosso;
     if (dati.attivo !== undefined) patch.attivo = !(dati.attivo === false || dati.attivo === 'false');
     const { error } = await sb.from('chierichetti').update(patch).eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
@@ -565,7 +577,7 @@
     const sb = requireClient();
     const me = await getCurrentCerimoniere();
     if (!me?.admin) {
-      return { success: false, message: 'Solo l\'admin può creare nuovi accessi' };
+      return { success: false, message: 'Solo l\'admin può promuovere o creare accessi' };
     }
     const email = String(dati.email || '').trim().toLowerCase();
     const password = String(dati.password || '');

@@ -2,24 +2,21 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<<<<<<< Updated upstream
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0c1829">
-=======
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Gestione chierichetti · anagrafica, turni, appello e liturgia ambrosiana">
 <meta name="theme-color" content="#f7f4ef">
 <meta name="color-scheme" content="light">
 <meta name="mobile-web-app-capable" content="yes">
->>>>>>> Stashed changes
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ChierichApp">
+<meta name="format-detection" content="telephone=no">
 <title>ChierichApp</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<meta name="application-name" content="ChierichApp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
@@ -74,14 +71,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
-<<<<<<< Updated upstream
-=======
   overscroll-behavior-y: contain;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
 }
 
-@media (display-mode: minimal-ui), (display-mode: standalone) {
+@media (display-mode: standalone) {
   body {
     overscroll-behavior: none;
     user-select: none;
@@ -91,11 +86,11 @@ body {
     user-select: text;
     -webkit-user-select: text;
   }
+  /* Evita che lo status bar Android (edge-to-edge) resti senza contrasto */
   .topbar {
     background: var(--cream);
     padding-top: max(12px, env(safe-area-inset-top, 0px));
   }
->>>>>>> Stashed changes
 }
 
 body.sidebar-open { overflow: hidden; }
@@ -681,10 +676,67 @@ body.sidebar-open { overflow: hidden; }
   letter-spacing: 0.01em;
 }
 
+.form-req {
+  color: var(--sky);
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.form-opt {
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+  align-items: start;
+}
+
+.form-row > .form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.form-row > .form-group > label {
+  min-height: 2.5em;
+  display: flex;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.form-section-label {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.form-section-label .form-opt {
+  font-weight: 400;
+}
+
+.anag-tel-card {
+  margin-bottom: 18px;
+  padding: 12px 12px 4px;
+  background: color-mix(in srgb, var(--cream) 65%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.anag-tel-card > .form-section-label {
+  margin: 0 0 10px;
+}
+
+.anag-tel-card > .form-group {
+  margin-bottom: 12px;
+}
+
+.anag-tel-card > .form-group > label {
+  min-height: 0;
+  align-items: flex-start;
 }
 
 input, select, textarea {
@@ -2244,32 +2296,110 @@ input[type="radio"] {
 /* ── Toast ───────────────────────────────────────────────── */
 .toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1100;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 20px;
+  left: auto;
+  bottom: auto;
+  z-index: 1400;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 28px));
+  pointer-events: none;
 }
 
 .toast {
+  pointer-events: auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
-  background: var(--ink);
-  color: #fff;
-  border-radius: var(--radius-md);
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  background: #ffffff;
+  color: var(--ink);
+  border-radius: 14px;
   font-size: 0.875rem;
-  font-weight: 500;
-  box-shadow: var(--shadow-md);
-  animation: toastIn 0.35s var(--ease);
-  border-left: 3px solid var(--gold);
+  font-weight: 550;
+  line-height: 1.35;
+  box-shadow:
+    0 10px 28px rgba(12, 24, 41, 0.14),
+    0 2px 6px rgba(12, 24, 41, 0.06);
+  border: 1px solid var(--border-strong);
+  border-left: 4px solid var(--sky);
+  animation: toastIn 0.38s var(--ease);
+  opacity: 1;
+  isolation: isolate;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+.toast-icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.toast-msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast.is-success {
+  background: #eaf6f0;
+  border-color: #b7dfc9;
+  border-left-color: var(--success);
+  color: #0f5c3d;
+}
+
+.toast.is-success .toast-icon {
+  background: var(--success);
+  color: #fff;
+}
+
+.toast.is-error {
+  background: #fbf0ef;
+  border-color: #efc4bf;
+  border-left-color: var(--danger);
+  color: #8f1c15;
+}
+
+.toast.is-error .toast-icon {
+  background: var(--danger);
+  color: #fff;
+}
+
+.toast.is-info {
+  background: #ffffff;
+  border-left-color: var(--sky);
+  color: var(--ink);
+}
+
+.toast.is-info .toast-icon {
+  background: var(--sky);
+  color: #fff;
+}
+
+.toast.is-leaving {
+  animation: toastOut 0.28s var(--ease) forwards;
 }
 
 @keyframes toastIn {
-  from { opacity: 0; transform: translateX(100%); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(18px) translateY(-6px); }
+  to { opacity: 1; transform: translateX(0) translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(0) translateY(0); }
+  to { opacity: 0; transform: translateX(12px) translateY(-4px); }
 }
 
 /* ── Status pills (presenze form) ────────────────────────── */
@@ -4835,9 +4965,28 @@ input[type="radio"] {
     padding-bottom: 24px;
   }
   .toast-container {
-    bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom, 0px));
-    right: 14px;
-    left: 14px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 12px;
+    left: 12px;
+    max-width: none;
+    align-items: stretch;
+  }
+  .toast {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 0.9rem;
+    border-radius: 16px;
+    box-shadow:
+      0 12px 32px rgba(12, 24, 41, 0.16),
+      0 2px 8px rgba(12, 24, 41, 0.08);
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
   }
   .auth-screen { padding: 24px 16px; }
   .auth-card { padding: 24px 20px; }
@@ -5129,32 +5278,141 @@ input[type="radio"] {
     min-width: calc(50% - 4px);
   }
 
-  /* Anagrafica */
+  /* Anagrafica — lista a tutta larghezza su telefono */
   .split-grid {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column-reverse;
-    gap: 16px;
+    gap: 10px;
   }
   .anag-form-toggle { display: inline-flex; }
   .anag-form-panel.is-collapsed .panel-body { display: none; }
   .anag-form-panel.is-collapsed .panel-head {
     border-bottom: none;
-    padding-bottom: 16px;
+    padding-bottom: 14px;
   }
   .anag-form-panel:not(.is-collapsed) {
     order: -1;
     scroll-margin-top: calc(12px + env(safe-area-inset-top, 0px));
   }
-  .anag-person {
+
+  #anagrafica.section.active {
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+    max-width: none;
+    box-sizing: border-box;
+  }
+  #anagrafica > .section-tabs {
+    margin: 0 14px 10px;
+    width: auto;
+    max-width: none;
+  }
+  #anagrafica .split-grid {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .panel {
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  #anagrafica .anag-list-head {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-list-head .panel-head {
+    padding: 0;
+  }
+  #anagrafica #btn-anag-add {
+    margin: 0 !important;
+    flex-shrink: 0;
+  }
+  #anagrafica .panel-body {
+    padding: 12px 0 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-form-panel .panel-head,
+  #anagrafica .anag-form-panel .panel-body,
+  #anagrafica #cerimoniere-form-panel .panel-head,
+  #anagrafica #cerimoniere-form-panel .panel-body,
+  #anagrafica .anag-list-toolbar,
+  #anagrafica .toolbar {
+    padding-left: 14px;
+    padding-right: 14px;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-status-tabs {
+    display: flex;
+    width: calc(100% - 28px);
+    margin: 0 14px 12px;
+    padding-left: 3px;
+    padding-right: 3px;
+    box-sizing: border-box;
+  }
+  #anagrafica .anag-status-tab { flex: 1; text-align: center; }
+  #anagrafica .anag-list-toolbar,
+  #anagrafica .toolbar {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .anag-search,
+  #anagrafica .toolbar input,
+  #anagrafica .toolbar select,
+  #anagrafica .anag-filters,
+  #anagrafica .anag-filters select {
+    width: 100%;
+    max-width: none;
+  }
+  #anagrafica .list {
+    gap: 0;
+    width: 100%;
+  }
+  #anagrafica .list-item.anag-person,
+  #anagrafica .list-item {
+    flex-direction: row;
+    align-items: flex-start;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
     padding: 14px;
+    gap: 12px;
+    background: var(--surface);
   }
-  .anag-person-body .list-item-title { font-size: 1rem; }
-  .anag-list-head {
-    flex-wrap: wrap;
+  #anagrafica .list-item + .list-item {
+    border-top: 1px solid var(--border);
   }
-  #anagrafica .panel-body { padding: 16px; }
-  #anagrafica .panel-head { padding: 16px 16px 12px; }
+  #anagrafica .anag-person-body,
+  #anagrafica .list-item-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+  #anagrafica .list-item-actions {
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+  #anagrafica .anag-empty {
+    margin: 0 14px 14px;
+    width: auto;
+  }
+  #anagrafica .anag-form-panel .panel-body {
+    padding-bottom: 16px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -5905,7 +6163,7 @@ input[type="radio"] {
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
-          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Accessi</button>
+          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Cerimonieri e Don</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -5913,7 +6171,7 @@ input[type="radio"] {
             <div class="panel-head">
               <div>
                 <h3 id="form-chierichetto-title">Nuovo chierichetto</h3>
-                <p id="form-chierichetto-sub">Parrocchia, anno di nascita e contatti</p>
+                <p id="form-chierichetto-sub">Nome, parrocchia e telefoni genitori — il gruppo si assegna in Gruppi</p>
               </div>
               <button type="button" class="btn btn-secondary btn-sm anag-form-toggle" id="btn-toggle-anag-form" onclick="toggleAnagForm()" aria-expanded="false" aria-controls="chierichettoForm">Apri</button>
             </div>
@@ -5922,48 +6180,78 @@ input[type="radio"] {
                 <input type="hidden" id="edit-uuid" value="">
                 <input type="hidden" id="persona-ruolo" value="chierichetto">
                 <div class="form-group">
-                  <label for="nome">Nome e cognome</label>
+                  <label for="nome">Nome e cognome <span class="form-req" aria-hidden="true">*</span></label>
                   <input type="text" id="nome" name="nome" required placeholder="Mario Rossi" autocomplete="name">
                 </div>
                 <div class="form-row" id="anag-chierichetto-fields">
                   <div class="form-group">
-                    <label for="anno-nascita">Anno di nascita</label>
-                    <select id="anno-nascita" name="annoNascita" required>
-                      <option value="">Seleziona</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="parrocchia">Parrocchia</label>
-                    <select id="parrocchia" name="parrocchia">
+                    <label for="parrocchia">Parrocchia <span class="form-req" aria-hidden="true">*</span></label>
+                    <select id="parrocchia" name="parrocchia" required>
                       <option value="">Seleziona</option>
                       <option value="vanzago">Vanzago</option>
                       <option value="mantegazza">Mantegazza</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="anno-nascita">Anno di nascita</label>
+                    <select id="anno-nascita" name="annoNascita">
+                      <option value="">Seleziona</option>
                     </select>
                   </div>
                 </div>
                 <p class="liturgy-meta" id="anag-gruppo-hint" style="display:none;margin:-4px 0 12px">
                   Il gruppo si assegna dalla pagina <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('gruppi')">Gruppi</button>.
                 </p>
-                <div class="form-check-group" id="anag-cerimoniere-turno-wrap">
-                  <label class="form-check">
-                    <input type="checkbox" id="cerimoniere-turno" name="cerimoniereTurno">
-                    <span class="form-check-body">
-                      <span class="form-check-title">Cerimoniere di turno</span>
-                      <span class="form-check-desc">Capo squadra — in grassetto nel tabellone gruppi</span>
-                    </span>
-                  </label>
-                </div>
-                <div class="form-group">
-                  <label for="email">Email</label>
-                  <input type="email" id="email" name="email" required placeholder="mario.rossi@email.com" autocomplete="email">
-                </div>
-                <div class="form-group">
-                  <label for="telefono">Telefono <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
-                  <input type="tel" id="telefono" name="telefono" placeholder="+39 333 123 4567" autocomplete="tel">
+                <div class="form-row" id="anag-telefoni-fields">
+                  <div class="anag-tel-card">
+                    <p class="form-section-label">Telefono 1 — Genitori o tutori <span class="form-opt">(opzionale)</span></p>
+                    <div class="form-group">
+                      <label for="telefono-chi">Chi</label>
+                      <input type="text" id="telefono-chi" name="telefonoChi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                      <label for="telefono">Numero</label>
+                      <input type="tel" id="telefono" name="telefono" placeholder="+39 333 123 4567" autocomplete="tel">
+                    </div>
+                  </div>
+                  <div class="anag-tel-card">
+                    <p class="form-section-label">Telefono 2 — Genitori o tutori <span class="form-opt">(opzionale)</span></p>
+                    <div class="form-group">
+                      <label for="telefono2-chi">Chi</label>
+                      <input type="text" id="telefono2-chi" name="telefono2Chi" placeholder="Mamma, Papà, tutore…" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                      <label for="telefono2">Numero</label>
+                      <input type="tel" id="telefono2" name="telefono2" placeholder="+39 333 987 6543" autocomplete="tel">
+                    </div>
+                  </div>
                 </div>
                 <div class="form-actions" style="display:flex;gap:10px;">
                   <button type="submit" class="btn btn-primary btn-full" id="btn-save-chierichetto">Salva</button>
                   <button type="button" class="btn btn-secondary" id="btn-cancel-edit" style="display:none" onclick="cancelEdit()">Annulla</button>
+                </div>
+              </form>
+              <form id="promoteChierichettoForm" style="display:none">
+                <input type="hidden" id="promote-uuid" value="">
+                <p class="liturgy-meta" id="promote-nome-hint" style="margin:0 0 14px"></p>
+                <div class="form-group">
+                  <label for="promote-email">Email di login</label>
+                  <input type="email" id="promote-email" required placeholder="mario@parrocchia.it" autocomplete="email">
+                </div>
+                <div class="form-group">
+                  <label for="promote-password">Password</label>
+                  <input type="password" id="promote-password" required minlength="6" autocomplete="new-password" placeholder="Minimo 6 caratteri">
+                </div>
+                <div class="form-group">
+                  <label for="promote-password2">Conferma password</label>
+                  <input type="password" id="promote-password2" required minlength="6" autocomplete="new-password" placeholder="Ripeti la password">
+                </div>
+                <p class="form-hint" style="margin:0 0 12px;font-size:0.85rem;color:var(--muted)">
+                  Crea l’account cerimoniere e sposta il chierichetto in «Ora cerimoniere». Non diventa ex.
+                </p>
+                <div class="form-actions" style="display:flex;gap:10px;">
+                  <button type="submit" class="btn btn-primary btn-full" id="btn-promote-chierichetto">Promuovi</button>
+                  <button type="button" class="btn btn-secondary" onclick="cancelPromoteChierichetto()">Annulla</button>
                 </div>
               </form>
             </div>
@@ -5981,9 +6269,10 @@ input[type="radio"] {
               <div class="anag-status-tabs" role="tablist" aria-label="Stato chierichetti">
                 <button type="button" class="anag-status-tab active" id="anag-status-attivi" onclick="setAnagraficaStatusFilter('attivi')">Attivi</button>
                 <button type="button" class="anag-status-tab" id="anag-status-ex" onclick="setAnagraficaStatusFilter('ex')">Ex</button>
+                <button type="button" class="anag-status-tab" id="anag-status-promossi" onclick="setAnagraficaStatusFilter('promossi')">Ora cerimoniere</button>
               </div>
               <div class="anag-list-toolbar">
-                <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca nome o email…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
+                <input type="search" class="anag-search" id="search-chierichetti" placeholder="Cerca nome o telefono…" oninput="renderChierichetti()" aria-label="Cerca chierichetti">
                 <div class="anag-filters">
                   <select id="filter-anno-nascita" onchange="renderChierichetti()" aria-label="Filtra per anno di nascita">
                     <option value="">Tutti gli anni</option>
@@ -6030,12 +6319,6 @@ input[type="radio"] {
                     <option value="">Entrambe (Vanzago e Mantegazza)</option>
                     <option value="vanzago">Vanzago</option>
                     <option value="mantegazza">Mantegazza</option>
-                  </select>
-                </div>
-                <div class="form-group" id="cerimoniere-chierichetto-wrap">
-                  <label for="cerimoniere-chierichetto">Collega a chierichetto</label>
-                  <select id="cerimoniere-chierichetto">
-                    <option value="">— Nessun collegamento —</option>
                   </select>
                 </div>
                 <div class="form-group" id="cerimoniere-password-wrap">
@@ -6799,6 +7082,7 @@ let state = { chierichetti: [], turni: [], presenze: [], messeExtra: [], schemaV
 let cerimonieriAccounts = [];
 let cerimonieriHydrated = false;
 let editingUuid = null;
+let promotingUuid = null;
 let editingCerimoniereUuid = null;
 let editingCerimoniereAsProfile = false;
 let apiOnline = false;
@@ -7034,7 +7318,7 @@ function isCurrentUserAdmin() {
 
 function requireAdminAction(msg) {
   if (isCurrentUserAdmin()) return true;
-  showToast(msg || 'Solo l\'admin può modificare questa sezione');
+  showToast(msg || 'Solo l\'admin può modificare questa sezione', 'error');
   return false;
 }
 
@@ -8090,14 +8374,17 @@ function populateAnnoNascitaFilter() {
 }
 
 function migrateCerimoniereTurno() {
+  // I chierichetti non sono più «cerimoniere di turno»: azzera il flag su tutti
   state.chierichetti.forEach(c => {
-    if (c.ruolo === 'cerimoniere') {
-      c.cerimoniereTurno = true;
-      c.ruolo = 'chierichetto';
-    }
-    if (c.cerimoniereTurno === 'true') c.cerimoniereTurno = true;
-    else if (c.cerimoniereTurno === 'false') c.cerimoniereTurno = false;
-    else if (c.cerimoniereTurno === undefined) c.cerimoniereTurno = false;
+    if (c.ruolo === 'cerimoniere') c.ruolo = 'chierichetto';
+    c.cerimoniereTurno = false;
+  });
+}
+
+function migrateChierichettiPromosso() {
+  state.chierichetti.forEach(c => {
+    if (c.promosso === 'true') c.promosso = true;
+    else if (c.promosso === 'false' || c.promosso === undefined || c.promosso === '') c.promosso = false;
   });
 }
 
@@ -8411,6 +8698,7 @@ function loadData() {
     migrateAnnoNascita();
     migrateCerimoniereTurno();
     migrateChierichettiAttivo();
+    migrateChierichettiPromosso();
     migrateResetOperationalHistoryFor2026_27(prevVersion);
     state.schemaVersion = DATA_SCHEMA_VERSION;
   } catch (e) {
@@ -8480,6 +8768,7 @@ function applyServerSnapshot(chi, turni, pres, configRes, cerimonieri) {
   migratePresenzeUuid();
   migrateCerimoniereTurno();
   migrateChierichettiAttivo();
+  migrateChierichettiPromosso();
 }
 
 async function syncFromServer() {
@@ -9536,8 +9825,13 @@ function isPersonaAttiva(p) {
   return p.attivo !== false && p.attivo !== 'false';
 }
 
+function isChierichettoPromosso(p) {
+  if (!p) return false;
+  return p.promosso === true || p.promosso === 'true' || isLinkedCerimoniereAccount(p);
+}
+
 function isChierichettoAttivo(p) {
-  return isChierichettoPersona(p) && isPersonaAttiva(p);
+  return isChierichettoPersona(p) && isPersonaAttiva(p) && !isChierichettoPromosso(p);
 }
 
 function countChierichettiInGruppo(gruppo) {
@@ -11160,15 +11454,22 @@ function renderAppelloFallback(dateStr, list, primaryGruppo) {
 
 // ── Anagrafica ──────────────────────────────────────────────
 function syncAnagraficaStatusTabs() {
-  const isAttivi = anagraficaStatusFilter === 'attivi';
-  document.getElementById('anag-status-attivi')?.classList.toggle('active', isAttivi);
-  document.getElementById('anag-status-ex')?.classList.toggle('active', !isAttivi);
-  document.getElementById('anag-cer-status-attivi')?.classList.toggle('active', isAttivi);
-  document.getElementById('anag-cer-status-ex')?.classList.toggle('active', !isAttivi);
+  const filter = anagraficaStatusFilter;
+  document.getElementById('anag-status-attivi')?.classList.toggle('active', filter === 'attivi');
+  document.getElementById('anag-status-ex')?.classList.toggle('active', filter === 'ex');
+  document.getElementById('anag-status-promossi')?.classList.toggle('active', filter === 'promossi');
+  document.getElementById('anag-cer-status-attivi')?.classList.toggle('active', filter === 'attivi');
+  document.getElementById('anag-cer-status-ex')?.classList.toggle('active', filter === 'ex');
 }
 
 function setAnagraficaStatusFilter(status) {
-  anagraficaStatusFilter = status === 'ex' ? 'ex' : 'attivi';
+  if (status === 'ex') anagraficaStatusFilter = 'ex';
+  else if (status === 'promossi') anagraficaStatusFilter = 'promossi';
+  else anagraficaStatusFilter = 'attivi';
+  // Il tab Cerimonieri e Don non ha «Ora cerimoniere»
+  if (anagraficaTab === 'cerimoniere' && anagraficaStatusFilter === 'promossi') {
+    anagraficaStatusFilter = 'attivi';
+  }
   syncAnagraficaStatusTabs();
   if (anagraficaTab === 'cerimoniere') renderCerimonieri();
   else renderChierichetti();
@@ -11184,7 +11485,10 @@ function switchAnagraficaTab(ruolo, keepForm) {
 
   if (ruolo === 'chierichetto') {
     document.getElementById('persona-ruolo').value = 'chierichetto';
-    if (!keepForm) cancelEdit();
+    if (!keepForm) {
+      cancelPromoteChierichetto();
+      cancelEdit();
+    }
     else updateAnagraficaFormLabels();
     renderChierichetti();
   } else {
@@ -11197,45 +11501,63 @@ function switchAnagraficaTab(ruolo, keepForm) {
 
 function updateAnagraficaFormLabels() {
   const editing = !!editingUuid;
-  document.getElementById('form-chierichetto-title').textContent = editing ? 'Modifica chierichetto' : 'Nuovo chierichetto';
-  if (!editing) {
-    document.getElementById('form-chierichetto-sub').textContent = 'Parrocchia, anno di nascita e contatti — il gruppo si assegna in Gruppi';
+  const promoting = !!promotingUuid;
+  if (promoting) {
+    document.getElementById('form-chierichetto-title').textContent = 'Promuovi a cerimoniere';
+    document.getElementById('form-chierichetto-sub').textContent = 'Email e password per il nuovo account di login';
+  } else {
+    document.getElementById('form-chierichetto-title').textContent = editing ? 'Modifica chierichetto' : 'Nuovo chierichetto';
+    if (!editing) {
+      document.getElementById('form-chierichetto-sub').textContent = 'Nome, parrocchia e telefoni genitori — il gruppo si assegna in Gruppi';
+    }
   }
-  document.getElementById('anag-gruppo-hint').style.display = '';
+  document.getElementById('anag-gruppo-hint').style.display = promoting ? 'none' : '';
   document.getElementById('anag-list-title').textContent = 'Elenco';
   document.getElementById('anag-list-count-label').textContent =
-    anagraficaStatusFilter === 'ex' ? 'ex' : 'attivi';
+    anagraficaStatusFilter === 'ex' ? 'ex'
+      : anagraficaStatusFilter === 'promossi' ? 'ora cerimoniere'
+      : 'attivi';
   const search = document.getElementById('search-chierichetti');
-  if (search) search.placeholder = 'Cerca nome o email…';
-  document.getElementById('anno-nascita').required = true;
+  if (search) search.placeholder = 'Cerca nome o telefono…';
+  const annoEl = document.getElementById('anno-nascita');
+  if (annoEl) annoEl.required = false;
   const parrocchiaEl = document.getElementById('parrocchia');
   if (parrocchiaEl) parrocchiaEl.required = true;
 }
 
 function isAnagraficaChierichetto(chi) {
-  return isChierichettoPersona(chi) && !isLinkedCerimoniereAccount(chi);
+  return isChierichettoPersona(chi);
 }
 
 async function setChierichettoAttivo(uuid, attivo) {
   const idx = state.chierichetti.findIndex(c => c.uuid === uuid);
   if (idx < 0) return;
   const c = state.chierichetti[idx];
+  if (isChierichettoPromosso(c)) {
+    showToast('Questo chierichetto è già stato promosso a cerimoniere');
+    return;
+  }
   const next = {
     ...c,
     attivo: !!attivo,
     gruppo: attivo ? c.gruppo : '',
-    cerimoniereTurno: attivo ? c.cerimoniereTurno : false
+    cerimoniereTurno: false,
+    promosso: false
   };
   state.chierichetti[idx] = next;
   saveData();
   const ok = await persistPersona({
     nome: next.nome,
-    email: next.email,
+    email: '',
     telefono: next.telefono || '',
+    telefono2: next.telefono2 || '',
+    telefonoChi: next.telefonoChi || '',
+    telefono2Chi: next.telefono2Chi || '',
     ruolo: 'chierichetto',
     annoNascita: next.annoNascita,
     parrocchia: next.parrocchia,
-    cerimoniereTurno: !!next.cerimoniereTurno,
+    cerimoniereTurno: false,
+    promosso: false,
     gruppo: next.gruppo || '',
     attivo: !!attivo
   }, uuid);
@@ -11306,27 +11628,184 @@ function toggleAnagForm() {
 }
 
 function startNewChierichetto() {
+  cancelPromoteChierichetto();
   cancelEdit();
   setAnagFormOpen(true);
   document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('nome')?.focus();
 }
 
+function setChierichettoFormMode(mode) {
+  const createForm = document.getElementById('chierichettoForm');
+  const promoteForm = document.getElementById('promoteChierichettoForm');
+  const isPromote = mode === 'promote';
+  if (createForm) createForm.style.display = isPromote ? 'none' : '';
+  if (promoteForm) promoteForm.style.display = isPromote ? '' : 'none';
+}
+
+function startPromoteChierichetto(uuid) {
+  if (!isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può promuovere a cerimoniere', 'error');
+    return;
+  }
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  if (!c || !isChierichettoPersona(c) || isChierichettoPromosso(c) || !isPersonaAttiva(c)) return;
+
+  cancelEdit();
+  promotingUuid = uuid;
+  document.getElementById('promote-uuid').value = uuid;
+  document.getElementById('promote-nome-hint').textContent =
+    `Promuovi ${c.nome} a cerimoniere: indica email e password per il login.`;
+  document.getElementById('promote-email').value = '';
+  document.getElementById('promote-password').value = '';
+  document.getElementById('promote-password2').value = '';
+  setChierichettoFormMode('promote');
+  updateAnagraficaFormLabels();
+  setAnagFormOpen(true);
+  document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('promote-email')?.focus();
+}
+
+function cancelPromoteChierichetto() {
+  promotingUuid = null;
+  const form = document.getElementById('promoteChierichettoForm');
+  if (form) form.reset();
+  document.getElementById('promote-uuid').value = '';
+  setChierichettoFormMode('create');
+  updateAnagraficaFormLabels();
+  if (window.matchMedia('(max-width: 1024px)').matches) setAnagFormOpen(false);
+}
+
+async function handlePromoteChierichettoSubmit(e) {
+  e.preventDefault();
+  if (!isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può promuovere a cerimoniere', 'error');
+    cancelPromoteChierichetto();
+    return;
+  }
+
+  const uuid = document.getElementById('promote-uuid').value || promotingUuid;
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  if (!c) {
+    showToast('Chierichetto non trovato');
+    return;
+  }
+  if (isChierichettoPromosso(c)) {
+    showToast('Già promosso a cerimoniere');
+    return;
+  }
+
+  const email = document.getElementById('promote-email').value.trim();
+  const password = document.getElementById('promote-password').value;
+  const password2 = document.getElementById('promote-password2').value;
+  if (!email) {
+    showToast('Inserisci l\'email di login');
+    return;
+  }
+  if (!password || password.length < 6) {
+    showToast('Password di almeno 6 caratteri');
+    return;
+  }
+  if (password !== password2) {
+    showToast('Le password non coincidono');
+    return;
+  }
+
+  const btn = document.getElementById('btn-promote-chierichetto');
+  if (btn) btn.disabled = true;
+  try {
+    const datiAccount = {
+      nome: c.nome,
+      email,
+      password,
+      parrocchia: c.parrocchia || '',
+      chierichettoUuid: c.uuid,
+      ruolo: 'cerimoniere'
+    };
+
+    let result;
+    if (isGAS) {
+      result = await gasRun('salvaCerimoniere', datiAccount);
+    } else if (isSupabase) {
+      result = await window.ChierichSupabase.salvaCerimoniere(datiAccount);
+    } else {
+      const res = await apiFetch('/api/cerimonieri', { method: 'POST', body: datiAccount });
+      result = await res.json();
+    }
+    if (!result?.success) {
+      showToast(result?.message || 'Creazione account non riuscita');
+      return;
+    }
+
+    const idx = state.chierichetti.findIndex(ch => ch.uuid === uuid);
+    if (idx >= 0) {
+      const prev = state.chierichetti[idx];
+      const next = {
+        ...prev,
+        promosso: true,
+        gruppo: '',
+        cerimoniereTurno: false,
+        attivo: true
+      };
+      state.chierichetti[idx] = next;
+      saveData();
+      const ok = await persistPersona({
+        nome: next.nome,
+        email: '',
+        telefono: next.telefono || '',
+        telefono2: next.telefono2 || '',
+        telefonoChi: next.telefonoChi || '',
+        telefono2Chi: next.telefono2Chi || '',
+        ruolo: 'chierichetto',
+        annoNascita: next.annoNascita,
+        parrocchia: next.parrocchia,
+        cerimoniereTurno: false,
+        promosso: true,
+        gruppo: '',
+        attivo: true
+      }, uuid);
+      if (!ok) {
+        state.chierichetti[idx] = prev;
+        saveData();
+        showToast('Account creato, ma aggiornamento anagrafica non riuscito — riprova');
+        return;
+      }
+    }
+
+    await loadCerimonieriAccounts(true);
+    cancelPromoteChierichetto();
+    anagraficaStatusFilter = 'promossi';
+    syncAnagraficaStatusTabs();
+    await renderChierichetti();
+    populateGruppoSelects();
+    showToast(result.needsEmailConfirm
+      ? `${c.nome} promosso. Conferma l'email prima del primo accesso.`
+      : `${c.nome} promosso a cerimoniere`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function renderChierichetti() {
   await loadCerimonieriAccounts();
+  if (syncCurrentUserAdminFlag()) updateSidebarUser();
+  if (promotingUuid && !isCurrentUserAdmin()) cancelPromoteChierichetto();
   syncAnagraficaStatusTabs();
 
   const anagChi = state.chierichetti.filter(isAnagraficaChierichetto);
-  const nAttivi = anagChi.filter(isPersonaAttiva).length;
-  const nEx = anagChi.length - nAttivi;
+  const nAttivi = anagChi.filter(c => isPersonaAttiva(c) && !isChierichettoPromosso(c)).length;
+  const nEx = anagChi.filter(c => !isPersonaAttiva(c) && !isChierichettoPromosso(c)).length;
+  const nPromossi = anagChi.filter(isChierichettoPromosso).length;
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
   const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nCerAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nCerAttivi})`;
 
   const statusAttivi = document.getElementById('anag-status-attivi');
   const statusEx = document.getElementById('anag-status-ex');
+  const statusPromossi = document.getElementById('anag-status-promossi');
   if (statusAttivi) statusAttivi.textContent = `Attivi (${nAttivi})`;
   if (statusEx) statusEx.textContent = `Ex (${nEx})`;
+  if (statusPromossi) statusPromossi.textContent = `Ora cerimoniere (${nPromossi})`;
 
   populateAnnoNascitaFilter();
   updateAnagraficaFormLabels();
@@ -11334,16 +11813,25 @@ async function renderChierichetti() {
   const filterAnno = document.getElementById('filter-anno-nascita').value;
   const filterParrocchia = document.getElementById('filter-parrocchia')?.value || '';
   const search = document.getElementById('search-chierichetti').value.toLowerCase();
-  const wantAttivi = anagraficaStatusFilter !== 'ex';
+  const statusFilter = anagraficaStatusFilter;
 
   const filtered = anagChi.filter(c => {
-    if (isPersonaAttiva(c) !== wantAttivi) return false;
+    const promosso = isChierichettoPromosso(c);
+    if (statusFilter === 'promossi') {
+      if (!promosso) return false;
+    } else if (statusFilter === 'ex') {
+      if (promosso || isPersonaAttiva(c)) return false;
+    } else {
+      if (promosso || !isPersonaAttiva(c)) return false;
+    }
     const matchAnno = !filterAnno || String(c.annoNascita) === filterAnno;
     const matchParrocchia = !filterParrocchia || c.parrocchia === filterParrocchia;
     const matchSearch = !search ||
       c.nome.toLowerCase().includes(search) ||
-      (c.email || '').toLowerCase().includes(search) ||
-      (c.telefono || '').toLowerCase().includes(search);
+      (c.telefono || '').toLowerCase().includes(search) ||
+      (c.telefono2 || '').toLowerCase().includes(search) ||
+      (c.telefonoChi || '').toLowerCase().includes(search) ||
+      (c.telefono2Chi || '').toLowerCase().includes(search);
     return matchAnno && matchParrocchia && matchSearch;
   });
 
@@ -11352,7 +11840,11 @@ async function renderChierichetti() {
   const container = document.getElementById('chierichetti-list');
   if (!filtered.length) {
     const hasFilters = !!(search || filterAnno || filterParrocchia);
-    container.innerHTML = wantAttivi
+    if (statusFilter === 'promossi') {
+      container.innerHTML = `<div class="anag-empty"><p>${hasFilters ? 'Nessun risultato con i filtri scelti.' : 'Nessun chierichetto promosso a cerimoniere.'}</p></div>`;
+      return;
+    }
+    container.innerHTML = statusFilter !== 'ex'
       ? `<div class="anag-empty">
           <p>${hasFilters ? 'Nessun risultato con i filtri scelti.' : 'Nessun chierichetto attivo.'}</p>
           ${hasFilters
@@ -11363,15 +11855,19 @@ async function renderChierichetti() {
     return;
   }
 
+  const canPromote = isCurrentUserAdmin();
   container.innerHTML = filtered.map(c => {
     const attivo = isPersonaAttiva(c);
-    const isCer = isCerimoniereTurno(c);
-    const avatarClass = !attivo ? 'is-ex' : (isCer ? 'is-cer' : '');
+    const promosso = isChierichettoPromosso(c);
+    const linkedAcc = cerimonieriAccounts.find(a => a.chierichettoUuid === c.uuid);
+    const avatarClass = promosso ? 'is-cer' : (!attivo ? 'is-ex' : '');
     const chips = [];
     if (c.parrocchia) chips.push(`<span class="anag-chip">${esc(getParrocchiaLabel(c.parrocchia))}</span>`);
     if (c.annoNascita) chips.push(`<span class="anag-chip">${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>`);
-    if (isCer) chips.push('<span class="anag-chip gold">Cer. di turno</span>');
-    if (attivo) {
+    if (promosso) {
+      chips.push('<span class="anag-chip gold">Ora cerimoniere</span>');
+      if (linkedAcc?.email) chips.push(`<span class="anag-chip">${esc(linkedAcc.email)}</span>`);
+    } else if (attivo) {
       chips.push(c.gruppo
         ? `<span class="anag-chip ok">${esc(getGruppoLabel(c.gruppo))}</span>`
         : '<span class="anag-chip warn">Senza gruppo</span>');
@@ -11379,19 +11875,30 @@ async function renderChierichetti() {
       chips.push('<span class="anag-chip">Ex</span>');
     }
     const contacts = [];
-    if (c.email) contacts.push(`<span>${esc(c.email)}</span>`);
-    if (c.telefono) {
-      contacts.push(`<a href="tel:${esc(c.telefono.replace(/\s/g, ''))}">${esc(c.telefono)}</a>`);
+    const pushTel = (num, chi) => {
+      if (!num) return;
+      const label = chi ? `${esc(chi)} · ` : '';
+      contacts.push(`<a href="tel:${esc(num.replace(/\s/g, ''))}">${label}${esc(num)}</a>`);
+    };
+    pushTel(c.telefono, c.telefonoChi);
+    pushTel(c.telefono2, c.telefono2Chi);
+    let statusBtn = '';
+    if (!promosso) {
+      statusBtn = attivo
+        ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, false)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          </button>`
+        : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina tra gli attivi" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, true)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          </button>`;
     }
-    const statusBtn = attivo
-      ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, false)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+    const promoteBtn = (canPromote && attivo && !promosso)
+      ? `<button type="button" class="btn btn-ghost btn-icon" title="Promuovi a cerimoniere" onclick="startPromoteChierichetto(${jsStr(c.uuid)})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>`
-      : `<button type="button" class="btn btn-ghost btn-icon" title="Ripristina tra gli attivi" onclick="setChierichettoAttivo(${jsStr(c.uuid)}, true)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-        </button>`;
+      : '';
     return `
-    <div class="list-item anag-person${attivo ? '' : ' is-ex'}">
+    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
       <div class="anag-person-body">
         <p class="list-item-title">${chierichettoNomeHtml(c)}</p>
@@ -11399,31 +11906,18 @@ async function renderChierichetti() {
         ${contacts.length ? `<div class="anag-contact">${contacts.join('')}</div>` : ''}
       </div>
       <div class="list-item-actions">
-        <button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editChierichetto(${jsStr(c.uuid)})">
+        ${promosso ? '' : `<button type="button" class="btn btn-ghost btn-icon" title="Modifica" onclick="editChierichetto(${jsStr(c.uuid)})">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
+        </button>`}
+        ${promoteBtn}
         ${statusBtn}
-        <button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deletePersona(${jsStr(c.uuid)})">
+        ${promosso ? '' : `<button type="button" class="btn btn-ghost btn-icon" title="Elimina definitivamente" onclick="deletePersona(${jsStr(c.uuid)})">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
+        </button>`}
       </div>
     </div>
   `;
   }).join('');
-}
-
-function populateCerimoniereChierichettoSelect(selectedUuid) {
-  const sel = document.getElementById('cerimoniere-chierichetto');
-  if (!sel) return;
-  const options = state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && (!isLinkedCerimoniereAccount(c) || c.uuid === selectedUuid))
-    .slice()
-    .sort(sortChierichettiInGruppo)
-    .map(c => {
-      const tag = isCerimoniereTurno(c) ? ' · cerimoniere di turno' : '';
-      return `<option value="${esc(c.uuid)}"${c.uuid === selectedUuid ? ' selected' : ''}>${esc(c.nome)}${tag}</option>`;
-    });
-  sel.innerHTML = '<option value="">— Nessun collegamento —</option>' + options.join('');
 }
 
 async function loadCerimonieriAccounts(force) {
@@ -11451,16 +11945,9 @@ async function loadCerimonieriAccounts(force) {
 function onCerimoniereRuoloChange() {
   const ruolo = document.getElementById('cerimoniere-ruolo')?.value || 'cerimoniere';
   const isPrete = ruolo === 'prete';
-  const linkWrap = document.getElementById('cerimoniere-chierichetto-wrap');
-  const hideLink = isPrete || (!isCurrentUserAdmin() && isEditingOwnCerimoniere());
-  if (linkWrap) linkWrap.style.display = hideLink ? 'none' : '';
   const nome = document.getElementById('cerimoniere-nome');
   if (nome && !editingCerimoniereUuid) {
     nome.placeholder = isPrete ? 'Don Mario Rossi' : 'Mario Rossi';
-  }
-  if (isPrete) {
-    const link = document.getElementById('cerimoniere-chierichetto');
-    if (link) link.value = '';
   }
 }
 
@@ -11476,7 +11963,7 @@ function renderCerimonieri() {
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
   const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
-  document.getElementById('tab-anag-cerimonieri').textContent = `Accessi (${nAttivi})`;
+  document.getElementById('tab-anag-cerimonieri').textContent = `Cerimonieri e Don (${nAttivi})`;
   const cerAttiviBtn = document.getElementById('anag-cer-status-attivi');
   const cerExBtn = document.getElementById('anag-cer-status-ex');
   if (cerAttiviBtn) cerAttiviBtn.textContent = `Attivi (${nAttivi})`;
@@ -11501,9 +11988,6 @@ function renderCerimonieri() {
       : 'ex';
   }
 
-  populateCerimoniereChierichettoSelect(
-    (editingCerimoniereUuid && cerimonieriAccounts.find(x => x.uuid === editingCerimoniereUuid)?.chierichettoUuid) || ''
-  );
   const container = document.getElementById('cerimonieri-list');
   const canManage = isCurrentUserAdmin();
   if (!filtered.length) {
@@ -11528,7 +12012,7 @@ function renderCerimonieri() {
     if (isAdminAcc) chips.push('<span class="anag-chip ok">Admin</span>');
     if (isSelf) chips.push('<span class="anag-chip">Tu</span>');
     if (!attivo) chips.push('<span class="anag-chip">Ex</span>');
-    if (!isPrete && linked) chips.push(`<span class="anag-chip">→ ${esc(linked.nome)}</span>`);
+    if (!isPrete && linked) chips.push(`<span class="anag-chip">ex chierichetto → ${esc(linked.nome)}</span>`);
     const avatarClass = !attivo ? 'is-ex' : (isPrete ? 'is-cer' : '');
     const statusBtn = (!canManage || isSelf || isAdminAcc) ? '' : (attivo
       ? `<button type="button" class="btn btn-ghost btn-icon" title="Segna come ex" onclick="setCerimoniereAttivo(${jsStr(c.uuid)}, false)">
@@ -11579,7 +12063,6 @@ function editCerimoniere(uuid, opts = {}) {
   document.getElementById('cerimoniere-nome').value = c.nome;
   document.getElementById('cerimoniere-email').value = c.email;
   document.getElementById('cerimoniere-parrocchia').value = c.parrocchia || '';
-  populateCerimoniereChierichettoSelect(c.chierichettoUuid || '');
   document.getElementById('cerimoniere-password').value = '';
   document.getElementById('cerimoniere-password').required = false;
   const pwd2 = document.getElementById('cerimoniere-password2');
@@ -11601,8 +12084,6 @@ function editCerimoniere(uuid, opts = {}) {
     emailPending.textContent = '';
   }
 
-  const linkWrap = document.getElementById('cerimoniere-chierichetto-wrap');
-
   // Solo modalità profilo esplicita (o non-admin su sé): form ridotto.
   // Admin che apre sé stesso da Accessi → form completo come per gli altri.
   if (asProfile) {
@@ -11611,14 +12092,12 @@ function editCerimoniere(uuid, opts = {}) {
     document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
     document.getElementById('btn-save-cerimoniere').textContent = 'Salva profilo';
     document.getElementById('btn-cancel-cerimoniere-edit').style.display = canAdmin ? 'block' : 'none';
-    if (linkWrap) linkWrap.style.display = canAdmin ? '' : 'none';
   } else {
     document.getElementById('form-cerimoniere-title').textContent = c.ruolo === 'prete' ? 'Modifica Don' : 'Modifica cerimoniere';
     document.getElementById('form-cerimoniere-sub').textContent = isSelf ? `${c.nome} (tu)` : c.nome;
     document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
     document.getElementById('btn-save-cerimoniere').textContent = 'Aggiorna';
     document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'block';
-    if (linkWrap) linkWrap.style.display = '';
     // Admin che modifica un altro: niente cambio password Auth da qui
     if (isSupabase && !isSelf) {
       document.getElementById('cerimoniere-password-wrap').style.display = 'none';
@@ -11659,7 +12138,6 @@ function cancelCerimoniereEdit() {
   document.getElementById('cerimoniere-password-wrap').style.display = isGAS ? 'none' : '';
   document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
-  populateCerimoniereChierichettoSelect('');
   onCerimoniereRuoloChange();
 }
 
@@ -11681,11 +12159,14 @@ async function handleCerimoniereFormSubmit(e) {
   const ruolo = document.getElementById('cerimoniere-ruolo').value === 'prete' ? 'prete' : 'cerimoniere';
   const password = document.getElementById('cerimoniere-password').value;
   const password2 = document.getElementById('cerimoniere-password2')?.value || '';
+  const existingLink = uuid
+    ? (cerimonieriAccounts.find(x => x.uuid === uuid)?.chierichettoUuid || '')
+    : '';
   const dati = {
     nome: document.getElementById('cerimoniere-nome').value.trim(),
     email: document.getElementById('cerimoniere-email').value.trim(),
     parrocchia: document.getElementById('cerimoniere-parrocchia').value,
-    chierichettoUuid: ruolo === 'prete' ? '' : (document.getElementById('cerimoniere-chierichetto').value || ''),
+    chierichettoUuid: existingLink,
     ruolo,
     password
   };
@@ -11830,19 +12311,26 @@ async function deleteCerimoniere(uuid) {
 function editChierichetto(uuid) {
   const c = state.chierichetti.find(ch => ch.uuid === uuid);
   if (!c || !isChierichettoPersona(c)) return;
+  if (isChierichettoPromosso(c)) {
+    showToast('I promossi si gestiscono da Cerimonieri e Don');
+    return;
+  }
 
+  cancelPromoteChierichetto();
   switchAnagraficaTab('chierichetto', true);
 
   editingUuid = uuid;
   document.getElementById('nome').value = c.nome;
   populateAnnoNascitaSelect(c.annoNascita || '');
   document.getElementById('parrocchia').value = c.parrocchia || '';
-  document.getElementById('email').value = c.email;
   document.getElementById('telefono').value = c.telefono || '';
-  document.getElementById('cerimoniere-turno').checked = isCerimoniereTurno(c);
+  document.getElementById('telefono2').value = c.telefono2 || '';
+  document.getElementById('telefono-chi').value = c.telefonoChi || '';
+  document.getElementById('telefono2-chi').value = c.telefono2Chi || '';
   document.getElementById('edit-uuid').value = uuid;
   document.getElementById('persona-ruolo').value = getRuoloPersona(c);
 
+  setChierichettoFormMode('create');
   document.getElementById('form-chierichetto-title').textContent = 'Modifica chierichetto';
   document.getElementById('form-chierichetto-sub').textContent = c.nome;
   document.getElementById('btn-save-chierichetto').textContent = 'Aggiorna';
@@ -11885,13 +12373,13 @@ function cancelEdit() {
   editingUuid = null;
   document.getElementById('chierichettoForm').reset();
   populateAnnoNascitaSelect();
-  document.getElementById('cerimoniere-turno').checked = false;
   document.getElementById('edit-uuid').value = '';
   document.getElementById('persona-ruolo').value = anagraficaTab;
+  setChierichettoFormMode('create');
   updateAnagraficaFormLabels();
   document.getElementById('btn-save-chierichetto').textContent = 'Salva';
   document.getElementById('btn-cancel-edit').style.display = 'none';
-  if (window.matchMedia('(max-width: 1024px)').matches) setAnagFormOpen(false);
+  if (window.matchMedia('(max-width: 1024px)').matches && !promotingUuid) setAnagFormOpen(false);
 }
 
 // ── Gruppi ──────────────────────────────────────────────────
@@ -12383,7 +12871,7 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   );
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: chi.email, telefono: chi.telefono, ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: chi.cerimoniereTurno, gruppo: gruppoId }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -12411,7 +12899,7 @@ async function unassignChierichettoFromGruppo(uuid) {
   chi.gruppo = '';
   saveData();
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: chi.email, telefono: chi.telefono, ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: chi.cerimoniereTurno, gruppo: '' }, chi.uuid);
+  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: '' }, chi.uuid);
   if (!ok) {
     chi.gruppo = prevGruppo;
     saveData();
@@ -13455,11 +13943,12 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
 document.getElementById('chierichettoForm').addEventListener('submit', async e => {
   e.preventDefault();
 
+  const nome = document.getElementById('nome').value.trim();
   const annoNascita = document.getElementById('anno-nascita').value;
   const parrocchia = document.getElementById('parrocchia').value;
 
-  if (!annoNascita) {
-    showToast('Seleziona l\'anno di nascita del chierichetto');
+  if (!nome) {
+    showToast('Inserisci nome e cognome');
     return;
   }
   if (!parrocchia) {
@@ -13470,13 +13959,17 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
   const existing = editingUuid ? state.chierichetti.find(c => c.uuid === editingUuid) : null;
 
   const dati = {
-    nome: document.getElementById('nome').value.trim(),
-    email: document.getElementById('email').value.trim(),
+    nome,
+    email: '',
     telefono: document.getElementById('telefono').value.trim(),
+    telefono2: document.getElementById('telefono2').value.trim(),
+    telefonoChi: document.getElementById('telefono-chi').value.trim(),
+    telefono2Chi: document.getElementById('telefono2-chi').value.trim(),
     ruolo: 'chierichetto',
     annoNascita,
     parrocchia,
-    cerimoniereTurno: document.getElementById('cerimoniere-turno').checked,
+    cerimoniereTurno: false,
+    promosso: false,
     gruppo: existing?.gruppo || '',
     attivo: existing ? isPersonaAttiva(existing) : true
   };
@@ -13484,11 +13977,6 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
   if (existing?.gruppo && dati.parrocchia !== existing.parrocchia && !chierichettoCanJoinGruppo({ ...existing, parrocchia: dati.parrocchia }, existing.gruppo)) {
     if (!confirm(`Cambiando parrocchia, ${dati.nome} non sarà più compatibile con ${getGruppoLabel(existing.gruppo)}. Rimuoverlo dal gruppo?`)) return;
     dati.gruppo = '';
-  }
-
-  if (emailExists(dati.email, editingUuid || '')) {
-    showToast('Email già registrata per un\'altra persona');
-    return;
   }
 
   const btn = document.getElementById('btn-save-chierichetto');
@@ -13520,6 +14008,7 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
       renderChierichetti();
       showToast('Chierichetto registrato');
       e.target.reset();
+      populateAnnoNascitaSelect();
       const ok = await persistPersona({ ...dati, uuid: nuovo.uuid });
       if (!ok) {
         state.chierichetti = state.chierichetti.filter(c => c.uuid !== nuovo.uuid);
@@ -13531,6 +14020,8 @@ document.getElementById('chierichettoForm').addEventListener('submit', async e =
     if (btn) btn.disabled = false;
   }
 });
+
+document.getElementById('promoteChierichettoForm')?.addEventListener('submit', handlePromoteChierichettoSubmit);
 
 document.getElementById('nuovoGruppoForm')?.addEventListener('submit', createNuovoGruppoFromForm);
 
@@ -13596,13 +14087,47 @@ function formatDate(str) {
   });
 }
 
-function showToast(message) {
+function inferToastType(message) {
+  const msg = String(message || '');
+  if (/errore|fallit|non riuscit|non valid|non puoi|scadut|obbligator|coincid|esiste già|serve almeno|seleziona |inserisci |conferma |non è ancora|non disponibile|spazio esaurit|riloggia|riprova/i.test(msg)) {
+    return 'error';
+  }
+  return 'success';
+}
+
+function showToast(message, type) {
   const container = document.getElementById('toast-container');
+  if (!container) return;
+  const kind = type === 'error' || type === 'success' || type === 'info'
+    ? type
+    : inferToastType(message);
+
   const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
+  toast.className = `toast is-${kind}`;
+  toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = kind === 'error'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+    : kind === 'info'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
+
+  const text = document.createElement('span');
+  text.className = 'toast-msg';
+  text.textContent = message;
+
+  toast.appendChild(icon);
+  toast.appendChild(text);
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3200);
+
+  const ttl = kind === 'error' ? 4200 : 3000;
+  setTimeout(() => {
+    toast.classList.add('is-leaving');
+    setTimeout(() => toast.remove(), 280);
+  }, ttl);
 }
 
 // ── Mock API (locale) ───────────────────────────────────────
@@ -13613,22 +14138,12 @@ if (!isGAS) {
     getPresenze: () => state.presenze
   };
 }
-<<<<<<< Updated upstream
-=======
 
 // ── PWA service worker ──────────────────────────────────────
 (function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
   if (location.protocol !== 'https:' && !isLocal) return;
-
-  // Vecchia installazione in fullscreen: la status bar Android resta nascosta
-  // finché non si rimuove l’icona e si reinstalla (il display mode è fissato all’install).
-  if (window.matchMedia('(display-mode: fullscreen)').matches) {
-    window.addEventListener('load', () => {
-      showToast('Barra Android nascosta: rimuovi l’icona e reinstalla ChierichApp dal browser');
-    });
-  }
 
   let refreshing = false;
   let hadController = !!navigator.serviceWorker.controller;
@@ -13658,7 +14173,6 @@ if (!isGAS) {
       .catch((err) => console.warn('[ChierichApp] SW register failed', err));
   });
 })();
->>>>>>> Stashed changes
 </script>
 
 </body>
