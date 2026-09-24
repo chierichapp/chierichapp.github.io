@@ -1866,6 +1866,8 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .cal-filter input { width: auto; accent-color: var(--sky); }
+.cal-filter-label-short { display: none; }
+.cal-refresh-icon { display: none; }
 
 .calendar-weekdays {
   display: grid;
@@ -5145,15 +5147,19 @@ body.anag-sheet-open { overflow: hidden; }
     display: none;
   }
 
+  #calendario .cal-month-shell {
+    overflow: visible;
+  }
+
   #calendario .cal-month-shell .month-nav {
-    position: sticky;
-    top: calc(var(--sticky-below-topbar) + 48px);
-    z-index: 43;
-    background: var(--cream);
-    margin: 0 -14px 6px;
-    padding: 8px 14px 10px;
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+    position: static;
+    top: auto;
+    z-index: auto;
+    background: transparent;
+    margin: 0 0 8px;
+    padding: 0;
+    border-bottom: none;
+    box-shadow: none;
   }
 
   .appello-sticky-chrome {
@@ -5834,25 +5840,67 @@ body.anag-sheet-open { overflow: hidden; }
   .rotazione-table td { padding: 8px 6px; }
 
   /* Liturgia / calendario */
-  .cal-layout { grid-template-columns: 1fr; gap: 16px; }
-  .cal-side-panel { position: static; }
-  .cal-legend {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 10px 12px;
-    gap: 8px 10px;
-    font-size: 0.72rem;
+  .cal-layout { grid-template-columns: 1fr; gap: 12px; }
+  .cal-side-panel { position: static; display: flex; flex-direction: column; gap: 12px; }
+  .cal-legend { display: none !important; }
+  .cal-filter {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    gap: 8px;
   }
-  .cal-filter { min-height: 44px; }
+  .cal-filter-label-full { display: none; }
+  .cal-filter-label-short { display: inline; }
+  .cal-refresh-label { display: none; }
+  .cal-refresh-icon { display: inline-flex; align-items: center; justify-content: center; }
+  #btn-cal-refresh {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0 10px;
+  }
   .calendar-toolbar,
   .calendar-toolbar-left {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     width: 100%;
     gap: 8px;
   }
-  .calendar-toolbar .btn { width: auto; }
+  .calendar-toolbar { gap: 8px; }
+  .calendar-toolbar-left {
+    flex: 1;
+    min-width: 0;
+  }
+  .calendar-toolbar-left label[for="anno-calendario"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .calendar-toolbar-left select {
+    flex: 1;
+    min-width: 0;
+    min-height: 42px;
+  }
+  .calendar-toolbar .btn { width: auto; flex-shrink: 0; }
+  #calendario .cal-section-head {
+    padding: 8px 14px;
+  }
+  #calendario .cal-day-panel .panel-head p { display: none; }
+  #calendario .cal-day-panel {
+    margin: 0;
+    border-radius: var(--radius-md);
+  }
+  #calendario .cal-day-panel .panel-head {
+    padding: 12px 14px 0;
+  }
+  #calendario .cal-day-panel .panel-body {
+    padding: 10px 14px 14px;
+  }
+  #calendario .cal-side-panel > .panel:last-child .panel-head {
+    padding: 12px 14px 0;
+  }
   .cal-month-shell .month-nav {
     width: 100%;
     justify-content: space-between;
@@ -7815,7 +7863,7 @@ body.anag-sheet-open { overflow: hidden; }
             <span><i class="feriale"></i> m — Memoria facoltativa</span>
           </div>
 
-          <div class="calendar-toolbar">
+          <div class="calendar-toolbar" id="cal-toolbar">
             <div class="calendar-toolbar-left">
               <label for="anno-calendario">Anno</label>
               <select id="anno-calendario" onchange="onCalYearChange()">
@@ -7823,11 +7871,17 @@ body.anag-sheet-open { overflow: hidden; }
                 <option value="2026" selected>2026</option>
                 <option value="2027">2027</option>
               </select>
-              <button type="button" class="btn btn-secondary" onclick="loadCalendario(true)">Aggiorna calendario</button>
+              <button type="button" class="btn btn-secondary" id="btn-cal-refresh" onclick="loadCalendario(true)" aria-label="Aggiorna calendario">
+                <span class="cal-refresh-label">Aggiorna calendario</span>
+                <span class="cal-refresh-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+                </span>
+              </button>
             </div>
-            <label class="cal-filter">
+            <label class="cal-filter" for="cal-filter-important">
               <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
-              Evidenzia solo solennità, feste e memorie
+              <span class="cal-filter-label-full">Evidenzia solo solennità, feste e memorie</span>
+              <span class="cal-filter-label-short">Solo S · F · M</span>
             </label>
           </div>
         </div>
@@ -9373,7 +9427,10 @@ async function showSection(sectionId) {
   }
   else if (sectionId === 'calendario') {
     if (!calState.data || calState.data.anno !== getCalAnno()) loadCalendario();
-    else renderCalMonth();
+    else {
+      renderCalMonth();
+      ensureCalDaySelected();
+    }
   }
   else if (sectionId === 'account') {
     populateAccountForm();
@@ -15254,6 +15311,7 @@ async function loadCalendario(refresh) {
     calState.data = data;
     calState.unavailable = false;
     renderCalMonth();
+    ensureCalDaySelected();
     renderProssimeCelebrazioni();
     updateCalSource();
 
@@ -15366,8 +15424,25 @@ function selectCalDay(dateStr) {
   renderCalMonth();
   renderDayDetail(dateStr);
   if (window.matchMedia('(max-width: 768px)').matches) {
-    document.querySelector('#calendario .cal-side-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('#calendario .cal-day-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+}
+
+function ensureCalDaySelected() {
+  if (!calState.data?.byDate) return;
+  const anno = String(getCalAnno());
+  const today = getTodayStr();
+  if (!calState.selectedDate || !calState.selectedDate.startsWith(anno)) {
+    if (today.startsWith(anno)) {
+      calState.selectedDate = today;
+      calState.month = new Date(today + 'T12:00:00').getMonth();
+    } else {
+      const m = String(calState.month + 1).padStart(2, '0');
+      calState.selectedDate = `${anno}-${m}-01`;
+    }
+  }
+  renderCalMonth();
+  renderDayDetail(calState.selectedDate);
 }
 
 function renderDayDetail(dateStr) {
