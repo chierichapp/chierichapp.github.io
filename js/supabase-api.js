@@ -387,7 +387,7 @@
         turni: [],
         presenze: [],
         cerimonieri: [],
-        config: { gruppiConfig: null, messeExtra: [] }
+        config: { gruppiConfig: null, messeExtra: [], messeIndicazioni: {} }
       };
     }
 
@@ -415,7 +415,10 @@
       cerimonieri: (cer.data || []).map(mapCer),
       config: {
         gruppiConfig: configMap.gruppiConfig || null,
-        messeExtra: Array.isArray(configMap.messeExtra) ? configMap.messeExtra : []
+        messeExtra: Array.isArray(configMap.messeExtra) ? configMap.messeExtra : [],
+        messeIndicazioni: (configMap.messeIndicazioni && typeof configMap.messeIndicazioni === 'object' && !Array.isArray(configMap.messeIndicazioni))
+          ? configMap.messeIndicazioni
+          : {}
       }
     };
   }
@@ -559,6 +562,9 @@
     }
     if (body?.messeExtra) {
       rows.push({ key: 'messeExtra', value: body.messeExtra, updated_at: new Date().toISOString() });
+    }
+    if (body?.messeIndicazioni && typeof body.messeIndicazioni === 'object') {
+      rows.push({ key: 'messeIndicazioni', value: body.messeIndicazioni, updated_at: new Date().toISOString() });
     }
     if (!rows.length) return { success: true };
     const { error } = await sb.from('app_config').upsert(rows);

@@ -47,7 +47,7 @@
   --info: #0b6e99;
   --sidebar-w: 260px;
   --tabbar-h: 64px;
-  --sticky-below-topbar: calc(52px + env(safe-area-inset-top, 0px));
+  --sticky-below-topbar: calc(68px + env(safe-area-inset-top, 0px));
   --sticky-tabs-h: 40px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -528,8 +528,9 @@ body.sidebar-open { overflow: hidden; }
 }
 
 .page-header p {
-  margin: 4px 0 0;
-  font-size: 0.875rem;
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.3;
   color: var(--muted);
 }
 
@@ -2030,10 +2031,6 @@ body.anag-sheet-open { overflow: hidden; }
   margin: 0 0 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
 }
 
 .messe-agenda-list {
@@ -2044,7 +2041,7 @@ body.anag-sheet-open { overflow: hidden; }
 
 .messe-agenda-item {
   display: grid;
-  grid-template-columns: 64px 1fr auto;
+  grid-template-columns: 64px 1fr;
   gap: 14px;
   align-items: center;
   padding: 14px 16px;
@@ -2139,19 +2136,26 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .messe-agenda-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
+  display: none;
+}
+
+.messe-agenda-badge { display: none; }
+
+.messe-agenda-item.is-uncovered {
+  border-left: 3px solid #c45c12;
+}
+
+.messe-agenda-item.is-covered {
+  border-left: 3px solid var(--success);
 }
 
 .messe-side { display: flex; flex-direction: column; gap: 16px; }
+.messe-past-label-short { display: none; }
 
 @media (max-width: 960px) {
   .messe-layout { grid-template-columns: 1fr; }
   .messe-agenda { max-height: none; }
   .messe-agenda-item { grid-template-columns: 56px 1fr; }
-  .messe-agenda-actions { display: flex; align-items: center; }
 }
 
 .messa-type-badge {
@@ -2207,14 +2211,21 @@ body.anag-sheet-open { overflow: hidden; }
 
 .messa-slot-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding: 10px 12px;
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 0.85rem;
+}
+
+.messa-slot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .messa-slot-item.assigned {
@@ -2223,6 +2234,186 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .messa-slot-main { min-width: 0; }
+
+.messa-notes {
+  margin: 10px 0 2px;
+}
+
+.messa-notes.messa-slot-notes {
+  margin: 4px 0 0;
+}
+
+.messa-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.messa-notes-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.messa-notes-add {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--sky);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.messa-notes-add:active {
+  background: var(--cream-dark);
+}
+
+.messa-notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.messa-note-card {
+  position: relative;
+  padding: 10px 12px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.messa-slot-notes .messa-note-card {
+  background: color-mix(in srgb, var(--surface) 65%, var(--cream));
+}
+
+.messa-note-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.messa-note-author {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.messa-note-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.messa-note-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.messa-note-delete:active {
+  background: var(--cream-dark);
+  color: var(--danger, #b42318);
+}
+
+.messa-note-delete svg {
+  width: 15px;
+  height: 15px;
+}
+
+.messa-note-card.has-delete .messa-note-meta {
+  padding-right: 28px;
+}
+
+.messa-notes-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+#messa-nota-modal .modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+#messa-nota-modal textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: none;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--cream);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+#messa-nota-modal textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--sky) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--sky);
+}
+
+#messa-nota-modal .modal-actions {
+  width: 100%;
+}
+
+#messa-nota-modal .modal-actions .btn {
+  flex: 1;
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  #messa-nota-modal .modal-actions {
+    flex-direction: column-reverse;
+  }
+  #messa-nota-modal .modal-actions .btn {
+    width: 100%;
+  }
+}
 
 .messa-slot-time {
   font-weight: 700;
@@ -4979,14 +5170,23 @@ body.anag-sheet-open { overflow: hidden; }
     bottom: 0;
     padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
-  .page-header { min-width: 0; }
+  .page-header { min-width: 0; flex: 1; }
   .page-header h2 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .page-header p { display: none; }
+  .page-header p {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .content { padding: 10px 14px 24px; }
   .panel-head { padding: 16px 16px 12px; }
   .panel-body { padding: 16px; }
@@ -5116,20 +5316,21 @@ body.anag-sheet-open { overflow: hidden; }
   }
 
   #messe .messe-toolbar {
-    position: sticky;
-    top: var(--sticky-below-topbar);
-    z-index: 44;
+    position: static;
+    top: auto;
+    z-index: auto;
     background: var(--cream);
-    margin: 0 -14px 10px;
+    margin: 0;
     padding: 8px 14px 10px;
     border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+    box-shadow: none;
   }
 
   #messe .messe-agenda-month-title {
-    top: calc(var(--sticky-below-topbar) + 52px);
+    position: static;
+    top: auto;
+    z-index: auto;
     background: var(--cream);
-    z-index: 3;
   }
 
   #calendario .cal-section-head {
@@ -5399,80 +5600,155 @@ body.anag-sheet-open { overflow: hidden; }
   .prossima-messa-actions .btn { width: 100%; }
 
   /* Messe */
-  #messe > .panel { margin-bottom: 12px; }
-  #messe .messe-section-panel { margin-bottom: 12px; }
-  #messe > .panel > .panel-head { padding-bottom: 10px; }
-  #messe > .panel > .panel-head p { display: none; }
-  #messe .messe-legend {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 8px 10px;
-    margin-bottom: 8px;
+  #messe.section.active {
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+    max-width: none;
+    box-sizing: border-box;
   }
-  #messe .messe-legend::-webkit-scrollbar { display: none; }
-  #messe .messe-legend span {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-size: 0.72rem;
+  #messe > .panel {
+    margin-bottom: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
   }
-  #messe .messe-agenda-summary {
-    margin: 0 0 12px;
-    font-size: 0.78rem;
+  #messe .messe-section-panel {
+    margin-bottom: 0;
+    overflow: visible;
   }
+  #messe > .panel > .panel-head { display: none; }
+  #messe > .panel > .panel-body {
+    padding: 0 0 100px;
+    overflow: visible;
+  }
+  #messe .messe-legend { display: none; }
+  #messe .messe-agenda-summary { display: none; }
+  #messe .messe-past-label-full { display: none; }
+  #messe .messe-past-label-short { display: inline; }
   #messe .cal-filter {
-    min-height: 44px;
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
-  #messe .messe-toolbar .btn-ghost,
-  #messe .messe-toolbar select {
-    min-height: 44px;
-  }
-  .messe-toolbar {
+  #messe .messe-toolbar {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin: 0;
+    padding: 8px 14px 10px;
   }
-  .messe-toolbar-left {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    width: auto;
+  #messe .messe-toolbar-left {
     flex: 1;
     min-width: 0;
+    flex-wrap: nowrap;
     gap: 8px;
   }
-  .messe-toolbar .btn { width: auto; flex-shrink: 0; }
-  .messe-layout { grid-template-columns: 1fr; }
+  #messe .messe-toolbar-left label[for="anno-messe"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  #messe .messe-toolbar-left select {
+    min-height: 40px;
+    min-width: 72px;
+  }
+  #messe .messe-toolbar .btn-ghost {
+    min-height: 40px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+  }
+  .messe-layout { grid-template-columns: 1fr; gap: 0; }
   .messe-agenda {
     max-height: none;
     overflow: visible;
-    gap: 20px;
+    gap: 0;
+    padding: 0;
+  }
+  .messe-agenda-group {
+    margin: 0;
+  }
+  .messe-agenda-month-title {
+    margin: 0;
+    padding: 12px 14px 8px;
+    border-bottom: none;
+    background: transparent;
+    position: static;
+    top: auto;
+    z-index: auto;
+    font-size: 0.7rem;
+  }
+  .messe-agenda-list {
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .messe-agenda-group + .messe-agenda-group .messe-agenda-month-title {
+    padding-top: 18px;
   }
   .messe-agenda-item {
-    grid-template-columns: 52px 1fr;
+    grid-template-columns: 44px minmax(0, 1fr);
     gap: 10px;
-    padding: 12px;
-  }
-  .messe-agenda-actions {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    flex-wrap: wrap;
+    margin: 0;
+    padding: 11px 14px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    box-shadow: none;
     align-items: center;
-    justify-content: flex-start;
   }
-  .messe-side { gap: 12px; }
+  .messe-agenda-item.has-turno { border-left-color: var(--success); }
+  .messe-agenda-item.is-uncovered { border-left-color: #c45c12; }
+  .messe-agenda-item.extra { border-left-color: var(--gold); }
+  .messe-agenda-item.selected {
+    background: var(--sky-muted);
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom-color: var(--border);
+  }
+  .messe-agenda-item.today {
+    box-shadow: none;
+  }
+  .messe-agenda-item:active { background: var(--cream); }
+  .messe-agenda-day { font-size: 1.1rem; }
+  .messe-agenda-weekday { font-size: 0.62rem; }
+  .messa-agenda-title {
+    font-size: 0.88rem;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.25;
+  }
+  .messa-agenda-meta {
+    font-size: 0.7rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .messe-agenda-actions { display: none; }
+  .messe-side { gap: 0; }
   #messe .messe-side {
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     display: none;
     flex-direction: column;
     gap: 0;
@@ -5480,16 +5756,13 @@ body.anag-sheet-open { overflow: hidden; }
     padding: 0;
     background: var(--surface);
     overflow: hidden;
+    border-top: 1px solid var(--border);
   }
   body.messe-sheet-open #messe .messe-side {
     display: flex;
   }
   body.messe-sheet-open {
     overflow: hidden;
-  }
-  body.messe-sheet-open .mobile-tabbar {
-    opacity: 0;
-    pointer-events: none;
   }
   #messe .messe-side > .panel {
     border: none;
@@ -5502,19 +5775,22 @@ body.anag-sheet-open { overflow: hidden; }
     overflow: hidden;
   }
   #messe .messe-side > .panel:last-child {
-    flex: 0 0 auto;
-    border-top: 1px solid var(--border);
-    max-height: 42%;
+    flex: 1 1 auto;
+    border-top: none;
+    max-height: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  body.messe-sheet-detail #messe-extra-panel { display: none !important; }
+  body.messe-sheet-add #messe .messe-side > .panel:first-child { display: none !important; }
   #messe .messe-side > .panel .panel-head {
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
+    border-bottom: 1px solid var(--border);
   }
   #messe .messe-side > .panel:last-child .panel-head {
     padding-top: 12px;
@@ -5523,11 +5799,43 @@ body.anag-sheet-open { overflow: hidden; }
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 14px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px 24px;
   }
   #messe .messe-side > .panel:last-child .panel-body {
-    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 24px;
   }
+  #messa-detail .day-detail-date {
+    font-size: 0.92rem;
+    margin: 4px 0 2px;
+  }
+  #messa-detail .today-liturgy-name {
+    font-size: 1.02rem !important;
+    line-height: 1.25;
+    margin: 0 0 2px !important;
+  }
+  #messa-detail .liturgy-meta {
+    font-size: 0.78rem;
+  }
+  #messa-detail > h4 {
+    margin: 14px 0 6px !important;
+    font-size: 0.74rem !important;
+  }
+  .messa-slot-list { gap: 6px; }
+  .messa-slot-item {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+  .messa-slot-time {
+    font-size: 0.88rem;
+    line-height: 1.25;
+  }
+  .messa-slot-meta {
+    font-size: 0.75rem;
+  }
+  .messa-notes { margin: 8px 0 0; }
+  .messa-notes-head { margin-bottom: 6px; }
+  .messa-note-card { padding: 8px 10px; }
+  .messa-notes-add { min-height: 36px; padding: 6px 12px; }
   .messe-sheet-close {
     display: inline-flex;
     align-items: center;
@@ -5746,12 +6054,15 @@ body.anag-sheet-open { overflow: hidden; }
     display: flex;
     flex-direction: column;
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     overflow: hidden;
+    border-top: 1px solid var(--border);
   }
   body.gruppi-sheet-open { overflow: hidden; }
-  body.gruppi-sheet-open .mobile-tabbar,
   body.gruppi-sheet-open .gruppi-fab {
     opacity: 0;
     pointer-events: none;
@@ -5763,7 +6074,7 @@ body.anag-sheet-open { overflow: hidden; }
     justify-content: space-between;
     gap: 10px;
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
   }
   #gruppi-gestione-form-wrap .gruppi-gestione-form-title {
@@ -5792,7 +6103,7 @@ body.anag-sheet-open { overflow: hidden; }
     position: sticky;
     bottom: 0;
     margin: 8px -14px -8px;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px;
     background: linear-gradient(180deg, transparent, var(--surface) 28%);
     border-top: 1px solid var(--border);
   }
@@ -6021,8 +6332,11 @@ body.anag-sheet-open { overflow: hidden; }
   #anagrafica #chierichetto-form-panel:not(.is-collapsed),
   #anagrafica #cerimoniere-form-panel:not(.is-collapsed) {
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -6034,12 +6348,13 @@ body.anag-sheet-open { overflow: hidden; }
     background: var(--surface);
     order: unset;
     scroll-margin: 0;
+    border-top: 1px solid var(--border);
   }
 
   #anagrafica #chierichetto-form-panel:not(.is-collapsed) .panel-head,
   #anagrafica #cerimoniere-form-panel:not(.is-collapsed) .panel-head {
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     align-items: flex-start;
@@ -6050,7 +6365,7 @@ body.anag-sheet-open { overflow: hidden; }
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px 20px;
     background: var(--surface);
   }
 
@@ -6060,7 +6375,7 @@ body.anag-sheet-open { overflow: hidden; }
     bottom: 0;
     z-index: 2;
     margin: 8px -14px -8px;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px;
     background: linear-gradient(180deg, transparent, var(--surface) 28%);
     border-top: 1px solid var(--border);
   }
@@ -6068,15 +6383,14 @@ body.anag-sheet-open { overflow: hidden; }
   .anag-form-overlay {
     display: none;
     position: fixed;
-    inset: 0;
-    z-index: 1290;
-    background: rgba(12, 24, 41, 0.4);
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 110;
+    background: rgba(12, 24, 41, 0.35);
   }
   body.anag-sheet-open .anag-form-overlay { display: block; }
-  body.anag-sheet-open .mobile-tabbar {
-    opacity: 0;
-    pointer-events: none;
-  }
 
   #anagrafica #btn-anag-add,
   #anagrafica #btn-cer-add { display: none !important; }
@@ -7101,7 +7415,7 @@ body.anag-sheet-open { overflow: hidden; }
         <img class="topbar-brand" src="/icons/icon-192x192.png" width="36" height="36" alt="ChierichApp" decoding="async">
         <div class="page-header">
           <h2 id="page-title">Oggi</h2>
-          <p id="page-subtitle">Agenda messe, turni e appello</p>
+          <p id="page-subtitle">Prossima messa, turni e scorciatoie</p>
         </div>
       </div>
       <time class="topbar-date" id="topbar-date"></time>
@@ -7786,7 +8100,8 @@ body.anag-sheet-open { overflow: hidden; }
                     </select>
                     <label class="cal-filter" for="messe-show-past">
                       <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
-                      Mostra messe passate
+                      <span class="messe-past-label-full">Mostra messe passate</span>
+                      <span class="messe-past-label-short">Passate</span>
                     </label>
                   </div>
                   <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
@@ -7818,6 +8133,9 @@ body.anag-sheet-open { overflow: hidden; }
                       <h3>Aggiungi messa straordinaria</h3>
                       <p>Vigilie, festività, mercoledì delle Ceneri…</p>
                     </div>
+                    <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
                   </div>
                   <div class="panel-body">
                     <form id="messaExtraForm">
@@ -8067,6 +8385,18 @@ body.anag-sheet-open { overflow: hidden; }
   <button type="button" class="anag-action-item anag-action-cancel" onclick="closeAnagPersonMenu()">Annulla</button>
 </div>
 
+<div class="modal-overlay hidden" id="messa-nota-modal" role="dialog" aria-modal="true" aria-labelledby="messa-nota-modal-title" onclick="if(event.target===this)closeMessaNotaModal()">
+  <div class="modal">
+    <h3 id="messa-nota-modal-title">Nuova nota</h3>
+    <p id="messa-nota-modal-sub">Indicazioni per questa messa</p>
+    <textarea id="messa-nota-modal-text" rows="4" placeholder="Scrivi la nota…" maxlength="2000"></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeMessaNotaModal()">Annulla</button>
+      <button type="button" class="btn btn-primary" id="messa-nota-modal-submit" onclick="submitMessaNotaModal()">Inserisci nota</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!--CHIERICH_CONFIG_INJECT-->
 <script src="js/supabase-api.js"></script>
@@ -8079,15 +8409,15 @@ const STORAGE_KEY = 'chierichetti_data';
 const DATA_SCHEMA_VERSION = 6;
 
 const PAGE_META = {
-  dashboard:  { title: 'Oggi',                subtitle: 'Agenda messe, turni e appello' },
-  presenze:   { title: 'Appello',             subtitle: 'Il tuo gruppo in cima' },
-  registro:   { title: 'Registro',            subtitle: 'Presenze per anno pastorale (apertura 2 sett. prima di settembre – giugno)' },
-  messe:      { title: 'Messe',               subtitle: 'Agenda delle celebrazioni con chierichetti' },
-  turni:      { title: 'Turni',               subtitle: 'Messe di servizio e rotazione turni' },
-  gruppi:     { title: 'Gruppi',              subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica',          subtitle: 'Chierichetti attivi ed ex · accessi app' },
-  calendario: { title: 'Liturgia',            subtitle: 'Calendario ambrosiano completo' },
-  account:    { title: 'Account',             subtitle: 'Il tuo profilo e accesso all’app' }
+  dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
+  presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
+  registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
+  messe:      { title: 'Messe',      subtitle: 'Agenda celebrazioni e indicazioni del don' },
+  turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
+  gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
+  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e accessi all’app' },
+  calendario: { title: 'Liturgia',   subtitle: 'Calendario ambrosiano del giorno' },
+  account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
 
 const GRUPPI_LABEL_LEGACY = {
@@ -8167,7 +8497,9 @@ const MONTHS = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
 const API_BASE = isGAS || isSupabase ? '' : 'http://localhost:3000';
 const SESSION_KEY = 'chierichetti_session';
 
-let state = { chierichetti: [], turni: [], presenze: [], messeExtra: [], schemaVersion: DATA_SCHEMA_VERSION };
+let state = { chierichetti: [], turni: [], presenze: [], messeExtra: [], messeIndicazioni: {}, schemaVersion: DATA_SCHEMA_VERSION };
+let messeIndicazioniSaveTimer = null;
+let messaNotaModalCtx = null;
 let cerimonieriAccounts = [];
 let cerimonieriHydrated = false;
 let editingUuid = null;
@@ -9277,6 +9609,10 @@ function toggleSidebar() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!document.getElementById('messa-nota-modal')?.classList.contains('hidden')) {
+    closeMessaNotaModal();
+    return;
+  }
   if (document.getElementById('anag-action-sheet')?.classList.contains('is-open')) {
     closeAnagPersonMenu();
     return;
@@ -9303,7 +9639,7 @@ window.addEventListener('resize', () => {
   syncGruppiFab();
   if (!isAnagMobile()) {
     document.body.classList.remove('anag-sheet-open');
-    document.body.classList.remove('messe-sheet-open');
+    closeMesseSheet();
     closeGruppiFormSheet();
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
@@ -9444,6 +9780,9 @@ function normalizeState(raw) {
   if (!Array.isArray(s.turni)) s.turni = [];
   if (!Array.isArray(s.presenze)) s.presenze = [];
   if (!Array.isArray(s.messeExtra)) s.messeExtra = [];
+  if (!s.messeIndicazioni || typeof s.messeIndicazioni !== 'object' || Array.isArray(s.messeIndicazioni)) {
+    s.messeIndicazioni = {};
+  }
   s.schemaVersion = DATA_SCHEMA_VERSION;
   return s;
 }
@@ -9550,6 +9889,7 @@ function migrateResetOperationalHistoryFor2026_27(prevVersion) {
     state.presenze = [];
     state.turni = [];
     state.messeExtra = [];
+    state.messeIndicazioni = {};
     if (state.gruppiConfig && Array.isArray(state.gruppiConfig.cronologia)) {
       state.gruppiConfig.cronologia = [];
     }
@@ -9562,6 +9902,10 @@ function migrateResetOperationalHistoryFor2026_27(prevVersion) {
   state.presenze = (state.presenze || []).filter(p => !p.data || p.data >= pastoralFrom);
   state.turni = (state.turni || []).filter(t => !t.data || t.data >= pastoralFrom);
   state.messeExtra = (state.messeExtra || []).filter(m => !m.data || m.data >= pastoralFrom);
+  const ind = ensureMesseIndicazioni();
+  Object.keys(ind).forEach(dateStr => {
+    if (dateStr < pastoralFrom) delete ind[dateStr];
+  });
 }
 
 function isCerimoniereTurno(c) {
@@ -9908,6 +10252,12 @@ function applyServerSnapshot(chi, turni, pres, configRes, cerimonieri) {
   state.messeExtra = Array.isArray(configRes?.messeExtra)
     ? configRes.messeExtra.filter(m => !m.data || m.data >= pastoralFrom)
     : [];
+  state.messeIndicazioni = (configRes?.messeIndicazioni && typeof configRes.messeIndicazioni === 'object' && !Array.isArray(configRes.messeIndicazioni))
+    ? configRes.messeIndicazioni
+    : {};
+  Object.keys(state.messeIndicazioni).forEach(dateStr => {
+    if (dateStr < pastoralFrom) delete state.messeIndicazioni[dateStr];
+  });
   if (configRes?.gruppiConfig) state.gruppiConfig = configRes.gruppiConfig;
   if (Array.isArray(cerimonieri)) {
     cerimonieriAccounts = cerimonieri;
@@ -10107,7 +10457,8 @@ async function persistConfig() {
   saveDataLocal();
   const body = {
     gruppiConfig: state.gruppiConfig,
-    messeExtra: state.messeExtra || []
+    messeExtra: state.messeExtra || [],
+    messeIndicazioni: state.messeIndicazioni || {}
   };
   try {
     if (isGAS) {
@@ -10120,6 +10471,24 @@ async function persistConfig() {
     return true;
   } catch (e) {
     showToast(e.message || 'Salvataggio configurazione non riuscito');
+    return false;
+  }
+}
+
+async function persistMesseIndicazioni() {
+  saveDataLocal();
+  const body = { messeIndicazioni: state.messeIndicazioni || {} };
+  try {
+    if (isGAS) {
+      mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio indicazioni non riuscito');
+    } else if (isSupabase) {
+      mutationFailed(await window.ChierichSupabase.salvaConfig(body), 'Salvataggio indicazioni non riuscito');
+    } else {
+      await persistToApi('/api/config', body);
+    }
+    return true;
+  } catch (e) {
+    showToast(e.message || 'Salvataggio indicazioni non riuscito');
     return false;
   }
 }
@@ -10167,6 +10536,276 @@ function getAppelloDate() {
 
 function messaSlotKey(slot) {
   return `${slot.data}|${slot.sede}|${slot.ora}`;
+}
+
+function newMessaNotaId() {
+  return 'NOTE-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function ensureMesseIndicazioni() {
+  if (!state.messeIndicazioni || typeof state.messeIndicazioni !== 'object' || Array.isArray(state.messeIndicazioni)) {
+    state.messeIndicazioni = {};
+  }
+  return state.messeIndicazioni;
+}
+
+function normalizeMessaNotaItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const testo = String(raw.testo || '').trim();
+  if (!testo) return null;
+  return {
+    id: raw.id || newMessaNotaId(),
+    testo,
+    autoreUuid: raw.autoreUuid || '',
+    autoreNome: raw.autoreNome || 'Utente',
+    createdAt: raw.createdAt || new Date().toISOString()
+  };
+}
+
+/** Migra stringa legacy → array note multi-autore */
+function normalizeMessaNoteList(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeMessaNotaItem).filter(Boolean)
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return [{
+      id: newMessaNotaId(),
+      testo: raw.trim(),
+      autoreUuid: '',
+      autoreNome: 'Indicazioni',
+      createdAt: new Date().toISOString()
+    }];
+  }
+  return [];
+}
+
+function ensureMesseIndicazioniEntry(messaDateStr) {
+  const map = ensureMesseIndicazioni();
+  let entry = map[messaDateStr];
+  if (!entry || typeof entry !== 'object') {
+    entry = { note: [], celebrazioni: {} };
+    map[messaDateStr] = entry;
+  }
+  // legacy: entry.nota (string) → entry.note (array)
+  if (!Array.isArray(entry.note)) {
+    entry.note = normalizeMessaNoteList(entry.nota);
+    delete entry.nota;
+  } else {
+    entry.note = normalizeMessaNoteList(entry.note);
+  }
+  if (!entry.celebrazioni || typeof entry.celebrazioni !== 'object' || Array.isArray(entry.celebrazioni)) {
+    entry.celebrazioni = {};
+  }
+  Object.keys(entry.celebrazioni).forEach(k => {
+    entry.celebrazioni[k] = normalizeMessaNoteList(entry.celebrazioni[k]);
+  });
+  map[messaDateStr] = entry;
+  return entry;
+}
+
+function getMessaNoteList(messaDateStr) {
+  return ensureMesseIndicazioniEntry(messaDateStr).note.slice();
+}
+
+function getCelebrazioneNoteList(messaDateStr, slot) {
+  const key = typeof slot === 'string' ? slot : messaSlotKey(slot);
+  const entry = ensureMesseIndicazioniEntry(messaDateStr);
+  return (entry.celebrazioni[key] || []).slice();
+}
+
+function pruneMesseIndicazioniEntry(messaDateStr) {
+  const map = ensureMesseIndicazioni();
+  const entry = map[messaDateStr];
+  if (!entry) return;
+  const note = normalizeMessaNoteList(entry.note);
+  const celeb = {};
+  Object.entries(entry.celebrazioni || {}).forEach(([k, list]) => {
+    const cleaned = normalizeMessaNoteList(list);
+    if (cleaned.length) celeb[k] = cleaned;
+  });
+  if (!note.length && !Object.keys(celeb).length) {
+    delete map[messaDateStr];
+  } else {
+    map[messaDateStr] = { note, celebrazioni: celeb };
+  }
+}
+
+function getMessaNotaAutore() {
+  if (!currentUser) return { uuid: '', nome: 'Utente' };
+  const nome = (currentUser.nome || '').trim()
+    || (currentUser.email || '').trim()
+    || 'Utente';
+  return { uuid: currentUser.uuid || '', nome };
+}
+
+function formatMessaNotaWhen(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const day = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }).replace('.', '');
+  const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
+function canDeleteMessaNota(note) {
+  if (!note) return false;
+  if (isCurrentUserAdmin()) return true;
+  return !!(currentUser?.uuid && note.autoreUuid && note.autoreUuid === currentUser.uuid);
+}
+
+function schedulePersistMesseIndicazioni() {
+  saveDataLocal();
+  clearTimeout(messeIndicazioniSaveTimer);
+  messeIndicazioniSaveTimer = setTimeout(() => {
+    void persistMesseIndicazioni();
+  }, 400);
+}
+
+function addMessaNota(messaDateStr, slotKey, testo) {
+  const text = String(testo || '').trim();
+  if (!text) return false;
+  const entry = ensureMesseIndicazioniEntry(messaDateStr);
+  const autore = getMessaNotaAutore();
+  const item = {
+    id: newMessaNotaId(),
+    testo: text,
+    autoreUuid: autore.uuid,
+    autoreNome: autore.nome,
+    createdAt: new Date().toISOString()
+  };
+  if (slotKey) {
+    if (!Array.isArray(entry.celebrazioni[slotKey])) entry.celebrazioni[slotKey] = [];
+    entry.celebrazioni[slotKey].push(item);
+  } else {
+    entry.note.push(item);
+  }
+  pruneMesseIndicazioniEntry(messaDateStr);
+  schedulePersistMesseIndicazioni();
+  return true;
+}
+
+function removeMessaNota(messaDateStr, slotKey, noteId) {
+  const entry = ensureMesseIndicazioniEntry(messaDateStr);
+  const list = slotKey
+    ? (entry.celebrazioni[slotKey] || [])
+    : entry.note;
+  const note = list.find(n => n.id === noteId);
+  if (!canDeleteMessaNota(note)) {
+    showToast('Puoi eliminare solo le tue note');
+    return;
+  }
+  if (!confirm('Eliminare questa nota?')) return;
+  if (slotKey) {
+    entry.celebrazioni[slotKey] = list.filter(n => n.id !== noteId);
+  } else {
+    entry.note = list.filter(n => n.id !== noteId);
+  }
+  pruneMesseIndicazioniEntry(messaDateStr);
+  schedulePersistMesseIndicazioni();
+  if (messeState.selectedDate) renderMessaDetail(messeState.selectedDate);
+}
+
+function openMessaNotaModal(messaDateStr, slotKey, contextLabel) {
+  if (!currentUser) {
+    showToast('Accedi per inserire una nota');
+    return;
+  }
+  messaNotaModalCtx = {
+    messaDate: messaDateStr,
+    slotKey: slotKey || null,
+    label: contextLabel || 'questa messa'
+  };
+  const modal = document.getElementById('messa-nota-modal');
+  const title = document.getElementById('messa-nota-modal-title');
+  const sub = document.getElementById('messa-nota-modal-sub');
+  const ta = document.getElementById('messa-nota-modal-text');
+  if (title) title.textContent = slotKey ? 'Nota celebrazione' : 'Indicazioni del don';
+  if (sub) sub.textContent = contextLabel
+    ? `La nota sarà firmata con il tuo nome · ${contextLabel}`
+    : 'La nota sarà firmata con il tuo nome';
+  if (ta) ta.value = '';
+  modal?.classList.remove('hidden');
+  requestAnimationFrame(() => ta?.focus());
+}
+
+function closeMessaNotaModal() {
+  document.getElementById('messa-nota-modal')?.classList.add('hidden');
+  messaNotaModalCtx = null;
+  const ta = document.getElementById('messa-nota-modal-text');
+  if (ta) ta.value = '';
+}
+
+function submitMessaNotaModal() {
+  if (!messaNotaModalCtx?.messaDate) return;
+  const ta = document.getElementById('messa-nota-modal-text');
+  const text = (ta?.value || '').trim();
+  if (!text) {
+    showToast('Scrivi una nota prima di inserirla');
+    ta?.focus();
+    return;
+  }
+  const ok = addMessaNota(messaNotaModalCtx.messaDate, messaNotaModalCtx.slotKey, text);
+  if (!ok) return;
+  closeMessaNotaModal();
+  showToast('Nota inserita');
+  if (messeState.selectedDate) renderMessaDetail(messeState.selectedDate);
+}
+
+function renderMessaNotesListHtml(notes, messaDateStr, slotKey) {
+  if (!notes.length) {
+    return '<p class="messa-notes-empty">Nessuna nota ancora</p>';
+  }
+  return `<ul class="messa-notes-list">${notes.map(n => {
+    const canDel = canDeleteMessaNota(n);
+    return `
+      <li class="messa-note-card${canDel ? ' has-delete' : ''}">
+        <div class="messa-note-meta">
+          <span class="messa-note-author">${esc(n.autoreNome || 'Utente')}</span>
+          <span>${esc(formatMessaNotaWhen(n.createdAt))}</span>
+        </div>
+        <p class="messa-note-body">${esc(n.testo)}</p>
+        ${canDel ? `
+          <button type="button" class="messa-note-delete" title="Elimina nota"
+            onclick='removeMessaNota(${jsStr(messaDateStr)}, ${jsStr(slotKey || '')}, ${jsStr(n.id)})'
+            aria-label="Elimina nota">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+            </svg>
+          </button>` : ''}
+      </li>`;
+  }).join('')}</ul>`;
+}
+
+function renderMessaNotaFieldHtml(messaDateStr, { label } = {}) {
+  const notes = getMessaNoteList(messaDateStr);
+  const title = label || 'Indicazioni del don';
+  const count = notes.length ? ` · ${notes.length}` : '';
+  return `
+    <section class="messa-notes">
+      <div class="messa-notes-head">
+        <h4 class="messa-notes-title">${esc(title)}${count}</h4>
+        <button type="button" class="messa-notes-add"
+          onclick='openMessaNotaModal(${jsStr(messaDateStr)}, null, ${jsStr(title)})'>+ Aggiungi</button>
+      </div>
+      ${renderMessaNotesListHtml(notes, messaDateStr, null)}
+    </section>`;
+}
+
+function renderCelebrazioneNotaFieldHtml(messaDateStr, slot) {
+  const key = messaSlotKey(slot);
+  const notes = getCelebrazioneNoteList(messaDateStr, key);
+  const context = `${slot.ora || ''} ${slot.sedeLabel || SEDI_LABEL[slot.sede] || slot.sede || ''}`.trim();
+  const count = notes.length ? ` · ${notes.length}` : '';
+  return `
+    <section class="messa-notes messa-slot-notes">
+      <div class="messa-notes-head">
+        <h4 class="messa-notes-title">Note${count}</h4>
+        <button type="button" class="messa-notes-add"
+          onclick='openMessaNotaModal(${jsStr(messaDateStr)}, ${jsStr(key)}, ${jsStr(context)})'>+ Nota</button>
+      </div>
+      ${notes.length ? renderMesseNotesListHtml(notes, messaDateStr, key) : ''}
+    </section>`;
 }
 
 function parseMessaSlotKey(key) {
@@ -10728,10 +11367,7 @@ function populateGruppoSelects() {
 }
 
 function updateTurniPanelMeta() {
-  const n = getTurniPerDomenica();
-  const sedi = [...new Set(getTurniSlot().map(t => SEDI_LABEL[t.sede] || t.sede))].join(' e ');
-  const rotHint = isRotazioneAttiva() ? ' · rotazione attiva' : '';
-  if (PAGE_META.turni) PAGE_META.turni.subtitle = `${n} messe di servizio${sedi ? ' · ' + sedi : ''}${rotHint}`;
+  /* Scopo pagina resta in PAGE_META.turni.subtitle */
 }
 
 function updateGruppiSummary() {
@@ -11127,21 +11763,26 @@ function getNextMessaSlot(fromDate) {
     .sort((a, b) => slotDateTime(a) - slotDateTime(b))[0] || null;
 }
 
-function renderMessaSlotsHtml(slots, { compact, dark, turniOnly } = {}) {
+function renderMessaSlotsHtml(slots, { compact, dark, turniOnly, withNotes, messaDate } = {}) {
   const list = turniOnly ? slots.filter(s => s.conChierichetti !== false) : slots;
   if (!list.length) return '';
   const chipClass = dark ? 'today-turno-chip' : 'messa-agenda-turno-chip';
+  const notesMessaDate = messaDate || null;
   return `<div class="messa-slot-list">${list.map(slot => {
     if (!slot.conChierichetti) {
       const d = new Date(slot.data + 'T12:00:00');
       const dayLabel = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', '');
+      const noteHtml = (withNotes && notesMessaDate) ? renderCelebrazioneNotaFieldHtml(notesMessaDate, slot) : '';
       return `
         <div class="messa-slot-item no-chierichetti">
-          <div class="messa-slot-main">
-            <div class="messa-slot-time">${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
-            <div class="messa-slot-meta">${esc(dayLabel)} · Messa libera</div>
+          <div class="messa-slot-row">
+            <div class="messa-slot-main">
+              <div class="messa-slot-time">${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+              <div class="messa-slot-meta">${esc(dayLabel)} · Messa libera</div>
+            </div>
+            <span class="messa-slot-no-turno">—</span>
           </div>
-          <span class="messa-slot-no-turno">—</span>
+          ${noteHtml}
         </div>`;
     }
 
@@ -11158,15 +11799,18 @@ function renderMessaSlotsHtml(slots, { compact, dark, turniOnly } = {}) {
 
     const rotHint = slot.rotazioneSettimana != null ? ` · ${formatRotazioneTurnoLabel(slot.rotazioneSettimana + 1).toLowerCase()}` : '';
     const statusLine = coperto
-      ? `${nGruppo} chierichetti in squadra`
-      : (slot.gruppo ? 'Squadra vuota — assegna chierichetti in Gruppi' : 'Messa libera');
+      ? `${nGruppo} in squadra`
+      : (slot.gruppo ? 'Squadra vuota' : 'Libera');
+    const noteHtml = (withNotes && notesMessaDate) ? renderCelebrazioneNotaFieldHtml(notesMessaDate, slot) : '';
     return `
       <div class="messa-slot-item ${coperto ? 'assigned' : ''}">
-        <div class="messa-slot-main">
-          <div class="messa-slot-time">${formatMessaServizioLabel(slot.turno) || 'Messa —'} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
-          <div class="messa-slot-meta">${esc(dayLabel)}${slot.vigilia ? ' · <span class="messa-slot-vigilia">Vigilia</span>' : ''} · ${esc(slot.gruppoLabel || '')}${rotHint}</div>
-          <div class="messa-slot-meta">${esc(statusLine)}</div>
+        <div class="messa-slot-row">
+          <div class="messa-slot-main">
+            <div class="messa-slot-time">${formatMessaServizioLabel(slot.turno) || 'Messa —'} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+            <div class="messa-slot-meta">${esc(dayLabel)}${slot.vigilia ? ' · <span class="messa-slot-vigilia">Vigilia</span>' : ''}${slot.gruppoLabel ? ' · ' + esc(slot.gruppoLabel) : ''}${rotHint} · ${esc(statusLine)}</div>
+          </div>
         </div>
+        ${noteHtml}
       </div>`;
   }).join('')}</div>`;
 }
@@ -14784,9 +15428,30 @@ async function loadMesseAgenda() {
 
   if (messeState.selectedDate) {
     renderMessaDetail(messeState.selectedDate);
+  } else if (isMesseMobile()) {
+    ensureNextMessaSelected();
   }
 
   messeState.loading = false;
+  syncMesseFab();
+}
+
+function ensureNextMessaSelected() {
+  if (!isMesseMobile()) return;
+  if (messeState.selectedDate) {
+    renderMessaDetail(messeState.selectedDate);
+    return;
+  }
+  const anno = parseInt(getMesseAnno(), 10);
+  const today = getTodayStr();
+  let dates = getMesseDatesForYear(anno);
+  if (!messeState.showPast) dates = dates.filter(d => d >= today);
+  const target = dates.find(d => d >= today) || dates[0];
+  if (!target) return;
+  messeState.selectedDate = target;
+  renderMesseAgenda();
+  renderMessaDetail(target);
+  // Non aprire lo sheet e non scrollare: evita che il titolo mese finisca sotto la topbar
 }
 
 function toggleMessePast() {
@@ -14821,20 +15486,25 @@ function buildMessaAgendaItem(dateStr) {
   const typeLabel = massInfo?.type === 'extra' ? 'Eccezione' : 'Domenica';
   const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
   const isDomenica = massInfo?.type === 'domenica';
-  const nCelebrazioni = isDomenica ? getCelebrazioniDomenicaliCount() : 1;
   const nTurni = getTurniPerDomenica();
   const assignedSlots = isDomenica ? countAssignedSlots(dateStr) : turni.length;
+  const coverageComplete = isDomenica && nTurni > 0 && assignedSlots >= nTurni;
+  const coverageWarn = isDomenica && nTurni > 0 && assignedSlots < nTurni;
 
   const classes = ['messe-agenda-item'];
   if (isToday) classes.push('today');
   if (isPast) classes.push('past');
   if (isSelected) classes.push('selected');
-  if (assignedSlots > 0) classes.push('has-turno');
+  if (coverageComplete) classes.push('has-turno', 'is-covered');
+  else if (assignedSlots > 0) classes.push('has-turno');
+  if (coverageWarn) classes.push('is-uncovered');
   if (massInfo?.type === 'extra') classes.push('extra');
 
-  const metaExtra = isDomenica
-    ? `${nCelebrazioni} celebrazioni · ${assignedSlots}/${nTurni} messe coperte`
-    : (turni.length ? '1 messa di servizio' : '');
+  const metaParts = [typeLabel];
+  if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
+  if (isDomenica && nTurni > 0) metaParts.push(`${assignedSlots}/${nTurni} coperte`);
+  else if (!isDomenica && turni.length) metaParts.push('Con servizio');
+  const metaLine = metaParts.join(' · ');
 
   return `
     <article class="${classes.join(' ')}" id="messa-item-${dateStr}" data-date="${dateStr}" onclick="selectMessaDay('${dateStr}')">
@@ -14844,10 +15514,7 @@ function buildMessaAgendaItem(dateStr) {
       </div>
       <div class="messe-agenda-main">
         <p class="messa-agenda-title">${esc(title)}</p>
-        <p class="messa-agenda-meta">${typeLabel}${primary?.tipoLabel && primary.tipoLabel !== 'Feriale' ? ' · ' + esc(primary.tipoLabel) : ''}${metaExtra ? ' · ' + metaExtra : ''}</p>
-      </div>
-      <div class="messe-agenda-actions">
-        <span class="today-agenda-badge" title="${isDomenica ? assignedSlots + ' messe su ' + nTurni + ' coperte' : ''}">${isDomenica ? nCelebrazioni : typeLabel}</span>
+        <p class="messa-agenda-meta">${esc(metaLine)}</p>
       </div>
     </article>
   `;
@@ -14907,7 +15574,7 @@ function selectMessaDay(dateStr, scrollIntoView) {
   messeState.selectedDate = dateStr;
   renderMesseAgenda();
   renderMessaDetail(dateStr);
-  openMesseSheet();
+  openMesseSheet('detail');
 
   if (scrollIntoView && !isMesseMobile()) {
     requestAnimationFrame(() => {
@@ -14930,21 +15597,24 @@ function syncMesseFab() {
   fab.classList.toggle('is-visible', show);
 }
 
-function openMesseSheet() {
+function openMesseSheet(mode) {
   if (!isMesseMobile()) return;
+  const sheetMode = mode === 'add' ? 'add' : 'detail';
   document.body.classList.add('messe-sheet-open');
+  document.body.classList.toggle('messe-sheet-detail', sheetMode === 'detail');
+  document.body.classList.toggle('messe-sheet-add', sheetMode === 'add');
   syncMesseFab();
 }
 
 function closeMesseSheet() {
-  document.body.classList.remove('messe-sheet-open');
+  closeMessaNotaModal();
+  document.body.classList.remove('messe-sheet-open', 'messe-sheet-detail', 'messe-sheet-add');
   syncMesseFab();
 }
 
 function openMesseExtraSheet() {
-  openMesseSheet();
+  openMesseSheet('add');
   requestAnimationFrame(() => {
-    document.getElementById('messe-extra-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('messa-extra-data')?.focus();
   });
 }
@@ -15030,6 +15700,10 @@ function renderMessaDetail(dateStr) {
     ? (massInfo.extra.nota ? esc(massInfo.extra.nota) : 'Messa straordinaria')
     : 'Domenica';
 
+  const notaMessaHtml = renderMessaNotaFieldHtml(dateStr, {
+    label: 'Indicazioni del don'
+  });
+
   let turniHtml = '';
   if (massInfo.type === 'domenica') {
     const allSlots = getMesseOrdinarieSlots(dateStr);
@@ -15043,19 +15717,38 @@ function renderMessaDetail(dateStr) {
       : '';
     turniHtml = `
       <p class="liturgy-meta" style="margin-bottom:10px">${nCelebrazioni} celebrazioni · ${assigned}/${nTurni} messe coperte${senzaLabel ? ' · ' + esc(senzaLabel) : ''}</p>
-      ${renderMessaSlotsHtml(allSlots)}
+      ${renderMessaSlotsHtml(allSlots, { withNotes: true, messaDate: dateStr })}
     `;
   } else {
+    const ex = massInfo.extra;
+    const ora = ex?.ora || '10:00';
+    const sede = ex?.sede || 'santuario';
+    const extraSlot = {
+      data: dateStr,
+      ora,
+      sede,
+      sedeLabel: SEDI_LABEL[sede] || sede,
+      conChierichetti: true,
+      vigilia: false,
+      turno: null,
+      gruppo: null,
+      gruppoLabel: null
+    };
     const turni = getTurniForDate(dateStr);
+    let assignedHtml = '';
     if (!turni.length) {
-      turniHtml = '<p class="empty-state" style="margin-top:8px">Nessuna squadra assegnata</p>';
+      assignedHtml = '<p class="empty-state" style="margin-top:8px">Nessuna squadra assegnata</p>';
     } else {
-      turniHtml = `<div class="messa-turni-list">${turni.map(t => `
+      assignedHtml = `<div class="messa-turni-list">${turni.map(t => `
         <div class="messa-turno-item">
           <span><strong>${esc(sedeLabel(t.parrocchia))}</strong> · ${esc(t.oraInizio)}–${esc(t.oraFine)} · ${t.numeroChierichetti} chier.</span>
         </div>
       `).join('')}</div>`;
     }
+    turniHtml = `
+      ${renderMessaSlotsHtml([extraSlot], { withNotes: true, messaDate: dateStr })}
+      ${assignedHtml}
+    `;
   }
 
   container.innerHTML = `
@@ -15065,6 +15758,7 @@ function renderMessaDetail(dateStr) {
       <p class="today-liturgy-name" style="font-size:1rem;margin:0 0 4px">${esc(primary.nome)}</p>
       <p class="liturgy-meta">${esc(primary.tipoLabel || primary.tipo)}${primary.colore ? ' · Tempo ' + esc(primary.colore) : ''}</p>
     ` : '<p class="liturgy-meta">Nessuna solennità particolare nel calendario liturgico</p>'}
+    ${notaMessaHtml}
     <h4 style="font-size:0.82rem;margin:16px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">${massInfo.type === 'domenica' ? 'Messe e celebrazioni' : 'Messe di servizio'}</h4>
     ${turniHtml}
     <div class="messa-actions">
@@ -15075,7 +15769,11 @@ function renderMessaDetail(dateStr) {
 
 function removeMessaExtra(uuid) {
   if (!confirm('Rimuovere questa messa straordinaria dall\'agenda?')) return;
+  const removed = (state.messeExtra || []).find(m => m.uuid === uuid);
   state.messeExtra = state.messeExtra.filter(m => m.uuid !== uuid);
+  if (removed?.data) {
+    delete ensureMesseIndicazioni()[removed.data];
+  }
   saveData();
   void persistConfig();
   showToast('Messa straordinaria rimossa');
@@ -15085,7 +15783,7 @@ function removeMessaExtra(uuid) {
 
 function prefillMessaExtra(dateStr) {
   document.getElementById('messa-extra-data').value = dateStr;
-  openMesseSheet();
+  openMesseSheet('add');
   document.getElementById('messa-extra-nota')?.focus();
 }
 
