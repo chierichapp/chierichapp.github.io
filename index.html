@@ -2030,10 +2030,6 @@ body.anag-sheet-open { overflow: hidden; }
   margin: 0 0 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
 }
 
 .messe-agenda-list {
@@ -2044,7 +2040,7 @@ body.anag-sheet-open { overflow: hidden; }
 
 .messe-agenda-item {
   display: grid;
-  grid-template-columns: 64px 1fr auto;
+  grid-template-columns: 64px 1fr;
   gap: 14px;
   align-items: center;
   padding: 14px 16px;
@@ -2139,19 +2135,26 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .messe-agenda-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
+  display: none;
+}
+
+.messe-agenda-badge { display: none; }
+
+.messe-agenda-item.is-uncovered {
+  border-left: 3px solid #c45c12;
+}
+
+.messe-agenda-item.is-covered {
+  border-left: 3px solid var(--success);
 }
 
 .messe-side { display: flex; flex-direction: column; gap: 16px; }
+.messe-past-label-short { display: none; }
 
 @media (max-width: 960px) {
   .messe-layout { grid-template-columns: 1fr; }
   .messe-agenda { max-height: none; }
   .messe-agenda-item { grid-template-columns: 56px 1fr; }
-  .messe-agenda-actions { display: flex; align-items: center; }
 }
 
 .messa-type-badge {
@@ -5116,20 +5119,21 @@ body.anag-sheet-open { overflow: hidden; }
   }
 
   #messe .messe-toolbar {
-    position: sticky;
-    top: var(--sticky-below-topbar);
-    z-index: 44;
+    position: static;
+    top: auto;
+    z-index: auto;
     background: var(--cream);
-    margin: 0 -14px 10px;
+    margin: 0;
     padding: 8px 14px 10px;
     border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+    box-shadow: none;
   }
 
   #messe .messe-agenda-month-title {
-    top: calc(var(--sticky-below-topbar) + 52px);
+    position: static;
+    top: auto;
+    z-index: auto;
     background: var(--cream);
-    z-index: 3;
   }
 
   #calendario .cal-section-head {
@@ -5399,76 +5403,148 @@ body.anag-sheet-open { overflow: hidden; }
   .prossima-messa-actions .btn { width: 100%; }
 
   /* Messe */
-  #messe > .panel { margin-bottom: 12px; }
-  #messe .messe-section-panel { margin-bottom: 12px; }
-  #messe > .panel > .panel-head { padding-bottom: 10px; }
-  #messe > .panel > .panel-head p { display: none; }
-  #messe .messe-legend {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 8px 10px;
-    margin-bottom: 8px;
+  #messe.section.active {
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+    max-width: none;
+    box-sizing: border-box;
   }
-  #messe .messe-legend::-webkit-scrollbar { display: none; }
-  #messe .messe-legend span {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-size: 0.72rem;
+  #messe > .panel {
+    margin-bottom: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
   }
-  #messe .messe-agenda-summary {
-    margin: 0 0 12px;
-    font-size: 0.78rem;
+  #messe .messe-section-panel {
+    margin-bottom: 0;
+    overflow: visible;
   }
+  #messe > .panel > .panel-head { display: none; }
+  #messe > .panel > .panel-body {
+    padding: 0 0 100px;
+    overflow: visible;
+  }
+  #messe .messe-legend { display: none; }
+  #messe .messe-agenda-summary { display: none; }
+  #messe .messe-past-label-full { display: none; }
+  #messe .messe-past-label-short { display: inline; }
   #messe .cal-filter {
-    min-height: 44px;
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
   }
-  #messe .messe-toolbar .btn-ghost,
-  #messe .messe-toolbar select {
-    min-height: 44px;
-  }
-  .messe-toolbar {
+  #messe .messe-toolbar {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin: 0;
+    padding: 8px 14px 10px;
   }
-  .messe-toolbar-left {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    width: auto;
+  #messe .messe-toolbar-left {
     flex: 1;
     min-width: 0;
+    flex-wrap: nowrap;
     gap: 8px;
   }
-  .messe-toolbar .btn { width: auto; flex-shrink: 0; }
-  .messe-layout { grid-template-columns: 1fr; }
+  #messe .messe-toolbar-left label[for="anno-messe"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  #messe .messe-toolbar-left select {
+    min-height: 40px;
+    min-width: 72px;
+  }
+  #messe .messe-toolbar .btn-ghost {
+    min-height: 40px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+  }
+  .messe-layout { grid-template-columns: 1fr; gap: 0; }
   .messe-agenda {
     max-height: none;
     overflow: visible;
-    gap: 20px;
+    gap: 0;
+    padding: 0;
+  }
+  .messe-agenda-group {
+    margin: 0;
+  }
+  .messe-agenda-month-title {
+    margin: 0;
+    padding: 12px 14px 8px;
+    border-bottom: none;
+    background: transparent;
+    position: static;
+    top: auto;
+    z-index: auto;
+    font-size: 0.7rem;
+  }
+  .messe-agenda-list {
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .messe-agenda-group + .messe-agenda-group .messe-agenda-month-title {
+    padding-top: 18px;
   }
   .messe-agenda-item {
-    grid-template-columns: 52px 1fr;
+    grid-template-columns: 44px minmax(0, 1fr);
     gap: 10px;
-    padding: 12px;
-  }
-  .messe-agenda-actions {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    flex-wrap: wrap;
+    margin: 0;
+    padding: 11px 14px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    box-shadow: none;
     align-items: center;
-    justify-content: flex-start;
   }
-  .messe-side { gap: 12px; }
+  .messe-agenda-item.has-turno { border-left-color: var(--success); }
+  .messe-agenda-item.is-uncovered { border-left-color: #c45c12; }
+  .messe-agenda-item.extra { border-left-color: var(--gold); }
+  .messe-agenda-item.selected {
+    background: var(--sky-muted);
+    box-shadow: none;
+    border-color: transparent;
+    border-bottom-color: var(--border);
+  }
+  .messe-agenda-item.today {
+    box-shadow: none;
+  }
+  .messe-agenda-item:active { background: var(--cream); }
+  .messe-agenda-day { font-size: 1.1rem; }
+  .messe-agenda-weekday { font-size: 0.62rem; }
+  .messa-agenda-title {
+    font-size: 0.88rem;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.25;
+  }
+  .messa-agenda-meta {
+    font-size: 0.7rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .messe-agenda-actions { display: none; }
+  .messe-side { gap: 0; }
   #messe .messe-side {
     position: fixed;
     inset: 0;
@@ -5502,12 +5578,14 @@ body.anag-sheet-open { overflow: hidden; }
     overflow: hidden;
   }
   #messe .messe-side > .panel:last-child {
-    flex: 0 0 auto;
-    border-top: 1px solid var(--border);
-    max-height: 42%;
+    flex: 1 1 auto;
+    border-top: none;
+    max-height: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  body.messe-sheet-detail #messe-extra-panel { display: none !important; }
+  body.messe-sheet-add #messe .messe-side > .panel:first-child { display: none !important; }
   #messe .messe-side > .panel .panel-head {
     flex-shrink: 0;
     padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
@@ -5515,18 +5593,19 @@ body.anag-sheet-open { overflow: hidden; }
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
+    border-bottom: 1px solid var(--border);
   }
   #messe .messe-side > .panel:last-child .panel-head {
-    padding-top: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
   }
   #messe .messe-side > .panel .panel-body {
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 14px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
   }
   #messe .messe-side > .panel:last-child .panel-body {
-    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
   .messe-sheet-close {
     display: inline-flex;
@@ -7786,7 +7865,8 @@ body.anag-sheet-open { overflow: hidden; }
                     </select>
                     <label class="cal-filter" for="messe-show-past">
                       <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
-                      Mostra messe passate
+                      <span class="messe-past-label-full">Mostra messe passate</span>
+                      <span class="messe-past-label-short">Passate</span>
                     </label>
                   </div>
                   <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
@@ -7818,6 +7898,9 @@ body.anag-sheet-open { overflow: hidden; }
                       <h3>Aggiungi messa straordinaria</h3>
                       <p>Vigilie, festività, mercoledì delle Ceneri…</p>
                     </div>
+                    <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
                   </div>
                   <div class="panel-body">
                     <form id="messaExtraForm">
@@ -9303,7 +9386,7 @@ window.addEventListener('resize', () => {
   syncGruppiFab();
   if (!isAnagMobile()) {
     document.body.classList.remove('anag-sheet-open');
-    document.body.classList.remove('messe-sheet-open');
+    closeMesseSheet();
     closeGruppiFormSheet();
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
@@ -14784,9 +14867,30 @@ async function loadMesseAgenda() {
 
   if (messeState.selectedDate) {
     renderMessaDetail(messeState.selectedDate);
+  } else if (isMesseMobile()) {
+    ensureNextMessaSelected();
   }
 
   messeState.loading = false;
+  syncMesseFab();
+}
+
+function ensureNextMessaSelected() {
+  if (!isMesseMobile()) return;
+  if (messeState.selectedDate) {
+    renderMessaDetail(messeState.selectedDate);
+    return;
+  }
+  const anno = parseInt(getMesseAnno(), 10);
+  const today = getTodayStr();
+  let dates = getMesseDatesForYear(anno);
+  if (!messeState.showPast) dates = dates.filter(d => d >= today);
+  const target = dates.find(d => d >= today) || dates[0];
+  if (!target) return;
+  messeState.selectedDate = target;
+  renderMesseAgenda();
+  renderMessaDetail(target);
+  // Non aprire lo sheet e non scrollare: evita che il titolo mese finisca sotto la topbar
 }
 
 function toggleMessePast() {
@@ -14821,20 +14925,25 @@ function buildMessaAgendaItem(dateStr) {
   const typeLabel = massInfo?.type === 'extra' ? 'Eccezione' : 'Domenica';
   const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
   const isDomenica = massInfo?.type === 'domenica';
-  const nCelebrazioni = isDomenica ? getCelebrazioniDomenicaliCount() : 1;
   const nTurni = getTurniPerDomenica();
   const assignedSlots = isDomenica ? countAssignedSlots(dateStr) : turni.length;
+  const coverageComplete = isDomenica && nTurni > 0 && assignedSlots >= nTurni;
+  const coverageWarn = isDomenica && nTurni > 0 && assignedSlots < nTurni;
 
   const classes = ['messe-agenda-item'];
   if (isToday) classes.push('today');
   if (isPast) classes.push('past');
   if (isSelected) classes.push('selected');
-  if (assignedSlots > 0) classes.push('has-turno');
+  if (coverageComplete) classes.push('has-turno', 'is-covered');
+  else if (assignedSlots > 0) classes.push('has-turno');
+  if (coverageWarn) classes.push('is-uncovered');
   if (massInfo?.type === 'extra') classes.push('extra');
 
-  const metaExtra = isDomenica
-    ? `${nCelebrazioni} celebrazioni · ${assignedSlots}/${nTurni} messe coperte`
-    : (turni.length ? '1 messa di servizio' : '');
+  const metaParts = [typeLabel];
+  if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
+  if (isDomenica && nTurni > 0) metaParts.push(`${assignedSlots}/${nTurni} coperte`);
+  else if (!isDomenica && turni.length) metaParts.push('Con servizio');
+  const metaLine = metaParts.join(' · ');
 
   return `
     <article class="${classes.join(' ')}" id="messa-item-${dateStr}" data-date="${dateStr}" onclick="selectMessaDay('${dateStr}')">
@@ -14844,10 +14953,7 @@ function buildMessaAgendaItem(dateStr) {
       </div>
       <div class="messe-agenda-main">
         <p class="messa-agenda-title">${esc(title)}</p>
-        <p class="messa-agenda-meta">${typeLabel}${primary?.tipoLabel && primary.tipoLabel !== 'Feriale' ? ' · ' + esc(primary.tipoLabel) : ''}${metaExtra ? ' · ' + metaExtra : ''}</p>
-      </div>
-      <div class="messe-agenda-actions">
-        <span class="today-agenda-badge" title="${isDomenica ? assignedSlots + ' messe su ' + nTurni + ' coperte' : ''}">${isDomenica ? nCelebrazioni : typeLabel}</span>
+        <p class="messa-agenda-meta">${esc(metaLine)}</p>
       </div>
     </article>
   `;
@@ -14907,7 +15013,7 @@ function selectMessaDay(dateStr, scrollIntoView) {
   messeState.selectedDate = dateStr;
   renderMesseAgenda();
   renderMessaDetail(dateStr);
-  openMesseSheet();
+  openMesseSheet('detail');
 
   if (scrollIntoView && !isMesseMobile()) {
     requestAnimationFrame(() => {
@@ -14930,21 +15036,23 @@ function syncMesseFab() {
   fab.classList.toggle('is-visible', show);
 }
 
-function openMesseSheet() {
+function openMesseSheet(mode) {
   if (!isMesseMobile()) return;
+  const sheetMode = mode === 'add' ? 'add' : 'detail';
   document.body.classList.add('messe-sheet-open');
+  document.body.classList.toggle('messe-sheet-detail', sheetMode === 'detail');
+  document.body.classList.toggle('messe-sheet-add', sheetMode === 'add');
   syncMesseFab();
 }
 
 function closeMesseSheet() {
-  document.body.classList.remove('messe-sheet-open');
+  document.body.classList.remove('messe-sheet-open', 'messe-sheet-detail', 'messe-sheet-add');
   syncMesseFab();
 }
 
 function openMesseExtraSheet() {
-  openMesseSheet();
+  openMesseSheet('add');
   requestAnimationFrame(() => {
-    document.getElementById('messe-extra-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('messa-extra-data')?.focus();
   });
 }
@@ -15085,7 +15193,7 @@ function removeMessaExtra(uuid) {
 
 function prefillMessaExtra(dateStr) {
   document.getElementById('messa-extra-data').value = dateStr;
-  openMesseSheet();
+  openMesseSheet('add');
   document.getElementById('messa-extra-nota')?.focus();
 }
 
