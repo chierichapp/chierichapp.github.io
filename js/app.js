@@ -59,13 +59,17 @@ const DEFAULT_GRUPPI_CONFIG = {
     { id: 'msc1', dayOffset: 0, ora: '10:00', sede: 'mantegazza', vigilia: false, conTurno: false },
     { id: 'msc2', dayOffset: 0, ora: '18:00', sede: 'mantegazza', vigilia: false, conTurno: false }
   ],
-  rotazione: { attiva: false, inizioFinestra: null },
+  rotazione: { attiva: false, inizioFinestra: null, fineFinestra: null, storicoFinestre: [] },
   cronologia: []
 };
 
 let editingMessaDomenicaleId = null;
-let turniTab = 'messe';
+let turniTab = 'anteprima';
 let gruppiTab = 'squadre';
+let gruppiEditDraft = null;
+let gruppiEditBaseline = null;
+let gruppiEditSelected = new Set();
+let gruppiEditUndoStack = [];
 let appelloParrocchiaTab = 'mine';
 let appelloParrocchiaTabBySlot = {};
 let appelloSelectedSlotKey = '';
@@ -377,18 +381,21 @@ function syncChierichettiAdminUi() {
 
 function syncGruppiAdminUi() {
   const formWrap = document.getElementById('gruppi-gestione-form-wrap');
+  const canAdmin = isCurrentUserAdmin();
   if (formWrap) {
-    if (!isCurrentUserAdmin()) {
+    if (!canAdmin) {
       formWrap.style.display = 'none';
       closeGruppiFormSheet();
     } else {
       formWrap.style.display = '';
     }
   }
-  const unassignedActions = document.getElementById('gruppi-unassigned-actions');
-  if (unassignedActions && !isCurrentUserAdmin()) unassignedActions.style.display = 'none';
+  document.querySelectorAll('#btn-modifica-gruppi, #btn-modifica-gruppi-mobile, #gruppi-gestione-head-actions, #gruppi-gestione-cta').forEach(el => {
+    el.hidden = !canAdmin;
+  });
   const turniForm = document.querySelector('.turni-form-panel');
-  if (turniForm) turniForm.style.display = isCurrentUserAdmin() ? '' : 'none';
+  if (turniForm) turniForm.style.display = canAdmin ? '' : 'none';
+  if (!canAdmin && document.body.classList.contains('gruppi-edit-open')) closeGruppiEdit(true);
   syncGruppiFab();
 }
 
@@ -1348,12 +1355,16 @@ async function showSection(sectionId) {
   closeMobileMore();
   if (sectionId !== 'anagrafica') {
     closeAnagPersonMenu();
+    closeAnagPersonDetail();
     document.body.classList.remove('anag-sheet-open');
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
-  if (sectionId !== 'gruppi') closeGruppiFormSheet();
+  if (sectionId !== 'gruppi') {
+    closeGruppiFormSheet();
+    closeGruppiEdit(true);
+  }
   syncAnagFab();
   syncMesseFab();
   syncGruppiFab();
@@ -2666,9 +2677,7 @@ function ensureGruppiConfig() {
     delete state.gruppiConfig.turniSlot;
     delete state.gruppiConfig.messeSenzaChierichetti;
   }
-  if (!state.gruppiConfig.rotazione) {
-    state.gruppiConfig.rotazione = { attiva: false, inizioFinestra: null };
-  }
+  normalizeRotazioneConfig();
   if (!Array.isArray(state.gruppiConfig.cronologia)) {
     state.gruppiConfig.cronologia = [];
   }
@@ -2793,9 +2802,23 @@ function getCurrentWeekAssignmentForGruppo(gruppoId) {
   if (gIdx < 0) return null;
   const prossimaDom = getProssimeDomeniche(1)[0];
   if (!prossimaDom) return null;
-  if (isRotazioneAttiva() && !isDomenicaInFinestraRotazione(prossimaDom)) return null;
-  const w = isRotazioneAttiva() ? getRotationWeekOffset(prossimaDom) : 0;
-  if (w == null) return null;
+
+  let w = 0;
+  if (isRotazioneAttiva()) {
+    if (isDomenicaInFinestraRotazione(prossimaDom)) {
+      w = getRotationWeekOffset(prossimaDom);
+      if (w == null) return null;
+    } else {
+      const rot = getRotazioneConfig();
+      const sabato = addDaysToDateStr(prossimaDom, -1);
+      if (rot.fineFinestra && sabato > rot.fineFinestra) {
+        w = 0; // dopo fine: assegnazione fissa
+      } else {
+        return null; // prima dell'inizio: libera
+      }
+    }
+  }
+
   const slot = getTurniSlot().find(s => getRotationWeekForGruppoTurno(gIdx, s.turnoNum) === w);
   return slot ? { slot, rotationWeek: w } : null;
 }
@@ -2858,6 +2881,26 @@ function getRotazioneConfig() {
   return state.gruppiConfig.rotazione;
 }
 
+function normalizeRotazioneConfig() {
+  const prev = state.gruppiConfig.rotazione || {};
+  const storico = Array.isArray(prev.storicoFinestre)
+    ? prev.storicoFinestre
+      .filter(f => f && f.inizio)
+      .map(f => ({
+        inizio: f.inizio,
+        fine: f.fine || null,
+        chiusaIl: f.chiusaIl || null
+      }))
+      .slice(0, 24)
+    : [];
+  state.gruppiConfig.rotazione = {
+    attiva: !!prev.attiva,
+    inizioFinestra: prev.inizioFinestra || null,
+    fineFinestra: prev.fineFinestra || null,
+    storicoFinestre: storico
+  };
+}
+
 function isRotazioneAttiva() {
   const r = getRotazioneConfig();
   return !!(r.attiva && r.inizioFinestra);
@@ -2868,18 +2911,68 @@ function getMesseSenzaChierichetti() {
   return getMesseDomenicali().filter(m => !m.conTurno);
 }
 
-/** Domenica coperta dalla finestra: il sabato precedente è >= inizioFinestra */
-function isDomenicaInFinestraRotazione(domenicaDateStr) {
-  const rot = getRotazioneConfig();
-  if (!rot.attiva || !rot.inizioFinestra || !domenicaDateStr) return false;
-  const sabato = addDaysToDateStr(domenicaDateStr, -1);
-  return sabato >= rot.inizioFinestra;
+/** Sabato di riferimento per una data (domenica → sabato precedente). */
+function getSabatoDiRiferimento(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  if (day === 6) return dateStr;
+  const back = day === 0 ? 1 : day + 1;
+  d.setDate(d.getDate() - back);
+  return formatDateFromDate(d);
 }
 
-function getRotationWeekOffset(domenicaDateStr) {
-  const rot = getRotazioneConfig();
+function getNearestSaturdayOnOrAfter(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  const diff = day === 6 ? 0 : (6 - day + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  return formatDateFromDate(d);
+}
+
+function getNearestSaturdayOnOrBefore(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  const diff = day === 6 ? 0 : (day + 1) % 7;
+  d.setDate(d.getDate() - diff);
+  return formatDateFromDate(d);
+}
+
+function getSabatoProssimo() {
+  const d = new Date();
+  const day = d.getDay();
+  let diff = day === 6 ? 7 : (6 - day + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  return formatDateFromDate(d);
+}
+
+/**
+ * Fase corrente della finestra:
+ * off | scheduled | active | expired
+ */
+function getRotazionePhase(rot = null) {
+  const r = rot || getRotazioneConfig();
+  if (!r.attiva || !r.inizioFinestra) return 'off';
+  const sabato = getSabatoDiRiferimento(getTodayStr());
+  if (sabato < r.inizioFinestra) return 'scheduled';
+  if (r.fineFinestra && sabato > r.fineFinestra) return 'expired';
+  return 'active';
+}
+
+/** Domenica coperta dalla finestra: sabato precedente in [inizio, fine]. */
+function isDomenicaInFinestraRotazione(domenicaDateStr, rotOverride = null) {
+  const rot = rotOverride || getRotazioneConfig();
+  if (!rot.attiva || !rot.inizioFinestra || !domenicaDateStr) return false;
+  const sabato = addDaysToDateStr(domenicaDateStr, -1);
+  if (sabato < rot.inizioFinestra) return false;
+  if (rot.fineFinestra && sabato > rot.fineFinestra) return false;
+  return true;
+}
+
+function getRotationWeekOffset(domenicaDateStr, rotOverride = null) {
+  const rot = rotOverride || getRotazioneConfig();
   if (!rot.attiva || !rot.inizioFinestra) return 0;
-  if (!isDomenicaInFinestraRotazione(domenicaDateStr)) return null;
+  if (!isDomenicaInFinestraRotazione(domenicaDateStr, rot)) return null;
 
   const windowStart = new Date(`${rot.inizioFinestra}T12:00:00`);
   const sabato = addDaysToDateStr(domenicaDateStr, -1);
@@ -2889,17 +2982,28 @@ function getRotationWeekOffset(domenicaDateStr) {
   return Math.floor((cycleStart - windowStart) / msPerWeek);
 }
 
-function getGruppoIdForTurno(turnoNum, domenicaDateStr) {
+function getGruppoIdForTurno(turnoNum, domenicaDateStr, rotOverride = null) {
   const gruppi = getGruppiOrdered().slice(0, getTurniSlot().length);
   const n = gruppi.length;
   if (!n || !turnoNum) return null;
 
-  // Prima dell'apertura finestra: messe di servizio → libere (nessun gruppo)
-  if (isRotazioneAttiva() && !isDomenicaInFinestraRotazione(domenicaDateStr)) {
-    return null;
+  const rot = rotOverride || getRotazioneConfig();
+  const attiva = !!(rot.attiva && rot.inizioFinestra);
+
+  if (attiva && domenicaDateStr) {
+    const sabato = addDaysToDateStr(domenicaDateStr, -1);
+    if (sabato < rot.inizioFinestra) {
+      // Prima dell'apertura: messe di servizio → libere
+      return null;
+    }
+    if (rot.fineFinestra && sabato > rot.fineFinestra) {
+      // Dopo la fine programmata: assegnazione fissa (come finestra chiusa)
+      const idx = ((turnoNum - 1) % n + n) % n;
+      return gruppi[idx].id;
+    }
   }
 
-  const w = isRotazioneAttiva() ? (getRotationWeekOffset(domenicaDateStr) ?? 0) : 0;
+  const w = attiva ? (getRotationWeekOffset(domenicaDateStr, rot) ?? 0) : 0;
   const idx = ((turnoNum - 1 - w) % n + n) % n;
   return gruppi[idx].id;
 }
@@ -3002,14 +3106,20 @@ function updateMesseDomenicaliSummary() {
 
 function switchTurniTab(tab) {
   turniTab = tab;
-  document.getElementById('tab-turni-messe')?.classList.toggle('active', tab === 'messe');
-  document.getElementById('tab-turni-rotazione')?.classList.toggle('active', tab === 'rotazione');
-  document.getElementById('turni-panel-messe')?.classList.toggle('active', tab === 'messe');
-  document.getElementById('turni-panel-rotazione')?.classList.toggle('active', tab === 'rotazione');
-  if (tab === 'rotazione') renderRotazionePanel();
+  const tabs = ['anteprima', 'gestione', 'cronologia', 'messe'];
+  tabs.forEach(id => {
+    document.getElementById(`tab-turni-${id}`)?.classList.toggle('active', tab === id);
+    document.getElementById(`turni-panel-${id}`)?.classList.toggle('active', tab === id);
+  });
+  if (tab === 'anteprima') renderRotazioneAnteprima();
+  else if (tab === 'gestione') renderRotazioneGestione();
+  else if (tab === 'cronologia') renderRotazioneCronologia();
 }
 
 function switchGruppiTab(tab) {
+  if (tab !== 'gestione' && document.body.classList.contains('gruppi-edit-open')) {
+    if (!closeGruppiEdit()) return;
+  }
   gruppiTab = tab;
   document.getElementById('tab-gruppi-squadre')?.classList.toggle('active', tab === 'squadre');
   document.getElementById('tab-gruppi-gestione')?.classList.toggle('active', tab === 'gestione');
@@ -3029,15 +3139,18 @@ function updateGruppiPanelMeta() {
   const wrap = document.getElementById('gruppi-unassigned-wrap');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
   if (wrap) wrap.style.display = (nonAssegnati > 0 || !allChi.length) ? '' : 'none';
+  const countEl = document.getElementById('gruppi-attivi-count');
+  if (countEl) countEl.textContent = String(getGruppiAttivi().length);
 }
 
 const GRUPPO_CRONOLOGIA_TIPO_LABEL = {
   creato: 'Gruppo creato',
   rinominato: 'Rinominato',
+  rimosso: 'Gruppo rimosso',
+  configurazione: 'Configurazione salvata',
   membro_aggiunto: 'Assegnato',
   membro_spostato: 'Spostato',
-  membro_rimosso: 'Rimosso',
-  rimosso: 'Gruppo rimosso'
+  membro_rimosso: 'Rimosso'
 };
 
 function appendGruppoCronologia(tipo, gruppoId, extra = {}) {
@@ -3065,7 +3178,49 @@ function formatGruppoCronologiaWhen(iso) {
   if (sameDay) {
     return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   }
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return 'Ieri ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) +
+    ' · ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function summarizeGruppiChanges(changes) {
+  if (!changes?.length) return 'Nessun cambio di assegnazione';
+  let assegnati = 0;
+  let spostati = 0;
+  let rimossi = 0;
+  changes.forEach(ch => {
+    if (!ch.daId && ch.aId) assegnati += 1;
+    else if (ch.daId && !ch.aId) rimossi += 1;
+    else spostati += 1;
+  });
+  const parts = [];
+  if (assegnati) parts.push(assegnati === 1 ? '1 assegnazione' : `${assegnati} assegnazioni`);
+  if (spostati) parts.push(spostati === 1 ? '1 spostamento' : `${spostati} spostamenti`);
+  if (rimossi) parts.push(rimossi === 1 ? '1 rimozione' : `${rimossi} rimozioni`);
+  return parts.join(' · ') || `${changes.length} cambiamenti`;
+}
+
+function buildGruppiSnapshotFromState() {
+  return {
+    gruppi: getGruppiAttivi().map(g => ({
+      id: g.id,
+      nome: g.nome,
+      membri: getChierichettiInGruppo(g.id).map(c => ({
+        uuid: c.uuid,
+        nome: c.nome,
+        cer: isAppelloCerimoniere(c)
+      }))
+    })),
+    senzaGruppo: getChierichettiSenzaGruppo().map(c => ({
+      uuid: c.uuid,
+      nome: c.nome,
+      cer: isAppelloCerimoniere(c)
+    }))
+  };
 }
 
 function describeGruppoCronologiaEntry(entry) {
@@ -3074,6 +3229,9 @@ function describeGruppoCronologiaEntry(entry) {
   let detail = '';
 
   switch (entry.tipo) {
+    case 'configurazione':
+      detail = esc(entry.summary || summarizeGruppiChanges(entry.changes));
+      break;
     case 'creato':
       detail = entry.messa ? esc(entry.messa) : 'Nuova squadra nel turno';
       break;
@@ -3106,23 +3264,56 @@ function describeGruppoCronologiaEntry(entry) {
   };
 }
 
+function renderGruppiCronologiaSnapshot(entry) {
+  const snap = entry.snapshot;
+  if (!snap?.gruppi?.length) return '';
+  const groupsHtml = snap.gruppi.map(g => {
+    const membri = (g.membri || []).map(m => esc(m.nome)).join(', ') || '—';
+    return `<li><strong>${esc(g.nome)}</strong>: ${membri}</li>`;
+  }).join('');
+  const senza = (snap.senzaGruppo || []).map(m => esc(m.nome)).join(', ');
+  const senzaHtml = senza
+    ? `<li><strong>Senza gruppo</strong>: ${senza}</li>`
+    : '';
+  const changes = (entry.changes || []).slice(0, 12).map(ch =>
+    `<li>${esc(ch.personaNome)}: ${esc(ch.da)} → ${esc(ch.a)}</li>`
+  ).join('');
+  const more = (entry.changes || []).length > 12
+    ? `<li class="gruppi-cronologia-more">+${entry.changes.length - 12} altri</li>`
+    : '';
+  return `
+    <details class="gruppi-cronologia-details">
+      <summary>Dettaglio composizione</summary>
+      ${changes ? `<ul class="gruppi-cronologia-changes">${changes}${more}</ul>` : ''}
+      <ul class="gruppi-cronologia-snapshot">${groupsHtml}${senzaHtml}</ul>
+    </details>
+  `;
+}
+
 function renderGruppiCronologia() {
   const container = document.getElementById('gruppi-cronologia-list');
   if (!container) return;
   ensureGruppiConfig();
-  const items = state.gruppiConfig.cronologia || [];
+  const items = (state.gruppiConfig.cronologia || []).filter(entry =>
+    entry.tipo === 'configurazione' ||
+    entry.tipo === 'creato' ||
+    entry.tipo === 'rinominato' ||
+    entry.tipo === 'rimosso'
+  );
   if (!items.length) {
-    container.innerHTML = '<p class="empty-state">Nessun evento — creazioni e assegnazioni appariranno qui</p>';
+    container.innerHTML = '<p class="empty-state">Nessuna configurazione salvata — usa Modifica Gruppi e salva</p>';
     return;
   }
   container.innerHTML = items.map(entry => {
     const { title, detail } = describeGruppoCronologiaEntry(entry);
+    const extra = entry.tipo === 'configurazione' ? renderGruppiCronologiaSnapshot(entry) : '';
     return `
-      <div class="gruppi-cronologia-item">
+      <div class="gruppi-cronologia-item${entry.tipo === 'configurazione' ? ' is-config' : ''}">
         <time class="gruppi-cronologia-when" datetime="${esc(entry.at)}">${formatGruppoCronologiaWhen(entry.at)}</time>
         <div class="gruppi-cronologia-body">
           <p class="gruppi-cronologia-tipo">${esc(title)}</p>
           <p class="gruppi-cronologia-dettaglio">${detail}</p>
+          ${extra}
         </div>
       </div>
     `;
@@ -3558,7 +3749,7 @@ function renderTodayMessaRow(slot, highlightSlot, highlightTag) {
     if (coperto) meta = `${slot.gruppoLabel || 'Gruppo'} · ${countChierichettiInGruppo(slot.gruppo)} in squadra`;
     else if (slot.gruppo) meta = `${slot.gruppoLabel} · da completare`;
   } else if (!isPermanentlyLibera) {
-    meta = 'Prima della finestra rotazione';
+    meta = 'Fuori dalla finestra di rotazione';
   }
 
   const clickAction = isPermanentlyLibera
@@ -4915,6 +5106,7 @@ function switchAnagraficaTab(ruolo, keepForm) {
     renderChierichetti();
   } else {
     closeAnagPersonMenu();
+    closeAnagPersonDetail();
     setAnagFormOpen(false);
     setCerFormOpen(false);
     syncAnagFab();
@@ -5041,7 +5233,8 @@ function syncAnagFab() {
   if (!fab) return;
   const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
   const canAddCer = anagraficaTab === 'cerimoniere' && isCurrentUserAdmin();
-  const show = !!(onAnag && isAnagMobile() && (anagraficaTab === 'chierichetto' || canAddCer));
+  const sheetBusy = isAnagSheetOpen();
+  const show = !!(onAnag && isAnagMobile() && !sheetBusy && (anagraficaTab === 'chierichetto' || canAddCer));
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
   fab.setAttribute('aria-label', anagraficaTab === 'cerimoniere' ? 'Aggiungi accesso' : 'Aggiungi chierichetto');
@@ -5057,7 +5250,8 @@ function isAnagSheetOpen() {
   const cer = document.getElementById('cerimoniere-form-panel');
   return !!(
     (chi && !chi.classList.contains('is-collapsed')) ||
-    (cer && !cer.classList.contains('is-collapsed') && cer.style.display !== 'none')
+    (cer && !cer.classList.contains('is-collapsed') && cer.style.display !== 'none') ||
+    isAnagDetailOpen()
   );
 }
 
@@ -5066,7 +5260,10 @@ function setAnagFormOpen(open) {
   const toggle = document.getElementById('btn-toggle-anag-form');
   const overlay = document.getElementById('anag-form-overlay');
   if (!panel) return;
-  if (open) document.getElementById('cerimoniere-form-panel')?.classList.add('is-collapsed');
+  if (open) {
+    closeAnagPersonDetail();
+    document.getElementById('cerimoniere-form-panel')?.classList.add('is-collapsed');
+  }
   panel.classList.toggle('is-collapsed', !open);
   document.body.classList.toggle('anag-sheet-open', !!(open && isAnagMobile()));
   if (overlay) {
@@ -5093,6 +5290,10 @@ function setCerFormOpen(open) {
 }
 
 function closeAnagSheet() {
+  if (isAnagDetailOpen()) {
+    closeAnagPersonDetail();
+    return;
+  }
   const cerPanel = document.getElementById('cerimoniere-form-panel');
   if (cerPanel && !cerPanel.classList.contains('is-collapsed') && anagraficaTab === 'cerimoniere') {
     cancelCerimoniereEdit();
@@ -5481,9 +5682,7 @@ async function renderChierichetti() {
     };
     pushTel(c.telefono, c.telefonoChi);
     pushTel(c.telefono2, c.telefono2Chi);
-    const rowAction = promosso
-      ? `openAnagPersonMenu(${jsStr(c.uuid)})`
-      : `editChierichetto(${jsStr(c.uuid)})`;
+    const rowAction = `openAnagPersonDetail(${jsStr(c.uuid)})`;
     return `
     <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
@@ -5503,10 +5702,291 @@ async function renderChierichetti() {
   }).join('');
   syncAnagFab();
   syncAnagFiltersToggle();
+  if (anagDetailUuid) {
+    const stillThere = filtered.some(c => c.uuid === anagDetailUuid) ||
+      state.chierichetti.some(c => c.uuid === anagDetailUuid && isAnagraficaChierichetto(c));
+    if (stillThere) renderAnagPersonDetail(anagDetailUuid);
+    else closeAnagPersonDetail();
+  }
 }
 
+let anagDetailUuid = null;
 let anagMenuUuid = null;
 let anagMenuKind = 'chi';
+
+function getChierichettoGruppiHistory(uuid) {
+  ensureGruppiConfig();
+  const items = [];
+  const snaps = (state.gruppiConfig.cronologia || [])
+    .filter(e => e.tipo === 'configurazione' && e.snapshot?.gruppi);
+
+  snaps.forEach(entry => {
+    const g = (entry.snapshot.gruppi || []).find(gr =>
+      (gr.membri || []).some(m => m.uuid === uuid)
+    );
+    const senza = (entry.snapshot.senzaGruppo || []).some(m => m.uuid === uuid);
+    if (!g && !senza) return;
+    items.push({
+      at: entry.at,
+      gruppoNome: g ? g.nome : 'Senza gruppo',
+      compagni: g
+        ? (g.membri || []).filter(m => m.uuid !== uuid).map(m => m.nome)
+        : []
+    });
+  });
+
+  // Eventi legacy singoli (se presenti)
+  (state.gruppiConfig.cronologia || []).forEach(entry => {
+    if (!entry.personaNome) return;
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi || entry.personaNome !== chi.nome) return;
+    if (!['membro_aggiunto', 'membro_spostato', 'membro_rimosso'].includes(entry.tipo)) return;
+    items.push({
+      at: entry.at,
+      gruppoNome: entry.tipo === 'membro_rimosso'
+        ? 'Rimosso'
+        : (entry.gruppoNome || getGruppoLabel(entry.gruppoId) || 'Squadra'),
+      compagni: [],
+      legacy: true,
+      detail: entry.tipo === 'membro_spostato' && entry.gruppoPrecedente
+        ? `da ${entry.gruppoPrecedente}`
+        : ''
+    });
+  });
+
+  items.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  return items;
+}
+
+function getChierichettoPresenzaHistory(uuid) {
+  return state.presenze
+    .filter(p => presenzaMatchesChierichetto(p, uuid))
+    .sort((a, b) => {
+      const d = String(b.data || '').localeCompare(String(a.data || ''));
+      if (d) return d;
+      return String(b.ora || '').localeCompare(String(a.ora || ''));
+    });
+}
+
+function formatAnagDetailDate(isoOrDate) {
+  if (!isoOrDate) return '—';
+  const d = isoOrDate.includes('T')
+    ? new Date(isoOrDate)
+    : new Date(isoOrDate + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return esc(isoOrDate);
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function isAnagDetailOpen() {
+  const panel = document.getElementById('anag-person-detail');
+  return !!(panel && !panel.hidden && !panel.classList.contains('is-collapsed'));
+}
+
+function openAnagPersonDetail(uuid) {
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  if (!c || !isAnagraficaChierichetto(c)) return;
+
+  closeAnagPersonMenu();
+  if (editingUuid || promotingUuid) {
+    if (promotingUuid) cancelPromoteChierichetto();
+    else cancelEdit();
+  }
+  setAnagFormOpen(false);
+  setCerFormOpen(false);
+
+  anagDetailUuid = uuid;
+  const panel = document.getElementById('anag-person-detail');
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.remove('is-collapsed');
+  document.body.classList.toggle('anag-sheet-open', isAnagMobile());
+  document.body.classList.add('anag-detail-open');
+  const overlay = document.getElementById('anag-form-overlay');
+  if (overlay) overlay.hidden = !isAnagMobile();
+
+  renderAnagPersonDetail(uuid);
+  syncAnagFab();
+  if (!isAnagMobile()) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function closeAnagPersonDetail() {
+  anagDetailUuid = null;
+  const panel = document.getElementById('anag-person-detail');
+  if (panel) {
+    panel.classList.add('is-collapsed');
+    panel.hidden = true;
+  }
+  document.body.classList.remove('anag-detail-open');
+  if (!isAnagSheetOpen()) {
+    document.body.classList.remove('anag-sheet-open');
+    const overlay = document.getElementById('anag-form-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+  syncAnagFab();
+}
+
+function renderAnagPersonDetail(uuid) {
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  const body = document.getElementById('anag-person-detail-body');
+  const titleEl = document.getElementById('anag-detail-title');
+  const subEl = document.getElementById('anag-detail-sub');
+  if (!c || !body) return;
+
+  const attivo = isPersonaAttiva(c);
+  const promosso = isChierichettoPromosso(c);
+  const linkedAcc = cerimonieriAccounts.find(a => a.chierichettoUuid === c.uuid);
+  const statusLabel = promosso ? 'Ora cerimoniere' : (attivo ? 'Attivo' : 'Ex');
+  const avatarClass = promosso ? 'is-cer' : (!attivo ? 'is-ex' : '');
+
+  if (titleEl) titleEl.textContent = c.nome;
+  if (subEl) {
+    subEl.textContent = [
+      c.parrocchia ? getParrocchiaLabel(c.parrocchia) : '',
+      c.gruppo ? getGruppoLabel(c.gruppo) : (attivo && !promosso ? 'Senza gruppo' : ''),
+      statusLabel
+    ].filter(Boolean).join(' · ');
+  }
+
+  const contacts = [];
+  const pushTel = (num, chi) => {
+    if (!num) return;
+    contacts.push({
+      chi: chi || 'Genitore / tutore',
+      num,
+      href: 'tel:' + num.replace(/\s/g, '')
+    });
+  };
+  pushTel(c.telefono, c.telefonoChi);
+  pushTel(c.telefono2, c.telefono2Chi);
+
+  const contactsHtml = contacts.length
+    ? `<ul class="anag-detail-contacts">${contacts.map(t => `
+        <li>
+          <div>
+            <p class="anag-detail-contact-chi">${esc(t.chi)}</p>
+            <a class="anag-detail-contact-num" href="${esc(t.href)}">${esc(t.num)}</a>
+          </div>
+          <a class="btn btn-secondary btn-sm" href="${esc(t.href)}">Chiama</a>
+        </li>
+      `).join('')}</ul>`
+    : '<p class="liturgy-meta">Nessun contatto genitori registrato</p>';
+
+  const gruppiHist = getChierichettoGruppiHistory(uuid);
+  const currentGruppoHtml = `
+    <div class="anag-detail-current-gruppo">
+      <span class="anag-chip ${c.gruppo ? 'ok' : 'warn'}">${esc(c.gruppo ? getGruppoLabel(c.gruppo) : 'Senza gruppo')}</span>
+      <span class="liturgy-meta">assegnazione attuale</span>
+    </div>
+  `;
+  const gruppiHtml = gruppiHist.length
+    ? `<ol class="anag-detail-timeline">${gruppiHist.slice(0, 24).map(item => `
+        <li>
+          <time>${formatAnagDetailDate(item.at)}</time>
+          <div>
+            <p class="anag-detail-timeline-title">${esc(item.gruppoNome)}${item.detail ? ` · ${esc(item.detail)}` : ''}</p>
+            ${item.compagni?.length
+              ? `<p class="anag-detail-timeline-sub">con ${esc(item.compagni.join(', '))}</p>`
+              : ''}
+          </div>
+        </li>
+      `).join('')}</ol>`
+    : '<p class="liturgy-meta">Nessuna cronologia gruppi ancora — compare dopo i salvataggi in Modifica Gruppi</p>';
+
+  const presenze = getChierichettoPresenzaHistory(uuid);
+  const nP = presenze.filter(p => p.stato === 'presente').length;
+  const nA = presenze.filter(p => p.stato === 'assente').length;
+  const tot = nP + nA;
+  const rate = tot ? Math.round((nP / tot) * 100) + '%' : '—';
+  const presenzeHtml = presenze.length
+    ? `<ol class="anag-detail-timeline">${presenze.slice(0, 40).map(p => {
+        const sede = p.sede ? (SEDI_LABEL[p.sede] || p.sede) : '';
+        const when = [p.ora, sede].filter(Boolean).join(' · ');
+        const badge = p.stato === 'presente' ? 'badge-presente' : 'badge-assente';
+        const label = p.stato === 'presente' ? 'Presente' : 'Assente';
+        return `
+          <li>
+            <time>${formatAnagDetailDate(p.data)}</time>
+            <div class="anag-detail-presenza-row">
+              <div>
+                <p class="anag-detail-timeline-title">${esc(when || 'Giorno')}</p>
+                ${p.motivo ? `<p class="anag-detail-timeline-sub">${esc(p.motivo)}</p>` : ''}
+              </div>
+              <span class="badge ${badge}">${label}</span>
+            </div>
+          </li>
+        `;
+      }).join('')}</ol>`
+    : '<p class="liturgy-meta">Nessuna presenza o assenza registrata</p>';
+
+  const canEdit = !promosso;
+  const actionsHtml = `
+    <div class="anag-detail-actions">
+      ${canEdit ? `<button type="button" class="btn btn-primary" onclick="editChierichettoFromDetail(${jsStr(uuid)})">Modifica</button>` : ''}
+      <button type="button" class="btn btn-secondary" onclick="openAnagPersonMenu(${jsStr(uuid)})">Altre azioni</button>
+    </div>
+  `;
+
+  body.innerHTML = `
+    <div class="anag-detail-hero">
+      <div class="anag-avatar anag-detail-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
+      <div>
+        <p class="anag-detail-name">${chierichettoNomeHtml(c)}</p>
+        <div class="anag-chips">
+          ${c.parrocchia ? `<span class="anag-chip">${esc(getParrocchiaLabel(c.parrocchia))}</span>` : ''}
+          ${c.annoNascita ? `<span class="anag-chip">${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>` : ''}
+          <span class="anag-chip${promosso ? ' gold' : ''}">${esc(statusLabel)}</span>
+        </div>
+        ${linkedAcc?.email ? `<p class="liturgy-meta" style="margin:8px 0 0">${esc(linkedAcc.email)}</p>` : ''}
+      </div>
+    </div>
+
+    ${actionsHtml}
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Info</h4>
+      <dl class="anag-detail-dl">
+        <div><dt>Parrocchia</dt><dd>${c.parrocchia ? esc(getParrocchiaLabel(c.parrocchia)) : '—'}</dd></div>
+        <div><dt>Anno di nascita</dt><dd>${c.annoNascita ? esc(formatAnnoNascitaLabel(c.annoNascita)) : '—'}</dd></div>
+        <div><dt>Gruppo</dt><dd>${c.gruppo ? esc(getGruppoLabel(c.gruppo)) : 'Senza gruppo'}</dd></div>
+        <div><dt>Stato</dt><dd>${esc(statusLabel)}</dd></div>
+      </dl>
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Contatti genitori</h4>
+      ${contactsHtml}
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Cronologia gruppi</h4>
+      ${currentGruppoHtml}
+      ${gruppiHtml}
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Presenze e assenze</h4>
+      <div class="anag-detail-stats" aria-label="Riepilogo">
+        <div><span class="anag-detail-stat-val">${nP}</span><span class="anag-detail-stat-lbl">presenti</span></div>
+        <div><span class="anag-detail-stat-val">${nA}</span><span class="anag-detail-stat-lbl">assenti</span></div>
+        <div><span class="anag-detail-stat-val">${esc(rate)}</span><span class="anag-detail-stat-lbl">presenza</span></div>
+      </div>
+      ${presenzeHtml}
+    </section>
+  `;
+}
+
+function editChierichettoFromDetail(uuid) {
+  closeAnagPersonDetail();
+  editChierichetto(uuid);
+}
+
+async function openAnagPersonDetailFromGruppi(uuid) {
+  await showSection('anagrafica');
+  switchAnagraficaTab('chierichetto', true);
+  openAnagPersonDetail(uuid);
+}
 
 function closeAnagPersonMenu() {
   anagMenuUuid = null;
@@ -5532,6 +6012,7 @@ function openAnagPersonMenu(uuid) {
   const promosso = isChierichettoPromosso(c);
   const canPromote = isCurrentUserAdmin() && attivo && !promosso;
   const items = [];
+  items.push({ action: 'detail', label: 'Vedi scheda', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>' });
   if (!promosso) {
     items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
   }
@@ -5579,7 +6060,8 @@ async function runAnagPersonAction(action) {
     else if (action === 'delete') await deleteCerimoniere(uuid);
     return;
   }
-  if (action === 'edit') editChierichetto(uuid);
+  if (action === 'detail') openAnagPersonDetail(uuid);
+  else if (action === 'edit') editChierichetto(uuid);
   else if (action === 'promote') startPromoteChierichetto(uuid);
   else if (action === 'ex') await setChierichettoAttivo(uuid, false);
   else if (action === 'restore') await setChierichettoAttivo(uuid, true);
@@ -6049,6 +6531,7 @@ function editChierichetto(uuid) {
     return;
   }
 
+  closeAnagPersonDetail();
   cancelPromoteChierichetto();
   switchAnagraficaTab('chierichetto', true);
 
@@ -6226,19 +6709,18 @@ function buildGruppoVetrinaCardHtml(g) {
 
 function buildGruppoCardHtml(g) {
   const members = getChierichettiInGruppo(g.id);
-  const mobile = window.matchMedia('(max-width: 1024px)').matches;
+  const mobile = isPhoneShell();
   const servizioMeta = formatGruppoServizioMeta(g.id, { compact: mobile });
   const nCer = members.filter(isAppelloCerimoniere).length;
   const canManage = isCurrentUserAdmin();
 
   const membersHtml = members.length
     ? members.map(c => `
-      <span class="gruppo-member-chip${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}">
+      <button type="button" class="gruppo-member-chip is-readonly is-link${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}" onclick="openAnagPersonDetailFromGruppi('${esc(c.uuid)}')">
         ${chierichettoNomeHtml(c)}
-        ${canManage ? `<button type="button" title="Rimuovi dal gruppo" onclick="unassignChierichettoFromGruppo('${esc(c.uuid)}')" aria-label="Rimuovi">×</button>` : ''}
-      </span>
+      </button>
     `).join('')
-    : (mobile ? '' : '<span class="liturgy-meta">Squadra vuota — aggiungi chierichetti o cerimonieri sotto</span>');
+    : '<span class="liturgy-meta">Squadra vuota</span>';
 
   return `
     <div class="gruppo-squadra-card">
@@ -6254,8 +6736,7 @@ function buildGruppoCardHtml(g) {
           </button>` : ''}
         </div>
       </div>
-      ${membersHtml ? `<div class="gruppo-member-chips">${membersHtml}</div>` : ''}
-      ${canManage ? renderGruppoAddRow(g.id) : ''}
+      <div class="gruppo-member-chips">${membersHtml}</div>
     </div>
   `;
 }
@@ -6364,53 +6845,228 @@ function syncMessaDomenicaleFormDay() {
   if (!isSabato && vigilia) vigilia.checked = false;
 }
 
-function renderRotazionePanel() {
-  const rot = getRotazioneConfig();
-  const badge = document.getElementById('rotazione-status-badge');
-  const text = document.getElementById('rotazione-status-text');
-  const inizioInput = document.getElementById('rotazione-inizio');
-  const btnApri = document.getElementById('btn-apri-rotazione');
-  const btnChiudi = document.getElementById('btn-chiudi-rotazione');
+function formatRotazioneDateShort(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+}
 
-  if (inizioInput && !inizioInput.value) {
-    inizioInput.value = rot.inizioFinestra || getSabatoRotazioneDefault();
+function formatRotazioneDateLong(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
+
+function getRotazioneStatusCopy(rot = null) {
+  const r = rot || getRotazioneConfig();
+  const phase = getRotazionePhase(r);
+  const inizioLabel = formatRotazioneDateLong(r.inizioFinestra);
+  const fineLabel = formatRotazioneDateLong(r.fineFinestra);
+
+  if (phase === 'active') {
+    return {
+      phase,
+      badge: 'Rotazione attiva',
+      badgeClass: 'rotazione-status aperta',
+      text: fineLabel
+        ? `Finestra aperta dal ${inizioLabel} al ${fineLabel} (sab 12:00). Ogni sabato i gruppi avanzano di uno slot.`
+        : `Finestra aperta dal ${inizioLabel} ore 12:00, senza data di fine. Ogni sabato i gruppi avanzano di uno slot.`
+    };
   }
-
-  if (isRotazioneAttiva()) {
-    const d = new Date(rot.inizioFinestra + 'T12:00:00');
-    const label = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    badge.textContent = 'Rotazione attiva';
-    badge.className = 'rotazione-status aperta';
-    text.textContent = `Finestra aperta dal ${label} ore 12:00. Ogni sabato i gruppi avanzano di uno slot.`;
-    if (btnApri) btnApri.style.display = 'none';
-    if (btnChiudi) btnChiudi.style.display = 'inline-flex';
-    if (inizioInput) inizioInput.disabled = true;
-  } else {
-    badge.textContent = 'Rotazione non attiva';
-    badge.className = 'rotazione-status chiusa';
-    text.textContent = 'Apri una finestra per far ruotare automaticamente i gruppi sui turni ogni settimana (sab 12:00 → dom).';
-    if (btnApri) btnApri.style.display = 'inline-flex';
-    if (btnChiudi) btnChiudi.style.display = 'none';
-    if (inizioInput) inizioInput.disabled = false;
+  if (phase === 'scheduled') {
+    return {
+      phase,
+      badge: 'Programmata',
+      badgeClass: 'rotazione-status programmata',
+      text: fineLabel
+        ? `Rotazione programmata dal ${inizioLabel} al ${fineLabel}. Prima dell’inizio le messe di servizio restano libere.`
+        : `Rotazione programmata dal ${inizioLabel}. Prima dell’inizio le messe di servizio restano libere.`
+    };
   }
+  if (phase === 'expired') {
+    return {
+      phase,
+      badge: 'Finestra scaduta',
+      badgeClass: 'rotazione-status scaduta',
+      text: `La finestra è terminata il ${fineLabel || inizioLabel}. Dopo la fine vale l’assegnazione fissa. Chiudila da Gestione per archiviarla.`
+    };
+  }
+  return {
+    phase: 'off',
+    badge: 'Rotazione non attiva',
+    badgeClass: 'rotazione-status chiusa',
+    text: 'Nessuna finestra attiva: vale l’assegnazione fissa (messa 1→Gruppo 1, …). Apri una finestra da Gestione per far ruotare i gruppi.'
+  };
+}
 
+function applyRotazioneStatusTo(badgeId, textId) {
+  const copy = getRotazioneStatusCopy();
+  const badge = document.getElementById(badgeId);
+  const text = document.getElementById(textId);
+  if (badge) {
+    badge.textContent = copy.badge;
+    badge.className = copy.badgeClass;
+  }
+  if (text) text.textContent = copy.text;
+  return copy;
+}
+
+function renderRotazioneAnteprima() {
+  applyRotazioneStatusTo('rotazione-anteprima-badge', 'rotazione-anteprima-text');
   renderRotazionePreview();
 }
 
+function renderRotazioneGestione() {
+  const rot = getRotazioneConfig();
+  const inizioInput = document.getElementById('rotazione-inizio');
+  const fineInput = document.getElementById('rotazione-fine');
+  const fineOpen = document.getElementById('rotazione-fine-open');
+  const btnSalva = document.getElementById('btn-salva-rotazione');
+  const btnChiudi = document.getElementById('btn-chiudi-rotazione');
+  const card = document.getElementById('rotazione-window-card');
+  const presets = document.getElementById('rotazione-presets');
+  const datesRow = document.querySelector('.rotazione-dates');
+
+  const copy = applyRotazioneStatusTo('rotazione-status-badge', 'rotazione-status-text');
+  const attiva = isRotazioneAttiva();
+
+  if (inizioInput && document.activeElement !== inizioInput) {
+    inizioInput.value = rot.inizioFinestra || getSabatoRotazioneDefault();
+  }
+  if (fineOpen && document.activeElement !== fineOpen) {
+    fineOpen.checked = !rot.fineFinestra;
+  }
+  if (fineInput) {
+    const openEnded = fineOpen ? fineOpen.checked : !rot.fineFinestra;
+    fineInput.disabled = openEnded || attiva;
+    if (document.activeElement !== fineInput) {
+      fineInput.value = rot.fineFinestra || '';
+    }
+  }
+  if (inizioInput) inizioInput.disabled = attiva;
+  if (fineOpen) fineOpen.disabled = attiva;
+  if (presets) presets.hidden = attiva;
+  if (datesRow) datesRow.hidden = attiva;
+
+  if (btnSalva) {
+    btnSalva.hidden = attiva;
+    btnSalva.textContent = 'Apri finestra';
+  }
+  if (btnChiudi) btnChiudi.hidden = !attiva;
+  if (card) {
+    card.classList.toggle('is-active', copy.phase === 'active');
+    card.classList.toggle('is-scheduled', copy.phase === 'scheduled');
+    card.classList.toggle('is-expired', copy.phase === 'expired');
+    card.classList.toggle('is-closed-form', !attiva);
+  }
+
+  if (!attiva) {
+    const statusText = document.getElementById('rotazione-status-text');
+    if (statusText) {
+      statusText.textContent =
+        'Imposta inizio e (opzionale) fine, poi apri la finestra. L’anteprima turnistica si aggiorna subito dopo.';
+    }
+  }
+}
+
+function renderRotazioneCronologia() {
+  const el = document.getElementById('rotazione-cronologia');
+  if (!el) return;
+
+  const rot = getRotazioneConfig();
+  const storico = rot.storicoFinestre || [];
+  const items = [];
+
+  if (isRotazioneAttiva() && rot.inizioFinestra) {
+    const phase = getRotazionePhase(rot);
+    const phaseLabel = phase === 'scheduled' ? 'Programmata' : phase === 'expired' ? 'Scaduta' : 'In corso';
+    const phaseClass = phase === 'scheduled' ? 'is-scheduled' : phase === 'expired' ? 'is-expired' : 'is-current';
+    items.push({
+      inizio: rot.inizioFinestra,
+      fine: rot.fineFinestra,
+      chiusaIl: null,
+      current: true,
+      phaseLabel,
+      phaseClass
+    });
+  }
+
+  storico.forEach(f => {
+    if (!f?.inizio) return;
+    items.push({
+      inizio: f.inizio,
+      fine: f.fine || null,
+      chiusaIl: f.chiusaIl || null,
+      current: false,
+      phaseLabel: 'Chiusa',
+      phaseClass: 'is-closed'
+    });
+  });
+
+  if (!items.length) {
+    el.innerHTML = `
+      <div class="rotazione-cronologia-empty">
+        <p>Nessuna finestra di rotazione ancora registrata.</p>
+        <p class="liturgy-meta">Quando apri e chiudi una finestra da Gestione, compare qui lo storico.</p>
+      </div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <ul class="rotazione-cronologia-list">
+      ${items.map(item => {
+        const range = item.fine
+          ? `<strong>${esc(formatRotazioneDateShort(item.inizio))}</strong> → <strong>${esc(formatRotazioneDateShort(item.fine))}</strong>`
+          : `<strong>${esc(formatRotazioneDateShort(item.inizio))}</strong> · senza data di fine`;
+        const meta = item.current
+          ? 'Finestra corrente'
+          : (item.chiusaIl ? `Chiusa il ${esc(formatRotazioneDateShort(item.chiusaIl))}` : 'Archiviata');
+        return `
+          <li class="rotazione-cronologia-item ${item.phaseClass}">
+            <div class="rotazione-cronologia-main">
+              <span class="rotazione-cronologia-badge">${esc(item.phaseLabel)}</span>
+              <span class="rotazione-cronologia-range">${range}</span>
+            </div>
+            <p class="rotazione-cronologia-meta">${meta}</p>
+          </li>
+        `;
+      }).join('')}
+    </ul>
+  `;
+}
+
+/** Compat: aggiorna i pannelli rotazione visibili dopo un salvataggio config. */
+function renderRotazionePanel() {
+  if (turniTab === 'anteprima') renderRotazioneAnteprima();
+  else if (turniTab === 'gestione') renderRotazioneGestione();
+  else if (turniTab === 'cronologia') renderRotazioneCronologia();
+  else {
+    // Aggiorna anteprima in background se il DOM c’è (es. dopo salvataggio da altre sezioni)
+    if (document.getElementById('rotazione-preview')) renderRotazioneAnteprima();
+  }
+}
+
+/** Anteprima turnistica: sempre sulla config salvata. */
 function renderRotazionePreview() {
   const container = document.getElementById('rotazione-preview');
   if (!container) return;
 
   const slots = getTurniSlot().slice().sort((a, b) => a.turnoNum - b.turnoNum);
-  const domeniche = getProssimeDomeniche(5);
+  const domeniche = getProssimeDomeniche(8);
   const today = getTodayStr();
+  const rotForPreview = getRotazioneConfig();
 
   if (!slots.length || !domeniche.length) {
-    container.innerHTML = '';
+    container.innerHTML = '<p class="liturgy-meta">Configura almeno una messa con squadra in Struttura messe.</p>';
     return;
   }
 
-  const header = slots.map(s => `${formatMessaServizioLabel(s.turnoNum)}<br><span style="font-weight:400;font-size:0.68rem">${esc(SEDI_LABEL[s.sede])} ${esc(s.ora)}</span>`).join('</th><th>');
+  const header = slots.map(s =>
+    `${formatMessaServizioLabel(s.turnoNum)}<br><span class="rotazione-th-sub">${esc(SEDI_LABEL[s.sede])} ${esc(s.ora)}</span>`
+  ).join('</th><th>');
 
   container.innerHTML = `
     <table class="rotazione-table">
@@ -6422,24 +7078,174 @@ function renderRotazionePreview() {
       </thead>
       <tbody>
         ${domeniche.map(dom => {
-          const inWindow = !isRotazioneAttiva() || isDomenicaInFinestraRotazione(dom);
-          const w = getRotationWeekOffset(dom);
+          const inWindow = !isRotazioneAttiva() || isDomenicaInFinestraRotazione(dom, rotForPreview);
+          const sabato = addDaysToDateStr(dom, -1);
+          const afterEnd = !!(isRotazioneAttiva() && rotForPreview.fineFinestra && sabato > rotForPreview.fineFinestra);
+          const beforeStart = !!(isRotazioneAttiva() && sabato < rotForPreview.inizioFinestra);
+          const w = getRotationWeekOffset(dom, rotForPreview);
           const isCurrent = dom >= today && dom === domeniche.find(d => d >= today);
-          const dateLabel = new Date(dom + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+          const dateLabel = new Date(dom + 'T12:00:00').toLocaleDateString('it-IT', {
+            weekday: 'short', day: 'numeric', month: 'short'
+          }).replace('.', '');
           const cells = slots.map(s => {
-            const gid = getGruppoIdForTurno(s.turnoNum, dom);
+            const gid = getGruppoIdForTurno(s.turnoNum, dom, rotForPreview);
             return esc(gid ? getGruppoLabel(gid) : 'Libera');
           }).join('</td><td>');
-          const turnoHint = !isRotazioneAttiva()
-            ? ''
-            : (inWindow && w != null
-              ? `<br><span style="font-size:0.68rem;color:var(--muted)">${esc(formatRotazioneTurnoLabel(w + 1).toLowerCase())}</span>`
-              : `<br><span style="font-size:0.68rem;color:var(--muted)">libera</span>`);
-          return `<tr class="${isCurrent ? 'current' : ''}"><td>Dom ${esc(dateLabel)}${turnoHint}</td><td>${cells}</td></tr>`;
+          let turnoHint = '';
+          if (isRotazioneAttiva()) {
+            if (inWindow && w != null) {
+              turnoHint = `<br><span class="rotazione-row-hint">${esc(formatRotazioneTurnoLabel(w + 1).toLowerCase())}</span>`;
+            } else if (beforeStart) {
+              turnoHint = '<br><span class="rotazione-row-hint">prima · libera</span>';
+            } else if (afterEnd) {
+              turnoHint = '<br><span class="rotazione-row-hint">dopo · fissa</span>';
+            }
+          } else {
+            turnoHint = '<br><span class="rotazione-row-hint">fissa</span>';
+          }
+          const rowClass = [
+            isCurrent ? 'current' : '',
+            beforeStart ? 'out-before' : '',
+            afterEnd ? 'out-after' : '',
+            inWindow && isRotazioneAttiva() ? 'in-window' : ''
+          ].filter(Boolean).join(' ');
+          return `<tr class="${rowClass}"><td>Dom ${esc(dateLabel)}${turnoHint}</td><td>${cells}</td></tr>`;
         }).join('')}
       </tbody>
     </table>
   `;
+}
+
+function onRotazioneDatesChange() {
+  // Date solo in Gestione: nessuna anteprima live qui
+}
+
+function onRotazioneFineOpenChange() {
+  const fineOpen = document.getElementById('rotazione-fine-open');
+  const fineInput = document.getElementById('rotazione-fine');
+  if (!fineOpen || !fineInput) return;
+  fineInput.disabled = fineOpen.checked;
+  if (fineOpen.checked) {
+    fineInput.value = '';
+  } else if (!fineInput.value) {
+    const inizio = document.getElementById('rotazione-inizio')?.value;
+    if (inizio) {
+      fineInput.value = addDaysToDateStr(inizio, 7 * 12);
+      if (!isSabatoDate(fineInput.value)) {
+        fineInput.value = getNearestSaturdayOnOrBefore(fineInput.value);
+      }
+    }
+  }
+}
+
+function setRotazionePreset(kind) {
+  if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
+  if (isRotazioneAttiva()) return;
+  const inizioInput = document.getElementById('rotazione-inizio');
+  const fineInput = document.getElementById('rotazione-fine');
+  const fineOpen = document.getElementById('rotazione-fine-open');
+  if (!inizioInput) return;
+
+  if (kind === 'questo') {
+    inizioInput.value = getSabatoRotazioneDefault();
+    if (fineOpen) {
+      fineOpen.checked = true;
+      onRotazioneFineOpenChange();
+    }
+  } else if (kind === 'prossimo') {
+    inizioInput.value = getSabatoProssimo();
+    if (fineOpen) {
+      fineOpen.checked = true;
+      onRotazioneFineOpenChange();
+    }
+  } else if (kind === 'pastorale') {
+    const startY = getPastoralYearStartForDate();
+    inizioInput.value = getNearestSaturdayOnOrAfter(`${startY}-09-01`);
+    const fine = getNearestSaturdayOnOrBefore(`${startY + 1}-06-30`);
+    if (fineOpen) fineOpen.checked = false;
+    if (fineInput) {
+      fineInput.disabled = false;
+      fineInput.value = fine;
+    }
+  }
+}
+
+function readRotazioneFormDates() {
+  const inizio = document.getElementById('rotazione-inizio')?.value;
+  const fineOpen = document.getElementById('rotazione-fine-open')?.checked;
+  const fine = fineOpen ? null : (document.getElementById('rotazione-fine')?.value || null);
+  return { inizio, fine, fineOpen: !!fineOpen };
+}
+
+function validateRotazioneDates(inizio, fine, fineOpen) {
+  if (!inizio) {
+    showToast('Seleziona il sabato di inizio');
+    return false;
+  }
+  if (!isSabatoDate(inizio)) {
+    showToast('La data di inizio deve essere un sabato');
+    return false;
+  }
+  if (!fineOpen) {
+    if (!fine) {
+      showToast('Seleziona il sabato di fine, oppure spunta “Senza data di fine”');
+      return false;
+    }
+    if (!isSabatoDate(fine)) {
+      showToast('La data di fine deve essere un sabato');
+      return false;
+    }
+    if (fine < inizio) {
+      showToast('La fine deve essere successiva all’inizio');
+      return false;
+    }
+  }
+  return true;
+}
+
+function salvaFinestraRotazione() {
+  if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
+  if (isRotazioneAttiva()) {
+    showToast('Chiudi prima la finestra corrente');
+    return;
+  }
+  const { inizio, fine, fineOpen } = readRotazioneFormDates();
+  if (!validateRotazioneDates(inizio, fine, fineOpen)) return;
+
+  const rot = getRotazioneConfig();
+  rot.attiva = true;
+  rot.inizioFinestra = inizio;
+  rot.fineFinestra = fineOpen ? null : fine;
+  afterGruppiConfigChange();
+  showToast('Finestra rotazione aperta');
+}
+
+function apriFinestraRotazione() {
+  salvaFinestraRotazione();
+}
+
+function chiudiFinestraRotazione() {
+  if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
+  if (!confirm('Chiudere la finestra di rotazione? Resta l’assegnazione fissa: messa 1→Gruppo 1, messa 2→Gruppo 2, messa 3→Gruppo 3 (ogni turno uguale).')) return;
+
+  const rot = getRotazioneConfig();
+  if (rot.inizioFinestra) {
+    const oggi = getTodayStr();
+    let fineArchivio = rot.fineFinestra;
+    if (!fineArchivio || fineArchivio > oggi) {
+      fineArchivio = getNearestSaturdayOnOrBefore(oggi);
+      if (fineArchivio < rot.inizioFinestra) fineArchivio = rot.inizioFinestra;
+    }
+    const entry = {
+      inizio: rot.inizioFinestra,
+      fine: fineArchivio,
+      chiusaIl: oggi
+    };
+    rot.storicoFinestre = [entry, ...(rot.storicoFinestre || [])].slice(0, 24);
+  }
+  rot.attiva = false;
+  afterGruppiConfigChange();
+  showToast('Finestra rotazione chiusa');
 }
 
 function getChierichettiInGruppo(gruppoId) {
@@ -6502,48 +7308,37 @@ function renderGruppoAddRow(gruppoId) {
   `;
 }
 
-function renderUnassignedPanel(unassigned, gruppi) {
+function renderUnassignedPanel(unassigned) {
   const hintEl = document.getElementById('gruppi-unassigned-hint');
   const chipsEl = document.getElementById('gruppi-non-assegnati');
-  const actionsEl = document.getElementById('gruppi-unassigned-actions');
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  const gruppoSelect = document.getElementById('unassigned-gruppo-select');
   const titleEl = document.querySelector('#gruppi-unassigned-wrap .config-section-title');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
-  const mobile = window.matchMedia('(max-width: 1024px)').matches;
-  const canManage = isCurrentUserAdmin();
 
   if (!allChi.length) {
     if (titleEl) titleEl.textContent = 'Senza gruppo';
     if (hintEl) hintEl.textContent = 'Prima registra i chierichetti in Anagrafica, poi torna qui per assegnarli.';
     if (chipsEl) chipsEl.innerHTML = '';
-    if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
   if (!unassigned.length) {
     if (titleEl) titleEl.textContent = 'Senza gruppo';
-    if (hintEl) hintEl.textContent = '';
+    if (hintEl) hintEl.textContent = 'Tutti sono assegnati a una squadra.';
     if (chipsEl) chipsEl.innerHTML = '';
-    if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
   if (titleEl) titleEl.textContent = `Senza gruppo · ${unassigned.length}`;
   if (hintEl) {
-    hintEl.textContent = mobile
-      ? 'Tocca un nome, scegli la squadra e assegna.'
-      : `${unassigned.length} chierichetti o cerimonieri senza gruppo — assegnali a una squadra compatibile con le messe del turno.`;
+    hintEl.textContent = isCurrentUserAdmin()
+      ? 'Apri Modifica Gruppi per assegnarli.'
+      : `${unassigned.length} persone senza gruppo.`;
   }
 
   const chipHtml = (c) => {
-    const label = mobile
-      ? esc(c.nome)
-      : `${esc(c.nome)} · ${esc(formatAnnoNascitaLabel(c.annoNascita))}`;
-    if (mobile && canManage) {
-      return `<button type="button" class="gruppo-member-chip" data-unassigned-uuid="${esc(c.uuid)}" onclick="selectUnassignedPerson('${esc(c.uuid)}')">${label}</button>`;
-    }
-    return `<span class="gruppo-member-chip">${label}</span>`;
+    const label = esc(c.nome);
+    const cer = isAppelloCerimoniere(c) ? ' is-cerimoniere' : '';
+    return `<button type="button" class="gruppo-member-chip is-readonly is-link${cer}" onclick="openAnagPersonDetailFromGruppi('${esc(c.uuid)}')">${label}</button>`;
   };
 
   const byParrocchia = (id) => unassigned.filter(c => c.parrocchia === id);
@@ -6571,58 +7366,6 @@ function renderUnassignedPanel(unassigned, gruppi) {
   ` : '';
 
   if (chipsEl) chipsEl.innerHTML = sections + extraSection;
-
-  if (chiSelect) {
-    chiSelect.innerHTML = '<option value="">Seleziona chierichetto o cerimoniere…</option>' +
-      buildGruppoPersonaSelectOptions(unassigned);
-    chiSelect.setAttribute('aria-label', 'Chierichetto o cerimoniere');
-    chiSelect.onchange = () => {
-      syncUnassignedChipSelection(chiSelect.value);
-      populateUnassignedGruppoSelect(gruppi);
-    };
-  }
-  populateUnassignedGruppoSelect(gruppi);
-  if (actionsEl) actionsEl.style.display = canManage ? 'flex' : 'none';
-}
-
-function selectUnassignedPerson(uuid) {
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  if (!chiSelect) return;
-  chiSelect.value = uuid || '';
-  syncUnassignedChipSelection(uuid);
-  populateUnassignedGruppoSelect(getGruppiAttivi());
-  requestAnimationFrame(() => {
-    document.getElementById('unassigned-gruppo-select')?.focus();
-  });
-}
-
-function syncUnassignedChipSelection(uuid) {
-  document.querySelectorAll('#gruppi-non-assegnati [data-unassigned-uuid]').forEach(el => {
-    el.classList.toggle('is-selected', el.getAttribute('data-unassigned-uuid') === uuid);
-  });
-}
-
-function populateUnassignedGruppoSelect(gruppi) {
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  const gruppoSelect = document.getElementById('unassigned-gruppo-select');
-  if (!gruppoSelect) return;
-  const uuid = chiSelect?.value;
-  const chi = uuid ? state.chierichetti.find(c => c.uuid === uuid) : null;
-  const compatible = chi
-    ? gruppi.filter(g => chierichettoCanJoinGruppo(chi, g.id))
-    : gruppi;
-  gruppoSelect.innerHTML = '<option value="">Seleziona gruppo…</option>' +
-    compatible.map(g => `<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join('');
-}
-
-function assignFromUnassignedPanel() {
-  const uuid = document.getElementById('unassigned-chi-select')?.value;
-  const gruppoId = document.getElementById('unassigned-gruppo-select')?.value;
-  if (!uuid || !gruppoId) {
-    showToast('Seleziona chierichetto e gruppo');
-    return;
-  }
-  assignChierichettoToGruppo(uuid, gruppoId);
 }
 
 async function assignChierichettoToGruppo(uuid, gruppoId) {
@@ -6639,11 +7382,6 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   }
   const prevGruppo = chi.gruppo;
   chi.gruppo = gruppoId;
-  appendGruppoCronologia(
-    prevGruppo && prevGruppo !== gruppoId ? 'membro_spostato' : 'membro_aggiunto',
-    gruppoId,
-    { personaNome: chi.nome, gruppoPrecedente: prevGruppo ? getGruppoLabel(prevGruppo) : '' }
-  );
   saveData();
   void persistConfig();
   const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
@@ -6656,7 +7394,6 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  renderGruppiCronologia();
   if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
   if (prevGruppo && prevGruppo !== gruppoId) {
     showToast(`${chi.nome} spostato da ${getGruppoLabel(prevGruppo)} a ${getGruppoLabel(gruppoId)}`);
@@ -6670,7 +7407,6 @@ async function unassignChierichettoFromGruppo(uuid) {
   const chi = state.chierichetti.find(c => c.uuid === uuid);
   if (!chi) return;
   const prevGruppo = chi.gruppo;
-  appendGruppoCronologia('membro_rimosso', prevGruppo, { personaNome: chi.nome });
   chi.gruppo = '';
   saveData();
   void persistConfig();
@@ -6684,7 +7420,6 @@ async function unassignChierichettoFromGruppo(uuid) {
   }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  renderGruppiCronologia();
   if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
   showToast(`${chi.nome} rimosso dal gruppo`);
 }
@@ -6703,8 +7438,577 @@ function renderGruppiGestioneList() {
     container.innerHTML = gruppi.map(g => buildGruppoCardHtml(g)).join('');
   }
 
-  renderUnassignedPanel(unassigned, gruppi);
+  renderUnassignedPanel(unassigned);
   updateGruppiPanelMeta();
+  syncGruppiAdminUi();
+  if (document.body.classList.contains('gruppi-edit-open')) renderGruppiEditPanel();
+}
+
+function getDraftGruppoFor(uuid) {
+  if (!gruppiEditDraft) return '';
+  return gruppiEditDraft[uuid] || '';
+}
+
+function getChierichettiInGruppoDraft(gruppoId) {
+  return state.chierichetti
+    .filter(c => isChierichettoAttivo(c) && getDraftGruppoFor(c.uuid) === gruppoId)
+    .sort(sortChierichettiInGruppo);
+}
+
+function getChierichettiSenzaGruppoDraft() {
+  return state.chierichetti
+    .filter(c => isChierichettoAttivo(c) && !getDraftGruppoFor(c.uuid))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+}
+
+function hasGruppiEditChanges() {
+  if (!gruppiEditDraft || !gruppiEditBaseline) return false;
+  const keys = new Set([...Object.keys(gruppiEditDraft), ...Object.keys(gruppiEditBaseline)]);
+  for (const uuid of keys) {
+    if ((gruppiEditDraft[uuid] || '') !== (gruppiEditBaseline[uuid] || '')) return true;
+  }
+  return false;
+}
+
+function openGruppiEdit() {
+  if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
+  closeGruppiFormSheet();
+  gruppiEditBaseline = {};
+  gruppiEditDraft = {};
+  gruppiEditUndoStack = [];
+  // Baseline = composizione attuale; bozza = tutti da riassegnare (gruppi vuoti)
+  state.chierichetti.filter(isChierichettoAttivo).forEach(c => {
+    gruppiEditBaseline[c.uuid] = c.gruppo || '';
+    gruppiEditDraft[c.uuid] = '';
+  });
+  gruppiEditSelected = new Set();
+  document.body.classList.add('gruppi-edit-open');
+  document.body.classList.remove('gruppi-edit-selecting');
+  const view = document.getElementById('gruppi-gestione-view');
+  const panel = document.getElementById('gruppi-edit-panel');
+  if (view) view.hidden = true;
+  if (panel) panel.hidden = false;
+  renderGruppiEditPanel();
+  syncGruppiFab();
+  panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeGruppiEdit(force = false) {
+  if (!document.body.classList.contains('gruppi-edit-open') && !gruppiEditDraft) return true;
+  if (!force && hasGruppiEditChanges() && !confirm('Scartare le modifiche non salvate?')) return false;
+  document.body.classList.remove('gruppi-edit-open', 'gruppi-edit-selecting');
+  gruppiEditDraft = null;
+  gruppiEditBaseline = null;
+  gruppiEditSelected = new Set();
+  gruppiEditUndoStack = [];
+  const view = document.getElementById('gruppi-gestione-view');
+  const panel = document.getElementById('gruppi-edit-panel');
+  if (view) view.hidden = false;
+  if (panel) panel.hidden = true;
+  syncGruppiFab();
+  return true;
+}
+
+function toggleGruppiEditSelection(uuid) {
+  if (!gruppiEditDraft) return;
+  const wasEmpty = gruppiEditSelected.size === 0;
+  if (gruppiEditSelected.has(uuid)) gruppiEditSelected.delete(uuid);
+  else gruppiEditSelected.add(uuid);
+  const nowEmpty = gruppiEditSelected.size === 0;
+  if (wasEmpty || nowEmpty) {
+    renderGruppiEditPanel();
+    return;
+  }
+  syncGruppiEditChrome();
+  document.querySelectorAll(`#gruppi-edit-list [data-edit-uuid="${CSS.escape(uuid)}"]`).forEach(el => {
+    el.classList.toggle('is-selected', gruppiEditSelected.has(uuid));
+  });
+}
+
+function clearGruppiEditSelection() {
+  if (!gruppiEditSelected.size) return;
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+}
+
+function selectAllUnassignedInEdit(section) {
+  if (!gruppiEditDraft) return;
+  const list = getChierichettiSenzaGruppoDraft();
+  const filtered = section === 'cerimonieri'
+    ? list.filter(isAppelloCerimoniere)
+    : section === 'vanzago'
+      ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'vanzago')
+      : section === 'mantegazza'
+        ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'mantegazza')
+        : section === 'altro'
+          ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia !== 'vanzago' && c.parrocchia !== 'mantegazza')
+          : list;
+  filtered.forEach(c => gruppiEditSelected.add(c.uuid));
+  renderGruppiEditPanel();
+}
+
+function buildGruppiEditUnassignedSections(unassigned, hasSelection) {
+  const byNome = (a, b) => a.nome.localeCompare(b.nome, 'it');
+  const sections = [
+    {
+      id: 'vanzago',
+      title: 'Vanzago',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'vanzago').sort(byNome)
+    },
+    {
+      id: 'mantegazza',
+      title: 'Mantegazza',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'mantegazza').sort(byNome)
+    },
+    {
+      id: 'cerimonieri',
+      title: 'Cerimonieri',
+      list: unassigned.filter(isAppelloCerimoniere).sort(byNome)
+    },
+    {
+      id: 'altro',
+      title: 'Parrocchia da impostare',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia !== 'vanzago' && c.parrocchia !== 'mantegazza').sort(byNome)
+    }
+  ].filter(sec => sec.list.length);
+
+  if (!sections.length) {
+    return '<span class="liturgy-meta">Tutti assegnati</span>';
+  }
+
+  return sections.map(sec => `
+    <div class="gruppi-edit-pool-section">
+      <div class="gruppi-edit-pool-head">
+        <p class="gruppi-parrocchia-title">${esc(sec.title)} · ${sec.list.length}</p>
+        ${!hasSelection && sec.list.length > 1
+          ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectAllUnassignedInEdit('${esc(sec.id)}')">Seleziona</button>`
+          : ''}
+      </div>
+      <div class="gruppo-member-chips">
+        ${sec.list.map(c => buildGruppiEditChip(c)).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function syncGruppiEditChrome() {
+  const n = gruppiEditSelected.size;
+  const nChanges = countGruppiEditChanges();
+  const toolbar = document.getElementById('gruppi-edit-toolbar');
+  const changesBar = document.getElementById('gruppi-edit-changes');
+  const countEl = document.getElementById('gruppi-edit-selection-count');
+  const hintEl = document.getElementById('gruppi-edit-toolbar-hint');
+  const changesText = document.getElementById('gruppi-edit-changes-text');
+  const undoBtn = document.getElementById('btn-gruppi-edit-undo');
+  const subEl = document.getElementById('gruppi-edit-sub');
+
+  document.body.classList.toggle('gruppi-edit-selecting', n > 0);
+  document.getElementById('gruppi-edit-list')?.classList.toggle('has-selection', n > 0);
+  document.getElementById('gruppi-edit-panel')?.classList.toggle('has-selection', n > 0);
+
+  const activeCount = state.chierichetti.filter(isChierichettoAttivo).length;
+  const unassignedCount = getChierichettiSenzaGruppoDraft().length;
+  const atEmptyStart = unassignedCount === activeCount && !gruppiEditUndoStack.length;
+
+  if (toolbar) {
+    toolbar.hidden = n === 0;
+    toolbar.classList.toggle('is-visible', n > 0);
+  }
+  if (countEl) countEl.textContent = n === 1 ? '1 selezionato' : `${n} selezionati`;
+  if (hintEl) hintEl.textContent = 'Tocca la squadra di destinazione';
+  if (subEl) {
+    subEl.textContent = n > 0
+      ? 'Scegli dove spostarli'
+      : atEmptyStart
+        ? 'Gruppi vuoti — assegna da Vanzago, Mantegazza e Cerimonieri'
+        : (nChanges
+          ? `${nChanges} da confermare — salva quando hai finito`
+          : 'Tocca i nomi, poi tocca una squadra');
+  }
+
+  const showChanges = n === 0 && nChanges > 0 && !atEmptyStart;
+  if (changesBar) {
+    changesBar.hidden = !showChanges;
+    changesBar.classList.toggle('is-visible', showChanges);
+  }
+  if (changesText && showChanges) {
+    changesText.textContent = nChanges === 1
+      ? '1 persona spostata — salva per confermare'
+      : `${nChanges} persone spostate — salva per confermare`;
+  }
+  if (undoBtn) {
+    undoBtn.hidden = !gruppiEditUndoStack.length;
+  }
+}
+
+function applyGruppiEditSelection(forcedGruppoId) {
+  if (!gruppiEditDraft || !gruppiEditSelected.size) {
+    showToast('Seleziona almeno una persona');
+    return;
+  }
+  const gruppoId = forcedGruppoId !== undefined ? forcedGruppoId : '';
+  const undoBatch = [];
+  let skipped = 0;
+  let moved = 0;
+  for (const uuid of [...gruppiEditSelected]) {
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi) continue;
+    if (gruppoId && !chierichettoCanJoinGruppo(chi, gruppoId)) {
+      skipped += 1;
+      continue;
+    }
+    const prev = gruppiEditDraft[uuid] || '';
+    if (prev === gruppoId) continue;
+    undoBatch.push({ uuid, prev });
+    gruppiEditDraft[uuid] = gruppoId;
+    moved += 1;
+  }
+  if (undoBatch.length) {
+    gruppiEditUndoStack.push(undoBatch);
+    if (gruppiEditUndoStack.length > 30) gruppiEditUndoStack.shift();
+  }
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  if (skipped && !moved) {
+    showToast('Nessuno può entrare in quella squadra');
+  } else if (skipped) {
+    showToast(`${moved} assegnati · ${skipped} non compatibili`);
+  } else if (moved && gruppoId) {
+    showToast(`${moved} → ${getGruppoLabel(gruppoId)}`);
+  } else if (moved) {
+    showToast(moved === 1 ? '1 persona senza gruppo' : `${moved} senza gruppo`);
+  }
+}
+
+function assignSelectedToGruppo(gruppoId) {
+  applyGruppiEditSelection(gruppoId);
+}
+
+function undoLastGruppiEdit() {
+  const batch = gruppiEditUndoStack.pop();
+  if (!batch || !gruppiEditDraft) return;
+  batch.forEach(({ uuid, prev }) => {
+    gruppiEditDraft[uuid] = prev;
+  });
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  showToast('Ultima modifica annullata');
+}
+
+function resetGruppiEditDraft() {
+  if (!gruppiEditDraft || !gruppiEditBaseline) return;
+  if (!hasGruppiEditChanges()) return;
+  if (!confirm('Ripristinare la composizione iniziale?')) return;
+  Object.keys(gruppiEditBaseline).forEach(uuid => {
+    gruppiEditDraft[uuid] = gruppiEditBaseline[uuid];
+  });
+  gruppiEditUndoStack = [];
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  showToast('Composizione ripristinata');
+}
+
+function wereTogetherInBaseline(uuidA, uuidB) {
+  if (!gruppiEditBaseline) return false;
+  const ga = gruppiEditBaseline[uuidA] || '';
+  const gb = gruppiEditBaseline[uuidB] || '';
+  return !!(ga && ga === gb);
+}
+
+/** Ultime N configurazioni salvate (non la bozza corrente) */
+function getGruppiPairHistoryMaps(limit = 2) {
+  ensureGruppiConfig();
+  return (state.gruppiConfig.cronologia || [])
+    .filter(e => e.tipo === 'configurazione' && e.snapshot?.gruppi)
+    .slice(0, limit)
+    .map(entry => snapshotToPairMap(entry.snapshot));
+}
+
+function snapshotToPairMap(snapshot) {
+  const byPerson = new Map();
+  for (const g of snapshot?.gruppi || []) {
+    const ids = (g.membri || []).map(m => m.uuid).filter(Boolean);
+    for (const id of ids) {
+      byPerson.set(id, new Set(ids.filter(x => x !== id)));
+    }
+  }
+  return byPerson;
+}
+
+function countConsecutivePairHistory(uuidA, uuidB, historyMaps) {
+  let n = 0;
+  for (const map of historyMaps) {
+    if (map.get(uuidA)?.has(uuidB)) n += 1;
+    else break;
+  }
+  return n;
+}
+
+/**
+ * Avvisi solo su coppie NUOVE rispetto alla composizione di partenza.
+ * warn = già insieme 1 volta in cronologia; danger = 2 volte consecutive.
+ */
+function getGruppoMemberPairWarnings(members, historyMaps) {
+  const byUuid = new Map();
+  if (members.length < 2) return byUuid;
+
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      const a = members[i];
+      const b = members[j];
+      // Status quo: già insieme all'apertura → niente colore
+      if (wereTogetherInBaseline(a.uuid, b.uuid)) continue;
+
+      let n = countConsecutivePairHistory(a.uuid, b.uuid, historyMaps);
+      // Se non c'è ancora cronologia salvata, la "volta precedente" è la baseline
+      if (!historyMaps.length && gruppiEditBaseline) {
+        // già esclusi se insieme in baseline; niente da segnalare
+        n = 0;
+      }
+      if (n < 1) continue;
+
+      const level = n >= 2 ? 'danger' : 'warn';
+      const note = n >= 2
+        ? `già insieme nelle ultime ${n} configurazioni`
+        : 'già insieme la volta precedente';
+
+      const bump = (person, other) => {
+        const prev = byUuid.get(person.uuid) || { level: null, with: [] };
+        if (level === 'danger' || prev.level !== 'danger') {
+          if (level === 'danger') prev.level = 'danger';
+          else if (!prev.level) prev.level = 'warn';
+        }
+        prev.with.push({ nome: other.nome, level, note });
+        byUuid.set(person.uuid, prev);
+      };
+      bump(a, b);
+      bump(b, a);
+    }
+  }
+
+  byUuid.forEach(info => {
+    const danger = info.with.filter(w => w.level === 'danger');
+    const warn = info.with.filter(w => w.level === 'warn');
+    const parts = [];
+    if (danger.length) parts.push(danger.map(w => `${w.nome}: ${w.note}`).join('; '));
+    if (warn.length) parts.push(warn.map(w => `${w.nome}: ${w.note}`).join('; '));
+    info.title = parts.join(' · ');
+  });
+
+  return byUuid;
+}
+
+function maxPairWarningLevel(warningsMap) {
+  let max = null;
+  warningsMap.forEach(info => {
+    if (info.level === 'danger') max = 'danger';
+    else if (info.level === 'warn' && max !== 'danger') max = 'warn';
+  });
+  return max;
+}
+
+function countGruppiEditChanges() {
+  if (!gruppiEditDraft || !gruppiEditBaseline) return 0;
+  let n = 0;
+  const keys = new Set([...Object.keys(gruppiEditDraft), ...Object.keys(gruppiEditBaseline)]);
+  for (const uuid of keys) {
+    if ((gruppiEditDraft[uuid] || '') !== (gruppiEditBaseline[uuid] || '')) n += 1;
+  }
+  return n;
+}
+
+function buildGruppiEditChip(c, pairInfo) {
+  const selected = gruppiEditSelected.has(c.uuid);
+  const pairClass = pairInfo?.level === 'danger'
+    ? ' is-pair-danger'
+    : pairInfo?.level === 'warn'
+      ? ' is-pair-warn'
+      : '';
+  const baselineG = gruppiEditBaseline?.[c.uuid] || '';
+  const draftG = gruppiEditDraft?.[c.uuid] || '';
+  const changed = baselineG !== draftG;
+  const fromLabel = changed
+    ? (baselineG ? getGruppoLabel(baselineG) : 'Senza gruppo')
+    : '';
+  const titleParts = [];
+  if (pairInfo?.title) titleParts.push(pairInfo.title);
+  if (fromLabel) titleParts.push('da ' + fromLabel);
+  const title = titleParts.length ? ` title="${esc(titleParts.join(' · '))}"` : '';
+  return `
+    <button type="button"
+      class="gruppo-member-chip is-selectable${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}${selected ? ' is-selected' : ''}${changed ? ' is-moved' : ''}${pairClass}"
+      data-edit-uuid="${esc(c.uuid)}"
+      onclick="toggleGruppiEditSelection('${esc(c.uuid)}')"
+      aria-pressed="${selected ? 'true' : 'false'}"${title}>
+      <span class="gruppi-edit-chip-check" aria-hidden="true"></span>
+      <span class="gruppi-edit-chip-label">${esc(c.nome)}</span>
+      ${fromLabel ? `<span class="gruppi-edit-chip-from">${esc(fromLabel)}</span>` : ''}
+    </button>
+  `;
+}
+
+function renderGruppiEditPanel() {
+  const list = document.getElementById('gruppi-edit-list');
+  if (!list || !gruppiEditDraft) return;
+  const gruppi = getGruppiAttivi();
+  const unassigned = getChierichettiSenzaGruppoDraft();
+  const historyMaps = getGruppiPairHistoryMaps(2);
+  const hasSelection = gruppiEditSelected.size > 0;
+  const nChanges = countGruppiEditChanges();
+  let warnCount = 0;
+
+  const groupsHtml = gruppi.length
+    ? gruppi.map(g => {
+      const members = getChierichettiInGruppoDraft(g.id);
+      const nCer = members.filter(isAppelloCerimoniere).length;
+      const warnings = getGruppoMemberPairWarnings(members, historyMaps);
+      const cardLevel = maxPairWarningLevel(warnings);
+      if (cardLevel) warnCount += 1;
+      const cardClass = [
+        cardLevel === 'danger' ? 'is-pair-danger' : '',
+        cardLevel === 'warn' ? 'is-pair-warn' : '',
+        hasSelection ? 'is-drop-target' : ''
+      ].filter(Boolean).join(' ');
+      const pairHint = cardLevel === 'danger'
+        ? '<p class="gruppi-pair-card-hint is-danger">Nuove coppie già insieme 2 volte</p>'
+        : cardLevel === 'warn'
+          ? '<p class="gruppi-pair-card-hint is-warn">Nuove coppie già insieme la volta scorsa</p>'
+          : '';
+      return `
+        <div class="gruppo-squadra-card gruppi-edit-card ${cardClass}" ${hasSelection ? `role="button" tabindex="0" onclick="assignSelectedToGruppo('${esc(g.id)}')"` : ''}>
+          <div class="gruppo-squadra-head">
+            <div>
+              <p class="config-item-title">${esc(g.nome)}</p>
+              <p class="config-item-meta">${nCer ? nCer + ' cerim. · ' : ''}${members.length} in squadra</p>
+            </div>
+            ${hasSelection
+              ? '<span class="gruppi-edit-drop-label">Assegna qui</span>'
+              : `<span class="gruppi-edit-card-count">${members.length}</span>`}
+          </div>
+          ${pairHint}
+          <div class="gruppo-member-chips" onclick="event.stopPropagation()">
+            ${members.length
+              ? members.map(c => buildGruppiEditChip(c, warnings.get(c.uuid))).join('')
+              : '<span class="liturgy-meta">Squadra vuota</span>'}
+          </div>
+        </div>
+      `;
+    }).join('')
+    : '<p class="empty-state">Nessun gruppo attivo</p>';
+
+  const legendHtml = warnCount
+    ? `<div class="gruppi-pair-legend" role="note">
+        <span><span class="gruppi-pair-swatch is-warn" aria-hidden="true"></span> già insieme 1 volta</span>
+        <span><span class="gruppi-pair-swatch is-danger" aria-hidden="true"></span> già insieme 2 volte</span>
+      </div>`
+    : '';
+
+  const unassignedHtml = `
+    <div class="gruppi-unassigned-panel gruppi-edit-unassigned${hasSelection ? ' is-drop-target' : ''}"
+      ${hasSelection ? `role="button" tabindex="0" onclick="applyGruppiEditSelection('')"` : ''}>
+      <div class="gruppo-squadra-head">
+        <div>
+          <h4 class="config-section-title">Da assegnare${unassigned.length ? ` · ${unassigned.length}` : ''}</h4>
+          <p class="liturgy-meta gruppi-unassigned-hint">${hasSelection
+            ? 'Tocca per togliere dal gruppo'
+            : 'Vanzago, Mantegazza e Cerimonieri — tocca i nomi, poi una squadra'}</p>
+        </div>
+        ${hasSelection
+          ? '<span class="gruppi-edit-drop-label is-warn">Togli</span>'
+          : ''}
+      </div>
+      <div class="gruppi-edit-pool" onclick="event.stopPropagation()">
+        ${buildGruppiEditUnassignedSections(unassigned, hasSelection)}
+      </div>
+    </div>
+  `;
+
+  list.innerHTML = unassignedHtml + groupsHtml + legendHtml;
+  syncGruppiEditChrome();
+
+  const saveBtn = document.getElementById('btn-salva-gruppi-config');
+  if (saveBtn) {
+    saveBtn.disabled = nChanges === 0;
+    saveBtn.textContent = nChanges ? `Salva (${nChanges})` : 'Salva configurazione';
+  }
+}
+
+async function saveGruppiEditConfig() {
+  if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
+  if (!gruppiEditDraft || !gruppiEditBaseline) return;
+  if (!hasGruppiEditChanges()) {
+    showToast('Nessuna modifica da salvare');
+    return;
+  }
+
+  const changes = [];
+  const toPersist = [];
+  for (const uuid of Object.keys(gruppiEditDraft)) {
+    const next = gruppiEditDraft[uuid] || '';
+    const prev = gruppiEditBaseline[uuid] || '';
+    if (next === prev) continue;
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi) continue;
+    if (next && !chierichettoCanJoinGruppo(chi, next)) {
+      showToast(`${chi.nome} non può entrare in ${getGruppoLabel(next)}`);
+      return;
+    }
+    changes.push({
+      personaNome: chi.nome,
+      da: prev ? getGruppoLabel(prev) : 'Senza gruppo',
+      a: next ? getGruppoLabel(next) : 'Senza gruppo',
+      daId: prev,
+      aId: next
+    });
+    toPersist.push({ chi, next, prev });
+  }
+
+  const saveBtn = document.getElementById('btn-salva-gruppi-config');
+  if (saveBtn) saveBtn.disabled = true;
+
+  for (const { chi, next, prev } of toPersist) {
+    chi.gruppo = next;
+  }
+  saveData();
+
+  let failed = null;
+  for (const { chi, next, prev } of toPersist) {
+    const ok = await persistPersona({
+      nome: chi.nome,
+      email: '',
+      telefono: chi.telefono || '',
+      telefono2: chi.telefono2 || '',
+      telefonoChi: chi.telefonoChi || '',
+      telefono2Chi: chi.telefono2Chi || '',
+      ruolo: chi.ruolo,
+      annoNascita: chi.annoNascita,
+      parrocchia: chi.parrocchia,
+      cerimoniereTurno: false,
+      gruppo: next
+    }, chi.uuid);
+    if (!ok) {
+      chi.gruppo = prev;
+      failed = chi.nome;
+      break;
+    }
+  }
+
+  if (failed) {
+    saveData();
+    if (saveBtn) saveBtn.disabled = false;
+    renderGruppiEditPanel();
+    showToast(`Salvataggio interrotto su ${failed}`);
+    return;
+  }
+
+  appendGruppoCronologia('configurazione', '', {
+    changes,
+    summary: summarizeGruppiChanges(changes),
+    snapshot: buildGruppiSnapshotFromState()
+  });
+  closeGruppiEdit(true);
+  afterGruppiConfigChange();
+  showToast('Configurazione gruppi salvata');
 }
 
 function addChierichettoToGruppoFromSelect(gruppoId) {
@@ -6739,30 +8043,6 @@ function afterGruppiConfigChange() {
   else if (active?.id === 'gruppi') void renderGruppi();
   else if (active?.id === 'anagrafica') renderChierichetti();
   else if (active?.id === 'presenze') renderAppello();
-}
-
-function apriFinestraRotazione() {
-  if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
-  const dateInput = document.getElementById('rotazione-inizio').value;
-  if (!dateInput) {
-    showToast('Seleziona il sabato di inizio');
-    return;
-  }
-  if (!isSabatoDate(dateInput)) {
-    showToast('La data di inizio deve essere un sabato');
-    return;
-  }
-  state.gruppiConfig.rotazione = { attiva: true, inizioFinestra: dateInput };
-  afterGruppiConfigChange();
-  showToast('Finestra rotazione aperta');
-}
-
-function chiudiFinestraRotazione() {
-  if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
-  if (!confirm('Chiudere la finestra di rotazione? Resta l\'assegnazione fissa: messa 1→Gruppo 1, messa 2→Gruppo 2, messa 3→Gruppo 3 (ogni turno uguale).')) return;
-  state.gruppiConfig.rotazione.attiva = false;
-  afterGruppiConfigChange();
-  showToast('Finestra rotazione chiusa');
 }
 
 function editGruppoSquadra(id) {
@@ -6870,7 +8150,9 @@ function renderTurni() {
   renderMesseDomenicaliList();
   updateMesseDomenicaliSummary();
   updateTurniPanelMeta();
-  if (turniTab === 'rotazione') renderRotazionePanel();
+  if (turniTab === 'anteprima') renderRotazioneAnteprima();
+  else if (turniTab === 'gestione') renderRotazioneGestione();
+  else if (turniTab === 'cronologia') renderRotazioneCronologia();
 }
 
 // ── Presenze ────────────────────────────────────────────────
@@ -7265,7 +8547,8 @@ function syncGruppiFab() {
   const onGruppi = document.getElementById('gruppi')?.classList.contains('active');
   const onGestione = gruppiTab === 'gestione';
   const sheetOpen = document.body.classList.contains('gruppi-sheet-open');
-  const show = !!(onGruppi && onGestione && isGruppiMobile() && !sheetOpen && isCurrentUserAdmin());
+  const editOpen = document.body.classList.contains('gruppi-edit-open');
+  const show = !!(onGruppi && onGestione && isGruppiMobile() && !sheetOpen && !editOpen && isCurrentUserAdmin());
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
 }
