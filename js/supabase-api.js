@@ -589,8 +589,95 @@
     const password = String(dati.password || '');
     const uuid = newId('CER-');
     const ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
+    const wantsLogin = !!(email || password);
 
-    if (!password || password.length < 6) {
+    if (wantsLogin) {
+      if (!email) {
+        return { success: false, message: 'Email obbligatoria per abilitare il login' };
+      }
+      if (!password || password.length < 6) {
+        return { success: false, message: 'Password di almeno 6 caratteri obbligatoria per il login' };
+      }
+    }
+
+    if (wantsLogin) {
+      const { data: sessData } = await sb.auth.getSession();
+      const adminSession = sessData?.session;
+      if (!adminSession) {
+        return { success: false, message: 'Sessione scaduta — riloggia come admin' };
+      }
+
+      // Crea utente Auth senza perdere la sessione admin
+      const { data: sign, error: signErr } = await sb.auth.signUp({ email, password });
+      const { error: restoreErr } = await sb.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token
+      });
+      if (restoreErr) {
+        return {
+          success: false,
+          message: 'Utente Auth creato ma sessione admin persa — riloggia e riprova'
+        };
+      }
+
+      if (signErr) {
+        const msg = signErr.message || 'Creazione Auth fallita';
+        if (!/already|registered|exists|duplicate/i.test(msg)) {
+          return { success: false, message: msg };
+        }
+      }
+
+      const { error } = await sb.from('cerimonieri').insert({
+        uuid,
+        nome: String(dati.nome || '').trim(),
+        email,
+        parrocchia: dati.parrocchia || '',
+        chierichetto_uuid: dati.chierichettoUuid || null,
+        attivo: dati.attivo === false ? false : true,
+        is_admin: false,
+        ruolo
+      });
+      if (error) return { success: false, message: error.message };
+
+      const needsEmailConfirm = !!(sign?.user && !sign?.session && !signErr);
+      return {
+        success: true,
+        uuid,
+        needsEmailConfirm,
+        message: needsEmailConfirm
+          ? 'Account creato. Conferma l\'email (o disattiva Confirm email in Supabase Auth) prima del primo accesso.'
+          : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')
+      };
+    }
+
+    // Solo anagrafica: niente Auth, niente login
+    const { error } = await sb.from('cerimonieri').insert({
+      uuid,
+      nome: String(dati.nome || '').trim(),
+      email: '',
+      parrocchia: dati.parrocchia || '',
+      chierichetto_uuid: dati.chierichettoUuid || null,
+      attivo: dati.attivo === false ? false : true,
+      is_admin: false,
+      ruolo
+    });
+    if (error) return { success: false, message: error.message };
+    return {
+      success: true,
+      uuid,
+      needsEmailConfirm: false,
+      message: ruolo === 'prete'
+        ? 'Don aggiunto (senza login). Imposta email e password quando serve.'
+        : 'Cerimoniere aggiunto (senza login). Imposta email e password quando serve.'
+    };
+  }
+
+  async function attivaLoginCerimoniere(uuid, email, password) {
+    const sb = requireClient();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const pwd = String(password || '');
+    if (!cleanEmail) return { success: false, message: 'Email obbligatoria' };
+    if (!pwd || pwd.length < 6) {
       return { success: false, message: 'Password di almeno 6 caratteri obbligatoria' };
     }
 
@@ -600,8 +687,10 @@
       return { success: false, message: 'Sessione scaduta — riloggia come admin' };
     }
 
-    // Crea utente Auth senza perdere la sessione admin
-    const { data: sign, error: signErr } = await sb.auth.signUp({ email, password });
+    const { data: sign, error: signErr } = await sb.auth.signUp({
+      email: cleanEmail,
+      password: pwd
+    });
     const { error: restoreErr } = await sb.auth.setSession({
       access_token: adminSession.access_token,
       refresh_token: adminSession.refresh_token
@@ -612,35 +701,23 @@
         message: 'Utente Auth creato ma sessione admin persa — riloggia e riprova'
       };
     }
-
     if (signErr) {
       const msg = signErr.message || 'Creazione Auth fallita';
-      // Se l'email esiste già in Auth, procedi con la riga anagrafica
       if (!/already|registered|exists|duplicate/i.test(msg)) {
         return { success: false, message: msg };
       }
     }
 
-    const { error } = await sb.from('cerimonieri').insert({
-      uuid,
-      nome: String(dati.nome || '').trim(),
-      email,
-      parrocchia: dati.parrocchia || '',
-      chierichetto_uuid: dati.chierichettoUuid || null,
-      attivo: dati.attivo === false ? false : true,
-      is_admin: false,
-      ruolo
-    });
+    const { error } = await sb.from('cerimonieri').update({ email: cleanEmail }).eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
 
     const needsEmailConfirm = !!(sign?.user && !sign?.session && !signErr);
     return {
       success: true,
-      uuid,
       needsEmailConfirm,
       message: needsEmailConfirm
-        ? 'Account creato. Conferma l\'email (o disattiva Confirm email in Supabase Auth) prima del primo accesso.'
-        : (ruolo === 'prete' ? 'Account Don creato' : 'Account creato')
+        ? 'Login attivato. Conferma l\'email prima del primo accesso.'
+        : 'Login attivato'
     };
   }
 
@@ -650,9 +727,62 @@
     if (!me?.admin) {
       return { success: false, message: 'Solo l\'admin può modificare gli accessi' };
     }
+
+    const { data: current, error: curErr } = await sb
+      .from('cerimonieri')
+      .select('uuid, email')
+      .eq('uuid', uuid)
+      .maybeSingle();
+    if (curErr) return { success: false, message: curErr.message };
+    if (!current) return { success: false, message: 'Account non trovato' };
+
+    const hadLogin = !!(current.email && String(current.email).trim());
+    const password = String(dati.password || '');
+    const nextEmail = dati.email !== undefined
+      ? String(dati.email || '').trim().toLowerCase()
+      : undefined;
+
+    // Attiva login su record senza credenziali
+    if (!hadLogin && (password || (nextEmail !== undefined && nextEmail))) {
+      const emailForLogin = nextEmail !== undefined ? nextEmail : '';
+      const authResult = await attivaLoginCerimoniere(uuid, emailForLogin, password);
+      if (!authResult.success) return authResult;
+
+      const patch = {};
+      if (dati.nome) patch.nome = String(dati.nome).trim();
+      if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia || '';
+      if (dati.chierichettoUuid !== undefined) patch.chierichetto_uuid = dati.chierichettoUuid || null;
+      if (dati.attivo !== undefined) patch.attivo = !!dati.attivo;
+      if (dati.ruolo !== undefined) patch.ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
+      if (Object.keys(patch).length) {
+        const { error } = await sb.from('cerimonieri').update(patch).eq('uuid', uuid);
+        if (error) return { success: false, message: error.message };
+      }
+      return authResult;
+    }
+
+    if (hadLogin && password) {
+      return {
+        success: false,
+        message: 'Il cambio password lo fa l\'interessato dal proprio profilo (Account)'
+      };
+    }
+
     const patch = {};
     if (dati.nome) patch.nome = String(dati.nome).trim();
-    if (dati.email) patch.email = String(dati.email).trim().toLowerCase();
+    if (nextEmail !== undefined) {
+      if (!nextEmail) {
+        if (hadLogin) {
+          return { success: false, message: 'Non puoi rimuovere l\'email di un account già con login' };
+        }
+        // resta senza login: email vuota ok
+        patch.email = '';
+      } else if (hadLogin || !password) {
+        // cambio email su account già con login, oppure solo anagrafica ancora senza password
+        patch.email = nextEmail;
+      }
+      // se !hadLogin && password: già gestito sopra da attivaLoginCerimoniere
+    }
     if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia || '';
     if (dati.chierichettoUuid !== undefined) patch.chierichetto_uuid = dati.chierichettoUuid || null;
     if (dati.attivo !== undefined) patch.attivo = !!dati.attivo;

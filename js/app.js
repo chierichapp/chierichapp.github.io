@@ -6146,6 +6146,10 @@ function accountRuoloLabel(c) {
   return ACCOUNT_RUOLI_LABEL[ruolo] || 'Cerimoniere';
 }
 
+function hasCerimoniereLogin(c) {
+  return !!(c && String(c.email || '').trim());
+}
+
 function renderCerimonieri() {
   if (syncCurrentUserAdminFlag()) updateSidebarUser();
   syncCerimonieriAdminUi();
@@ -6220,13 +6224,15 @@ function renderCerimonieri() {
     if (isAdminAcc) chips.push('<span class="anag-chip ok">Admin</span>');
     if (isSelf) chips.push('<span class="anag-chip">Tu</span>');
     if (!attivo) chips.push('<span class="anag-chip">Ex</span>');
+    if (!hasCerimoniereLogin(c)) chips.push('<span class="anag-chip">Senza login</span>');
     if (!isPrete && linked) chips.push(`<span class="anag-chip">ex chierichetto → ${esc(linked.nome)}</span>`);
     const metaParts = mobile
-      ? [accountRuoloLabel(c), c.email].filter(Boolean)
+      ? [accountRuoloLabel(c), hasCerimoniereLogin(c) ? c.email : 'Senza login'].filter(Boolean)
       : [accountRuoloLabel(c), parrocchia];
     if (isAdminAcc) metaParts.push('Admin');
     if (isSelf) metaParts.push('Tu');
     if (!attivo) metaParts.push('Ex');
+    if (!hasCerimoniereLogin(c) && !mobile) metaParts.push('Senza login');
     const metaLine = metaParts.join(' · ');
     const avatarClass = !attivo ? 'is-ex' : (isPrete ? 'is-cer' : '');
     const canRowEdit = canManage || isSelf;
@@ -6234,6 +6240,7 @@ function renderCerimonieri() {
       ? `editCerimoniere(${jsStr(c.uuid)})`
       : '';
     const showMenu = canManage || isSelf;
+    const contactLine = hasCerimoniereLogin(c) ? esc(c.email) : 'Nessun accesso all’app';
     return `
       <div class="list-item anag-person${attivo ? '' : ' is-ex'}"${rowAction ? ` role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}"` : ''}>
         <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
@@ -6241,7 +6248,7 @@ function renderCerimonieri() {
           <p class="list-item-title">${esc(c.nome)}</p>
           <p class="anag-person-meta">${esc(metaLine)}</p>
           <div class="anag-chips">${chips.join('')}</div>
-          <div class="anag-contact"><span>${esc(c.email)}</span></div>
+          <div class="anag-contact"><span>${contactLine}</span></div>
         </div>
         ${showMenu ? `<div class="list-item-actions">
           <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagCerMenu(${jsStr(c.uuid)})">
@@ -6278,13 +6285,24 @@ function editCerimoniere(uuid, opts = {}) {
 
   const isSelf = currentUser?.uuid === uuid;
   const canAdmin = isCurrentUserAdmin();
+  const hasLogin = hasCerimoniereLogin(c);
   const showAuthPwd = isSupabase && isSelf;
-  document.getElementById('cerimoniere-password-wrap').style.display = (showAuthPwd || (!uuid && !isGAS)) ? '' : (isGAS ? 'none' : '');
+  const showActivateLogin = isSupabase && canAdmin && !isSelf && !hasLogin;
+  const loginHint = document.getElementById('cerimoniere-login-hint');
+
+  document.getElementById('cerimoniere-password-wrap').style.display =
+    (showAuthPwd || showActivateLogin || (!uuid && !isGAS)) ? '' : (isGAS ? 'none' : '');
   if (isSelf && isSupabase) {
     document.getElementById('cerimoniere-password-wrap').style.display = '';
   }
   document.getElementById('cerimoniere-password2-wrap').style.display = showAuthPwd ? '' : 'none';
   document.getElementById('cerimoniere-profile-hint').style.display = showAuthPwd ? '' : 'none';
+  if (loginHint) {
+    loginHint.style.display = showActivateLogin ? '' : 'none';
+    if (showActivateLogin) {
+      loginHint.textContent = 'Ancora senza accesso: inserisci email e password per abilitare il login.';
+    }
+  }
   const emailPending = document.getElementById('cerimoniere-email-pending');
   if (emailPending && !opts.keepEmailPending) {
     emailPending.style.display = 'none';
@@ -6301,12 +6319,16 @@ function editCerimoniere(uuid, opts = {}) {
     document.getElementById('btn-cancel-cerimoniere-edit').style.display = canAdmin ? 'block' : 'none';
   } else {
     document.getElementById('form-cerimoniere-title').textContent = c.ruolo === 'prete' ? 'Modifica Don' : 'Modifica cerimoniere';
-    document.getElementById('form-cerimoniere-sub').textContent = isSelf ? `${c.nome} (tu)` : c.nome;
-    document.getElementById('cerimoniere-password-label').textContent = 'Nuova password (opzionale)';
-    document.getElementById('btn-save-cerimoniere').textContent = 'Aggiorna';
+    document.getElementById('form-cerimoniere-sub').textContent = isSelf
+      ? `${c.nome} (tu)`
+      : (hasLogin ? c.nome : `${c.nome} · senza login`);
+    document.getElementById('cerimoniere-password-label').textContent = showActivateLogin
+      ? 'Password (per attivare il login)'
+      : 'Nuova password (opzionale)';
+    document.getElementById('btn-save-cerimoniere').textContent = showActivateLogin ? 'Attiva accesso' : 'Aggiorna';
     document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'block';
-    // Admin che modifica un altro: niente cambio password Auth da qui
-    if (isSupabase && !isSelf) {
+    // Admin che modifica un altro già con login: niente cambio password Auth da qui
+    if (isSupabase && !isSelf && hasLogin) {
       document.getElementById('cerimoniere-password-wrap').style.display = 'none';
       document.getElementById('cerimoniere-password2-wrap').style.display = 'none';
       document.getElementById('cerimoniere-profile-hint').style.display = 'none';
@@ -6329,6 +6351,11 @@ function cancelCerimoniereEdit() {
   document.getElementById('cerimoniere-ruolo').disabled = false;
   document.getElementById('cerimoniere-password2-wrap').style.display = 'none';
   document.getElementById('cerimoniere-profile-hint').style.display = 'none';
+  const loginHint = document.getElementById('cerimoniere-login-hint');
+  if (loginHint) {
+    loginHint.style.display = '';
+    loginHint.textContent = 'Puoi salvare solo nome e ruolo senza email/password: la persona non potrà accedere finché non le imposti.';
+  }
   const emailPending = document.getElementById('cerimoniere-email-pending');
   if (emailPending) {
     emailPending.style.display = 'none';
@@ -6344,12 +6371,12 @@ function cancelCerimoniereEdit() {
   document.getElementById('form-cerimoniere-sub').textContent = isGAS
     ? 'Autorizzano l\'accesso con Account Google — cerimonieri e sacerdoti'
     : isSupabase
-      ? 'Crea login email/password per cerimonieri e Don (Supabase Auth)'
+      ? 'Anagrafica subito; email e password solo se vuoi abilitare il login'
       : 'Login app per cerimonieri e sacerdoti (Don)';
-  document.getElementById('cerimoniere-password-label').textContent = 'Password';
-  document.getElementById('cerimoniere-password').required = !isGAS;
+  document.getElementById('cerimoniere-password-label').textContent = 'Password (opzionale)';
+  document.getElementById('cerimoniere-password').required = false;
   document.getElementById('cerimoniere-password-wrap').style.display = isGAS ? 'none' : '';
-  document.getElementById('btn-save-cerimoniere').textContent = 'Crea account';
+  document.getElementById('btn-save-cerimoniere').textContent = 'Salva';
   document.getElementById('btn-cancel-cerimoniere-edit').style.display = 'none';
   onCerimoniereRuoloChange();
   if (isAnagMobile()) setCerFormOpen(false);
@@ -6396,13 +6423,36 @@ async function handleCerimoniereFormSubmit(e) {
     }
   }
 
-  if (!uuid && !isGAS && (!dati.password || dati.password.length < 6)) {
-    showToast('Password di almeno 6 caratteri');
-    return;
+  const target = uuid ? cerimonieriAccounts.find(x => x.uuid === uuid) : null;
+  const targetHasLogin = hasCerimoniereLogin(target);
+  const wantsLogin = !!(dati.email || password);
+
+  if (!uuid && !isGAS && wantsLogin) {
+    if (!dati.email) {
+      showToast('Email obbligatoria per abilitare il login');
+      return;
+    }
+    if (!dati.password || dati.password.length < 6) {
+      showToast('Password di almeno 6 caratteri per abilitare il login');
+      return;
+    }
   }
+
+  // Admin che attiva login su record senza credenziali
+  if (uuid && isSupabase && !isSelf && !targetHasLogin && wantsLogin) {
+    if (!dati.email) {
+      showToast('Email obbligatoria per abilitare il login');
+      return;
+    }
+    if (!password || password.length < 6) {
+      showToast('Password di almeno 6 caratteri per abilitare il login');
+      return;
+    }
+  }
+
   if (isGAS) delete dati.password;
-  // Admin che aggiorna un altro: niente password Auth
-  if (uuid && isSupabase && !isSelf) delete dati.password;
+  // Admin che aggiorna un altro già con login: niente password Auth
+  if (uuid && isSupabase && !isSelf && targetHasLogin) delete dati.password;
 
   let result;
   // Profilo self: non-admin sempre; admin solo se ha aperto «Il mio profilo»

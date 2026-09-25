@@ -413,7 +413,7 @@
                 </div>
                 <div class="form-group">
                   <label for="cerimoniere-email">Email (login)</label>
-                  <input type="email" id="cerimoniere-email" required placeholder="mario@parrocchia.it" autocomplete="email">
+                  <input type="email" id="cerimoniere-email" placeholder="mario@parrocchia.it (opzionale)" autocomplete="email">
                 </div>
                 <div class="form-group">
                   <label for="cerimoniere-parrocchia">Parrocchia di riferimento</label>
@@ -425,12 +425,15 @@
                 </div>
                 <div class="form-group" id="cerimoniere-password-wrap">
                   <label for="cerimoniere-password" id="cerimoniere-password-label">Password</label>
-                  <input type="password" id="cerimoniere-password" minlength="6" autocomplete="new-password" placeholder="Minimo 6 caratteri">
+                  <input type="password" id="cerimoniere-password" minlength="6" autocomplete="new-password" placeholder="Opzionale — minimo 6 caratteri">
                 </div>
                 <div class="form-group" id="cerimoniere-password2-wrap" style="display:none">
                   <label for="cerimoniere-password2">Conferma password</label>
                   <input type="password" id="cerimoniere-password2" minlength="6" autocomplete="new-password" placeholder="Ripeti la nuova password">
                 </div>
+                <p class="form-hint" id="cerimoniere-login-hint" style="margin:0 0 12px;font-size:0.85rem;color:var(--muted)">
+                  Puoi salvare solo nome e ruolo senza email/password: la persona non potrà accedere finché non le imposti.
+                </p>
                 <p class="form-hint" id="cerimoniere-profile-hint" style="display:none;margin:0 0 12px;font-size:0.85rem;color:var(--muted)">
                   Lascia vuota la password per non cambiarla. Se cambi email riceverai un link di conferma.
                 </p>
