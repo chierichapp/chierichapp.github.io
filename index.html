@@ -2210,14 +2210,21 @@ body.anag-sheet-open { overflow: hidden; }
 
 .messa-slot-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   padding: 10px 12px;
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 0.85rem;
+}
+
+.messa-slot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .messa-slot-item.assigned {
@@ -2226,6 +2233,59 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .messa-slot-main { min-width: 0; }
+
+.messa-note-block {
+  margin: 12px 0 4px;
+}
+
+.messa-note-block > label,
+.messa-slot-note > label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.messa-note-block textarea,
+.messa-slot-note textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.messa-note-block textarea:focus,
+.messa-slot-note textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--sky) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--sky);
+}
+
+.messa-note-readonly {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--cream);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.messa-slot-note {
+  margin-top: 2px;
+}
 
 .messa-slot-time {
   font-weight: 700;
@@ -8256,7 +8316,8 @@ const MONTHS = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
 const API_BASE = isGAS || isSupabase ? '' : 'http://localhost:3000';
 const SESSION_KEY = 'chierichetti_session';
 
-let state = { chierichetti: [], turni: [], presenze: [], messeExtra: [], schemaVersion: DATA_SCHEMA_VERSION };
+let state = { chierichetti: [], turni: [], presenze: [], messeExtra: [], messeIndicazioni: {}, schemaVersion: DATA_SCHEMA_VERSION };
+let messeIndicazioniSaveTimer = null;
 let cerimonieriAccounts = [];
 let cerimonieriHydrated = false;
 let editingUuid = null;
@@ -9533,6 +9594,9 @@ function normalizeState(raw) {
   if (!Array.isArray(s.turni)) s.turni = [];
   if (!Array.isArray(s.presenze)) s.presenze = [];
   if (!Array.isArray(s.messeExtra)) s.messeExtra = [];
+  if (!s.messeIndicazioni || typeof s.messeIndicazioni !== 'object' || Array.isArray(s.messeIndicazioni)) {
+    s.messeIndicazioni = {};
+  }
   s.schemaVersion = DATA_SCHEMA_VERSION;
   return s;
 }
@@ -9639,6 +9703,7 @@ function migrateResetOperationalHistoryFor2026_27(prevVersion) {
     state.presenze = [];
     state.turni = [];
     state.messeExtra = [];
+    state.messeIndicazioni = {};
     if (state.gruppiConfig && Array.isArray(state.gruppiConfig.cronologia)) {
       state.gruppiConfig.cronologia = [];
     }
@@ -9651,6 +9716,10 @@ function migrateResetOperationalHistoryFor2026_27(prevVersion) {
   state.presenze = (state.presenze || []).filter(p => !p.data || p.data >= pastoralFrom);
   state.turni = (state.turni || []).filter(t => !t.data || t.data >= pastoralFrom);
   state.messeExtra = (state.messeExtra || []).filter(m => !m.data || m.data >= pastoralFrom);
+  const ind = ensureMesseIndicazioni();
+  Object.keys(ind).forEach(dateStr => {
+    if (dateStr < pastoralFrom) delete ind[dateStr];
+  });
 }
 
 function isCerimoniereTurno(c) {
@@ -9997,6 +10066,12 @@ function applyServerSnapshot(chi, turni, pres, configRes, cerimonieri) {
   state.messeExtra = Array.isArray(configRes?.messeExtra)
     ? configRes.messeExtra.filter(m => !m.data || m.data >= pastoralFrom)
     : [];
+  state.messeIndicazioni = (configRes?.messeIndicazioni && typeof configRes.messeIndicazioni === 'object' && !Array.isArray(configRes.messeIndicazioni))
+    ? configRes.messeIndicazioni
+    : {};
+  Object.keys(state.messeIndicazioni).forEach(dateStr => {
+    if (dateStr < pastoralFrom) delete state.messeIndicazioni[dateStr];
+  });
   if (configRes?.gruppiConfig) state.gruppiConfig = configRes.gruppiConfig;
   if (Array.isArray(cerimonieri)) {
     cerimonieriAccounts = cerimonieri;
@@ -10196,7 +10271,8 @@ async function persistConfig() {
   saveDataLocal();
   const body = {
     gruppiConfig: state.gruppiConfig,
-    messeExtra: state.messeExtra || []
+    messeExtra: state.messeExtra || [],
+    messeIndicazioni: state.messeIndicazioni || {}
   };
   try {
     if (isGAS) {
@@ -10209,6 +10285,24 @@ async function persistConfig() {
     return true;
   } catch (e) {
     showToast(e.message || 'Salvataggio configurazione non riuscito');
+    return false;
+  }
+}
+
+async function persistMesseIndicazioni() {
+  saveDataLocal();
+  const body = { messeIndicazioni: state.messeIndicazioni || {} };
+  try {
+    if (isGAS) {
+      mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio indicazioni non riuscito');
+    } else if (isSupabase) {
+      mutationFailed(await window.ChierichSupabase.salvaConfig(body), 'Salvataggio indicazioni non riuscito');
+    } else {
+      await persistToApi('/api/config', body);
+    }
+    return true;
+  } catch (e) {
+    showToast(e.message || 'Salvataggio indicazioni non riuscito');
     return false;
   }
 }
@@ -10256,6 +10350,101 @@ function getAppelloDate() {
 
 function messaSlotKey(slot) {
   return `${slot.data}|${slot.sede}|${slot.ora}`;
+}
+
+function ensureMesseIndicazioni() {
+  if (!state.messeIndicazioni || typeof state.messeIndicazioni !== 'object' || Array.isArray(state.messeIndicazioni)) {
+    state.messeIndicazioni = {};
+  }
+  return state.messeIndicazioni;
+}
+
+function getMessaNotaGiorno(messaDateStr) {
+  const entry = ensureMesseIndicazioni()[messaDateStr];
+  return (entry && typeof entry.nota === 'string') ? entry.nota : '';
+}
+
+function getCelebrazioneNota(messaDateStr, slot) {
+  const entry = ensureMesseIndicazioni()[messaDateStr];
+  const key = typeof slot === 'string' ? slot : messaSlotKey(slot);
+  const map = entry?.celebrazioni;
+  return (map && typeof map[key] === 'string') ? map[key] : '';
+}
+
+function pruneMesseIndicazioniEntry(messaDateStr) {
+  const map = ensureMesseIndicazioni();
+  const entry = map[messaDateStr];
+  if (!entry) return;
+  const nota = (entry.nota || '').trim();
+  const celeb = entry.celebrazioni && typeof entry.celebrazioni === 'object' ? entry.celebrazioni : {};
+  Object.keys(celeb).forEach(k => {
+    if (!(celeb[k] || '').trim()) delete celeb[k];
+  });
+  if (!nota && !Object.keys(celeb).length) {
+    delete map[messaDateStr];
+  } else {
+    map[messaDateStr] = { nota, celebrazioni: celeb };
+  }
+}
+
+function setMessaNotaGiorno(messaDateStr, text) {
+  const map = ensureMesseIndicazioni();
+  if (!map[messaDateStr]) map[messaDateStr] = { nota: '', celebrazioni: {} };
+  if (!map[messaDateStr].celebrazioni || typeof map[messaDateStr].celebrazioni !== 'object') {
+    map[messaDateStr].celebrazioni = {};
+  }
+  map[messaDateStr].nota = text;
+  pruneMesseIndicazioniEntry(messaDateStr);
+  schedulePersistMesseIndicazioni();
+}
+
+function setCelebrazioneNota(messaDateStr, slotKey, text) {
+  const map = ensureMesseIndicazioni();
+  if (!map[messaDateStr]) map[messaDateStr] = { nota: '', celebrazioni: {} };
+  if (!map[messaDateStr].celebrazioni || typeof map[messaDateStr].celebrazioni !== 'object') {
+    map[messaDateStr].celebrazioni = {};
+  }
+  map[messaDateStr].celebrazioni[slotKey] = text;
+  pruneMesseIndicazioniEntry(messaDateStr);
+  schedulePersistMesseIndicazioni();
+}
+
+function schedulePersistMesseIndicazioni() {
+  saveDataLocal();
+  clearTimeout(messeIndicazioniSaveTimer);
+  messeIndicazioniSaveTimer = setTimeout(() => {
+    void persistMesseIndicazioni();
+  }, 700);
+}
+
+function onMessaNotaGiornoInput(messaDateStr, value) {
+  setMessaNotaGiorno(messaDateStr, value);
+}
+
+function onCelebrazioneNotaInput(messaDateStr, slotKey, value) {
+  setCelebrazioneNota(messaDateStr, slotKey, value);
+}
+
+function renderMessaNotaFieldHtml(messaDateStr, { label, value, onInputFn } = {}) {
+  const text = value || '';
+  const fieldLabel = label || 'Indicazioni del don';
+  return `
+    <div class="messa-note-block">
+      <label>${esc(fieldLabel)}</label>
+      <textarea rows="3" placeholder="Es. indicazioni particolari del don…"
+        oninput='${onInputFn}(${jsStr(messaDateStr)}, this.value)'>${esc(text)}</textarea>
+    </div>`;
+}
+
+function renderCelebrazioneNotaFieldHtml(messaDateStr, slot) {
+  const key = messaSlotKey(slot);
+  const text = getCelebrazioneNota(messaDateStr, key);
+  return `
+    <div class="messa-slot-note">
+      <label>Nota celebrazione</label>
+      <textarea rows="2" placeholder="Indicazioni per questa celebrazione…"
+        oninput='onCelebrazioneNotaInput(${jsStr(messaDateStr)}, ${jsStr(key)}, this.value)'>${esc(text)}</textarea>
+    </div>`;
 }
 
 function parseMessaSlotKey(key) {
@@ -11216,21 +11405,26 @@ function getNextMessaSlot(fromDate) {
     .sort((a, b) => slotDateTime(a) - slotDateTime(b))[0] || null;
 }
 
-function renderMessaSlotsHtml(slots, { compact, dark, turniOnly } = {}) {
+function renderMessaSlotsHtml(slots, { compact, dark, turniOnly, withNotes, messaDate } = {}) {
   const list = turniOnly ? slots.filter(s => s.conChierichetti !== false) : slots;
   if (!list.length) return '';
   const chipClass = dark ? 'today-turno-chip' : 'messa-agenda-turno-chip';
+  const notesMessaDate = messaDate || null;
   return `<div class="messa-slot-list">${list.map(slot => {
     if (!slot.conChierichetti) {
       const d = new Date(slot.data + 'T12:00:00');
       const dayLabel = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', '');
+      const noteHtml = (withNotes && notesMessaDate) ? renderCelebrazioneNotaFieldHtml(notesMessaDate, slot) : '';
       return `
         <div class="messa-slot-item no-chierichetti">
-          <div class="messa-slot-main">
-            <div class="messa-slot-time">${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
-            <div class="messa-slot-meta">${esc(dayLabel)} · Messa libera</div>
+          <div class="messa-slot-row">
+            <div class="messa-slot-main">
+              <div class="messa-slot-time">${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+              <div class="messa-slot-meta">${esc(dayLabel)} · Messa libera</div>
+            </div>
+            <span class="messa-slot-no-turno">—</span>
           </div>
-          <span class="messa-slot-no-turno">—</span>
+          ${noteHtml}
         </div>`;
     }
 
@@ -11249,13 +11443,17 @@ function renderMessaSlotsHtml(slots, { compact, dark, turniOnly } = {}) {
     const statusLine = coperto
       ? `${nGruppo} chierichetti in squadra`
       : (slot.gruppo ? 'Squadra vuota — assegna chierichetti in Gruppi' : 'Messa libera');
+    const noteHtml = (withNotes && notesMessaDate) ? renderCelebrazioneNotaFieldHtml(notesMessaDate, slot) : '';
     return `
       <div class="messa-slot-item ${coperto ? 'assigned' : ''}">
-        <div class="messa-slot-main">
-          <div class="messa-slot-time">${formatMessaServizioLabel(slot.turno) || 'Messa —'} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
-          <div class="messa-slot-meta">${esc(dayLabel)}${slot.vigilia ? ' · <span class="messa-slot-vigilia">Vigilia</span>' : ''} · ${esc(slot.gruppoLabel || '')}${rotHint}</div>
-          <div class="messa-slot-meta">${esc(statusLine)}</div>
+        <div class="messa-slot-row">
+          <div class="messa-slot-main">
+            <div class="messa-slot-time">${formatMessaServizioLabel(slot.turno) || 'Messa —'} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+            <div class="messa-slot-meta">${esc(dayLabel)}${slot.vigilia ? ' · <span class="messa-slot-vigilia">Vigilia</span>' : ''} · ${esc(slot.gruppoLabel || '')}${rotHint}</div>
+            <div class="messa-slot-meta">${esc(statusLine)}</div>
+          </div>
         </div>
+        ${noteHtml}
       </div>`;
   }).join('')}</div>`;
 }
@@ -15144,6 +15342,14 @@ function renderMessaDetail(dateStr) {
     ? (massInfo.extra.nota ? esc(massInfo.extra.nota) : 'Messa straordinaria')
     : 'Domenica';
 
+  const liturgyTitle = primary?.nome
+    || (massInfo.type === 'extra' ? (massInfo.extra?.nota || 'Messa straordinaria') : 'Domenica');
+  const notaMessaHtml = renderMessaNotaFieldHtml(dateStr, {
+    label: `Indicazioni del don · ${liturgyTitle}`,
+    value: getMessaNotaGiorno(dateStr),
+    onInputFn: 'onMessaNotaGiornoInput'
+  });
+
   let turniHtml = '';
   if (massInfo.type === 'domenica') {
     const allSlots = getMesseOrdinarieSlots(dateStr);
@@ -15157,19 +15363,38 @@ function renderMessaDetail(dateStr) {
       : '';
     turniHtml = `
       <p class="liturgy-meta" style="margin-bottom:10px">${nCelebrazioni} celebrazioni · ${assigned}/${nTurni} messe coperte${senzaLabel ? ' · ' + esc(senzaLabel) : ''}</p>
-      ${renderMessaSlotsHtml(allSlots)}
+      ${renderMessaSlotsHtml(allSlots, { withNotes: true, messaDate: dateStr })}
     `;
   } else {
+    const ex = massInfo.extra;
+    const ora = ex?.ora || '10:00';
+    const sede = ex?.sede || 'santuario';
+    const extraSlot = {
+      data: dateStr,
+      ora,
+      sede,
+      sedeLabel: SEDI_LABEL[sede] || sede,
+      conChierichetti: true,
+      vigilia: false,
+      turno: null,
+      gruppo: null,
+      gruppoLabel: null
+    };
     const turni = getTurniForDate(dateStr);
+    let assignedHtml = '';
     if (!turni.length) {
-      turniHtml = '<p class="empty-state" style="margin-top:8px">Nessuna squadra assegnata</p>';
+      assignedHtml = '<p class="empty-state" style="margin-top:8px">Nessuna squadra assegnata</p>';
     } else {
-      turniHtml = `<div class="messa-turni-list">${turni.map(t => `
+      assignedHtml = `<div class="messa-turni-list">${turni.map(t => `
         <div class="messa-turno-item">
           <span><strong>${esc(sedeLabel(t.parrocchia))}</strong> · ${esc(t.oraInizio)}–${esc(t.oraFine)} · ${t.numeroChierichetti} chier.</span>
         </div>
       `).join('')}</div>`;
     }
+    turniHtml = `
+      ${renderMessaSlotsHtml([extraSlot], { withNotes: true, messaDate: dateStr })}
+      ${assignedHtml}
+    `;
   }
 
   container.innerHTML = `
@@ -15179,6 +15404,7 @@ function renderMessaDetail(dateStr) {
       <p class="today-liturgy-name" style="font-size:1rem;margin:0 0 4px">${esc(primary.nome)}</p>
       <p class="liturgy-meta">${esc(primary.tipoLabel || primary.tipo)}${primary.colore ? ' · Tempo ' + esc(primary.colore) : ''}</p>
     ` : '<p class="liturgy-meta">Nessuna solennità particolare nel calendario liturgico</p>'}
+    ${notaMessaHtml}
     <h4 style="font-size:0.82rem;margin:16px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em">${massInfo.type === 'domenica' ? 'Messe e celebrazioni' : 'Messe di servizio'}</h4>
     ${turniHtml}
     <div class="messa-actions">
@@ -15189,7 +15415,11 @@ function renderMessaDetail(dateStr) {
 
 function removeMessaExtra(uuid) {
   if (!confirm('Rimuovere questa messa straordinaria dall\'agenda?')) return;
+  const removed = (state.messeExtra || []).find(m => m.uuid === uuid);
   state.messeExtra = state.messeExtra.filter(m => m.uuid !== uuid);
+  if (removed?.data) {
+    delete ensureMesseIndicazioni()[removed.data];
+  }
   saveData();
   void persistConfig();
   showToast('Messa straordinaria rimossa');
