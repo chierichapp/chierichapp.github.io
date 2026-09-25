@@ -1558,6 +1558,18 @@ function isCerimoniereAccountStandalone(a) {
   return !!(a && a.uuid && !a.chierichettoUuid);
 }
 
+/** Don (sacerdote): non è cerimoniere di servizio e non entra nei gruppi. */
+function isDonPersona(p) {
+  if (!p) return false;
+  if (p.ruolo === 'prete') return true;
+  if (p._source === 'cerimoniere') return false;
+  const acc = (cerimonieriAccounts || []).find(a =>
+    (a.chierichettoUuid && a.chierichettoUuid === p.uuid) ||
+    (!!p.email && !!a.email && String(a.email).toLowerCase() === String(p.email).toLowerCase())
+  );
+  return acc?.ruolo === 'prete';
+}
+
 function asCerimoniereGruppoPersona(a) {
   if (!a) return null;
   return {
@@ -1579,14 +1591,18 @@ function asCerimoniereGruppoPersona(a) {
 
 function getCerimonieriStandaloneForGruppi() {
   return (cerimonieriAccounts || [])
-    .filter(a => isPersonaAttiva(a) && isCerimoniereAccountStandalone(a))
+    .filter(a =>
+      isPersonaAttiva(a) &&
+      isCerimoniereAccountStandalone(a) &&
+      a.ruolo !== 'prete'
+    )
     .map(asCerimoniereGruppoPersona);
 }
 
-/** Chierichetti attivi + cerimonieri/Don dell’anagrafica accessi (senza doppioni collegati). */
+/** Chierichetti attivi + cerimonieri (non Don) dell’anagrafica accessi senza doppioni collegati. */
 function getPersoneGruppiPool() {
   return [
-    ...state.chierichetti.filter(isChierichettoAttivo),
+    ...state.chierichetti.filter(c => isChierichettoAttivo(c) && !isDonPersona(c)),
     ...getCerimonieriStandaloneForGruppi()
   ];
 }
@@ -1665,9 +1681,10 @@ async function persistPersonaGruppo(uuid, gruppoId) {
   return ok;
 }
 
-/** Cerimoniere di turno o con account login — tab Cerimonieri, escluso da Vanzago/Mantegazza */
+/** Cerimoniere di servizio (non Don) — tab Cerimonieri, sezione gruppi, conteggi. */
 function isAppelloCerimoniere(c) {
-  if (c?._source === 'cerimoniere') return true;
+  if (!c || isDonPersona(c)) return false;
+  if (c._source === 'cerimoniere') return true;
   return isCerimoniereTurno(c) || isLinkedCerimoniereAccount(c);
 }
 
@@ -1923,6 +1940,7 @@ function chierichettoCanServeSlot(chi, slotOrSede) {
 }
 
 function chierichettoCanJoinGruppo(chi, gruppoId) {
+  if (!chi || isDonPersona(chi)) return false;
   const gruppi = getGruppiOrdered().slice(0, getTurniSlot().length);
   if (gruppi.findIndex(g => g.id === gruppoId) < 0) return false;
   return getTurniSlot().some(slot => chierichettoCanServeSlot(chi, slot));
