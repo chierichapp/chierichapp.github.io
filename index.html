@@ -5112,6 +5112,28 @@ body.anag-sheet-open { overflow: hidden; }
     outline: 2px solid var(--sky);
     outline-offset: 1px;
   }
+  .mobile-more-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 12px;
+    background: var(--cream-dark);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-more-close:active {
+    background: var(--border);
+  }
+  .mobile-more-close svg {
+    width: 18px;
+    height: 18px;
+  }
   .mobile-more-user-label {
     display: block;
     font-size: 0.68rem;
@@ -8357,9 +8379,13 @@ body.anag-sheet-open { overflow: hidden; }
       <button type="button" class="mobile-more-account" onclick="openAccountPage()" aria-label="Apri il tuo account">
         <span class="mobile-more-user-label">Account</span>
         <span class="mobile-more-user-name" id="mobile-more-user-name">—</span>
-        <span class="mobile-more-user-hint">Tocca per modificare</span>
+        <span class="mobile-more-user-hint">Tocca per profilo e logout</span>
       </button>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="logout()">Esci</button>
+      <button type="button" class="mobile-more-close" onclick="closeMobileMore()" aria-label="Chiudi menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
   </div>
 </div>
@@ -9486,8 +9512,8 @@ function initMobileMoreGestures() {
     if (document.getElementById('app-shell')?.classList.contains('hidden')) return;
     const t = e.touches[0];
     const handleOrChrome = e.target.closest('.mobile-more-handle, .mobile-more-brand, .mobile-more-footer');
-    // Click su Account/Esci: non avviare gesto swipe
-    if (e.target.closest('.mobile-more-account, .mobile-more-footer .btn')) return;
+    // Click su Account: non avviare gesto swipe
+    if (e.target.closest('.mobile-more-account, .mobile-more-close')) return;
     const nav = sheet.querySelector('.mobile-more-nav');
     const atTop = !nav || nav.scrollTop <= 0;
     const fromSheet = isSheetOpen() && sheet.contains(e.target) && (handleOrChrome || atTop);
