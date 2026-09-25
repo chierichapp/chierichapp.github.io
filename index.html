@@ -47,7 +47,7 @@
   --info: #0b6e99;
   --sidebar-w: 260px;
   --tabbar-h: 64px;
-  --sticky-below-topbar: calc(52px + env(safe-area-inset-top, 0px));
+  --sticky-below-topbar: calc(68px + env(safe-area-inset-top, 0px));
   --sticky-tabs-h: 40px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -528,8 +528,9 @@ body.sidebar-open { overflow: hidden; }
 }
 
 .page-header p {
-  margin: 4px 0 0;
-  font-size: 0.875rem;
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.3;
   color: var(--muted);
 }
 
@@ -5169,14 +5170,23 @@ body.anag-sheet-open { overflow: hidden; }
     bottom: 0;
     padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
-  .page-header { min-width: 0; }
+  .page-header { min-width: 0; flex: 1; }
   .page-header h2 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .page-header p { display: none; }
+  .page-header p {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .content { padding: 10px 14px 24px; }
   .panel-head { padding: 16px 16px 12px; }
   .panel-body { padding: 16px; }
@@ -7405,7 +7415,7 @@ body.anag-sheet-open { overflow: hidden; }
         <img class="topbar-brand" src="/icons/icon-192x192.png" width="36" height="36" alt="ChierichApp" decoding="async">
         <div class="page-header">
           <h2 id="page-title">Oggi</h2>
-          <p id="page-subtitle">Agenda messe, turni e appello</p>
+          <p id="page-subtitle">Prossima messa, turni e scorciatoie</p>
         </div>
       </div>
       <time class="topbar-date" id="topbar-date"></time>
@@ -8399,15 +8409,15 @@ const STORAGE_KEY = 'chierichetti_data';
 const DATA_SCHEMA_VERSION = 6;
 
 const PAGE_META = {
-  dashboard:  { title: 'Oggi',                subtitle: 'Agenda messe, turni e appello' },
-  presenze:   { title: 'Appello',             subtitle: 'Il tuo gruppo in cima' },
-  registro:   { title: 'Registro',            subtitle: 'Presenze per anno pastorale (apertura 2 sett. prima di settembre – giugno)' },
-  messe:      { title: 'Messe',               subtitle: 'Agenda delle celebrazioni con chierichetti' },
-  turni:      { title: 'Turni',               subtitle: 'Messe di servizio e rotazione turni' },
-  gruppi:     { title: 'Gruppi',              subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica',          subtitle: 'Chierichetti attivi ed ex · accessi app' },
-  calendario: { title: 'Liturgia',            subtitle: 'Calendario ambrosiano completo' },
-  account:    { title: 'Account',             subtitle: 'Il tuo profilo e accesso all’app' }
+  dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
+  presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
+  registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
+  messe:      { title: 'Messe',      subtitle: 'Agenda celebrazioni e indicazioni del don' },
+  turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
+  gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
+  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e accessi all’app' },
+  calendario: { title: 'Liturgia',   subtitle: 'Calendario ambrosiano del giorno' },
+  account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
 
 const GRUPPI_LABEL_LEGACY = {
@@ -11357,10 +11367,7 @@ function populateGruppoSelects() {
 }
 
 function updateTurniPanelMeta() {
-  const n = getTurniPerDomenica();
-  const sedi = [...new Set(getTurniSlot().map(t => SEDI_LABEL[t.sede] || t.sede))].join(' e ');
-  const rotHint = isRotazioneAttiva() ? ' · rotazione attiva' : '';
-  if (PAGE_META.turni) PAGE_META.turni.subtitle = `${n} messe di servizio${sedi ? ' · ' + sedi : ''}${rotHint}`;
+  /* Scopo pagina resta in PAGE_META.turni.subtitle */
 }
 
 function updateGruppiSummary() {
