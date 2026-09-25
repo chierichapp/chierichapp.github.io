@@ -1354,12 +1354,16 @@ async function showSection(sectionId) {
   closeMobileMore();
   if (sectionId !== 'anagrafica') {
     closeAnagPersonMenu();
+    closeAnagPersonDetail();
     document.body.classList.remove('anag-sheet-open');
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
-  if (sectionId !== 'gruppi') closeGruppiFormSheet();
+  if (sectionId !== 'gruppi') {
+    closeGruppiFormSheet();
+    closeGruppiEdit(true);
+  }
   syncAnagFab();
   syncMesseFab();
   syncGruppiFab();
@@ -5005,6 +5009,7 @@ function switchAnagraficaTab(ruolo, keepForm) {
     renderChierichetti();
   } else {
     closeAnagPersonMenu();
+    closeAnagPersonDetail();
     setAnagFormOpen(false);
     setCerFormOpen(false);
     syncAnagFab();
@@ -5131,7 +5136,8 @@ function syncAnagFab() {
   if (!fab) return;
   const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
   const canAddCer = anagraficaTab === 'cerimoniere' && isCurrentUserAdmin();
-  const show = !!(onAnag && isAnagMobile() && (anagraficaTab === 'chierichetto' || canAddCer));
+  const sheetBusy = isAnagSheetOpen();
+  const show = !!(onAnag && isAnagMobile() && !sheetBusy && (anagraficaTab === 'chierichetto' || canAddCer));
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
   fab.setAttribute('aria-label', anagraficaTab === 'cerimoniere' ? 'Aggiungi accesso' : 'Aggiungi chierichetto');
@@ -5147,7 +5153,8 @@ function isAnagSheetOpen() {
   const cer = document.getElementById('cerimoniere-form-panel');
   return !!(
     (chi && !chi.classList.contains('is-collapsed')) ||
-    (cer && !cer.classList.contains('is-collapsed') && cer.style.display !== 'none')
+    (cer && !cer.classList.contains('is-collapsed') && cer.style.display !== 'none') ||
+    isAnagDetailOpen()
   );
 }
 
@@ -5156,7 +5163,10 @@ function setAnagFormOpen(open) {
   const toggle = document.getElementById('btn-toggle-anag-form');
   const overlay = document.getElementById('anag-form-overlay');
   if (!panel) return;
-  if (open) document.getElementById('cerimoniere-form-panel')?.classList.add('is-collapsed');
+  if (open) {
+    closeAnagPersonDetail();
+    document.getElementById('cerimoniere-form-panel')?.classList.add('is-collapsed');
+  }
   panel.classList.toggle('is-collapsed', !open);
   document.body.classList.toggle('anag-sheet-open', !!(open && isAnagMobile()));
   if (overlay) {
@@ -5183,6 +5193,10 @@ function setCerFormOpen(open) {
 }
 
 function closeAnagSheet() {
+  if (isAnagDetailOpen()) {
+    closeAnagPersonDetail();
+    return;
+  }
   const cerPanel = document.getElementById('cerimoniere-form-panel');
   if (cerPanel && !cerPanel.classList.contains('is-collapsed') && anagraficaTab === 'cerimoniere') {
     cancelCerimoniereEdit();
@@ -5571,9 +5585,7 @@ async function renderChierichetti() {
     };
     pushTel(c.telefono, c.telefonoChi);
     pushTel(c.telefono2, c.telefono2Chi);
-    const rowAction = promosso
-      ? `openAnagPersonMenu(${jsStr(c.uuid)})`
-      : `editChierichetto(${jsStr(c.uuid)})`;
+    const rowAction = `openAnagPersonDetail(${jsStr(c.uuid)})`;
     return `
     <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
@@ -5593,10 +5605,285 @@ async function renderChierichetti() {
   }).join('');
   syncAnagFab();
   syncAnagFiltersToggle();
+  if (anagDetailUuid) {
+    const stillThere = filtered.some(c => c.uuid === anagDetailUuid) ||
+      state.chierichetti.some(c => c.uuid === anagDetailUuid && isAnagraficaChierichetto(c));
+    if (stillThere) renderAnagPersonDetail(anagDetailUuid);
+    else closeAnagPersonDetail();
+  }
 }
 
+let anagDetailUuid = null;
 let anagMenuUuid = null;
 let anagMenuKind = 'chi';
+
+function getChierichettoGruppiHistory(uuid) {
+  ensureGruppiConfig();
+  const items = [];
+  const snaps = (state.gruppiConfig.cronologia || [])
+    .filter(e => e.tipo === 'configurazione' && e.snapshot?.gruppi);
+
+  snaps.forEach(entry => {
+    const g = (entry.snapshot.gruppi || []).find(gr =>
+      (gr.membri || []).some(m => m.uuid === uuid)
+    );
+    const senza = (entry.snapshot.senzaGruppo || []).some(m => m.uuid === uuid);
+    if (!g && !senza) return;
+    items.push({
+      at: entry.at,
+      gruppoNome: g ? g.nome : 'Senza gruppo',
+      compagni: g
+        ? (g.membri || []).filter(m => m.uuid !== uuid).map(m => m.nome)
+        : []
+    });
+  });
+
+  // Eventi legacy singoli (se presenti)
+  (state.gruppiConfig.cronologia || []).forEach(entry => {
+    if (!entry.personaNome) return;
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi || entry.personaNome !== chi.nome) return;
+    if (!['membro_aggiunto', 'membro_spostato', 'membro_rimosso'].includes(entry.tipo)) return;
+    items.push({
+      at: entry.at,
+      gruppoNome: entry.tipo === 'membro_rimosso'
+        ? 'Rimosso'
+        : (entry.gruppoNome || getGruppoLabel(entry.gruppoId) || 'Squadra'),
+      compagni: [],
+      legacy: true,
+      detail: entry.tipo === 'membro_spostato' && entry.gruppoPrecedente
+        ? `da ${entry.gruppoPrecedente}`
+        : ''
+    });
+  });
+
+  items.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  return items;
+}
+
+function getChierichettoPresenzaHistory(uuid) {
+  return state.presenze
+    .filter(p => presenzaMatchesChierichetto(p, uuid))
+    .sort((a, b) => {
+      const d = String(b.data || '').localeCompare(String(a.data || ''));
+      if (d) return d;
+      return String(b.ora || '').localeCompare(String(a.ora || ''));
+    });
+}
+
+function formatAnagDetailDate(isoOrDate) {
+  if (!isoOrDate) return '—';
+  const d = isoOrDate.includes('T')
+    ? new Date(isoOrDate)
+    : new Date(isoOrDate + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return esc(isoOrDate);
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function isAnagDetailOpen() {
+  const panel = document.getElementById('anag-person-detail');
+  return !!(panel && !panel.hidden && !panel.classList.contains('is-collapsed'));
+}
+
+function openAnagPersonDetail(uuid) {
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  if (!c || !isAnagraficaChierichetto(c)) return;
+
+  closeAnagPersonMenu();
+  if (editingUuid || promotingUuid) {
+    if (promotingUuid) cancelPromoteChierichetto();
+    else cancelEdit();
+  }
+  setAnagFormOpen(false);
+  setCerFormOpen(false);
+
+  anagDetailUuid = uuid;
+  const panel = document.getElementById('anag-person-detail');
+  if (!panel) return;
+  panel.hidden = false;
+  panel.classList.remove('is-collapsed');
+  document.body.classList.toggle('anag-sheet-open', isAnagMobile());
+  document.body.classList.add('anag-detail-open');
+  const overlay = document.getElementById('anag-form-overlay');
+  if (overlay) overlay.hidden = !isAnagMobile();
+
+  renderAnagPersonDetail(uuid);
+  syncAnagFab();
+  if (!isAnagMobile()) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function closeAnagPersonDetail() {
+  anagDetailUuid = null;
+  const panel = document.getElementById('anag-person-detail');
+  if (panel) {
+    panel.classList.add('is-collapsed');
+    panel.hidden = true;
+  }
+  document.body.classList.remove('anag-detail-open');
+  if (!isAnagSheetOpen()) {
+    document.body.classList.remove('anag-sheet-open');
+    const overlay = document.getElementById('anag-form-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+  syncAnagFab();
+}
+
+function renderAnagPersonDetail(uuid) {
+  const c = state.chierichetti.find(ch => ch.uuid === uuid);
+  const body = document.getElementById('anag-person-detail-body');
+  const titleEl = document.getElementById('anag-detail-title');
+  const subEl = document.getElementById('anag-detail-sub');
+  if (!c || !body) return;
+
+  const attivo = isPersonaAttiva(c);
+  const promosso = isChierichettoPromosso(c);
+  const linkedAcc = cerimonieriAccounts.find(a => a.chierichettoUuid === c.uuid);
+  const statusLabel = promosso ? 'Ora cerimoniere' : (attivo ? 'Attivo' : 'Ex');
+  const avatarClass = promosso ? 'is-cer' : (!attivo ? 'is-ex' : '');
+
+  if (titleEl) titleEl.textContent = c.nome;
+  if (subEl) {
+    subEl.textContent = [
+      c.parrocchia ? getParrocchiaLabel(c.parrocchia) : '',
+      c.gruppo ? getGruppoLabel(c.gruppo) : (attivo && !promosso ? 'Senza gruppo' : ''),
+      statusLabel
+    ].filter(Boolean).join(' · ');
+  }
+
+  const contacts = [];
+  const pushTel = (num, chi) => {
+    if (!num) return;
+    contacts.push({
+      chi: chi || 'Genitore / tutore',
+      num,
+      href: 'tel:' + num.replace(/\s/g, '')
+    });
+  };
+  pushTel(c.telefono, c.telefonoChi);
+  pushTel(c.telefono2, c.telefono2Chi);
+
+  const contactsHtml = contacts.length
+    ? `<ul class="anag-detail-contacts">${contacts.map(t => `
+        <li>
+          <div>
+            <p class="anag-detail-contact-chi">${esc(t.chi)}</p>
+            <a class="anag-detail-contact-num" href="${esc(t.href)}">${esc(t.num)}</a>
+          </div>
+          <a class="btn btn-secondary btn-sm" href="${esc(t.href)}">Chiama</a>
+        </li>
+      `).join('')}</ul>`
+    : '<p class="liturgy-meta">Nessun contatto genitori registrato</p>';
+
+  const gruppiHist = getChierichettoGruppiHistory(uuid);
+  const currentGruppoHtml = `
+    <div class="anag-detail-current-gruppo">
+      <span class="anag-chip ${c.gruppo ? 'ok' : 'warn'}">${esc(c.gruppo ? getGruppoLabel(c.gruppo) : 'Senza gruppo')}</span>
+      <span class="liturgy-meta">assegnazione attuale</span>
+    </div>
+  `;
+  const gruppiHtml = gruppiHist.length
+    ? `<ol class="anag-detail-timeline">${gruppiHist.slice(0, 24).map(item => `
+        <li>
+          <time>${formatAnagDetailDate(item.at)}</time>
+          <div>
+            <p class="anag-detail-timeline-title">${esc(item.gruppoNome)}${item.detail ? ` · ${esc(item.detail)}` : ''}</p>
+            ${item.compagni?.length
+              ? `<p class="anag-detail-timeline-sub">con ${esc(item.compagni.join(', '))}</p>`
+              : ''}
+          </div>
+        </li>
+      `).join('')}</ol>`
+    : '<p class="liturgy-meta">Nessuna cronologia gruppi ancora — compare dopo i salvataggi in Modifica Gruppi</p>';
+
+  const presenze = getChierichettoPresenzaHistory(uuid);
+  const nP = presenze.filter(p => p.stato === 'presente').length;
+  const nA = presenze.filter(p => p.stato === 'assente').length;
+  const tot = nP + nA;
+  const rate = tot ? Math.round((nP / tot) * 100) + '%' : '—';
+  const presenzeHtml = presenze.length
+    ? `<ol class="anag-detail-timeline">${presenze.slice(0, 40).map(p => {
+        const sede = p.sede ? (SEDI_LABEL[p.sede] || p.sede) : '';
+        const when = [p.ora, sede].filter(Boolean).join(' · ');
+        const badge = p.stato === 'presente' ? 'badge-presente' : 'badge-assente';
+        const label = p.stato === 'presente' ? 'Presente' : 'Assente';
+        return `
+          <li>
+            <time>${formatAnagDetailDate(p.data)}</time>
+            <div class="anag-detail-presenza-row">
+              <div>
+                <p class="anag-detail-timeline-title">${esc(when || 'Giorno')}</p>
+                ${p.motivo ? `<p class="anag-detail-timeline-sub">${esc(p.motivo)}</p>` : ''}
+              </div>
+              <span class="badge ${badge}">${label}</span>
+            </div>
+          </li>
+        `;
+      }).join('')}</ol>`
+    : '<p class="liturgy-meta">Nessuna presenza o assenza registrata</p>';
+
+  const canEdit = !promosso;
+  const actionsHtml = `
+    <div class="anag-detail-actions">
+      ${canEdit ? `<button type="button" class="btn btn-primary" onclick="editChierichettoFromDetail(${jsStr(uuid)})">Modifica</button>` : ''}
+      <button type="button" class="btn btn-secondary" onclick="openAnagPersonMenu(${jsStr(uuid)})">Altre azioni</button>
+    </div>
+  `;
+
+  body.innerHTML = `
+    <div class="anag-detail-hero">
+      <div class="anag-avatar anag-detail-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
+      <div>
+        <p class="anag-detail-name">${chierichettoNomeHtml(c)}</p>
+        <div class="anag-chips">
+          ${c.parrocchia ? `<span class="anag-chip">${esc(getParrocchiaLabel(c.parrocchia))}</span>` : ''}
+          ${c.annoNascita ? `<span class="anag-chip">${esc(formatAnnoNascitaLabel(c.annoNascita))}</span>` : ''}
+          <span class="anag-chip${promosso ? ' gold' : ''}">${esc(statusLabel)}</span>
+        </div>
+        ${linkedAcc?.email ? `<p class="liturgy-meta" style="margin:8px 0 0">${esc(linkedAcc.email)}</p>` : ''}
+      </div>
+    </div>
+
+    ${actionsHtml}
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Info</h4>
+      <dl class="anag-detail-dl">
+        <div><dt>Parrocchia</dt><dd>${c.parrocchia ? esc(getParrocchiaLabel(c.parrocchia)) : '—'}</dd></div>
+        <div><dt>Anno di nascita</dt><dd>${c.annoNascita ? esc(formatAnnoNascitaLabel(c.annoNascita)) : '—'}</dd></div>
+        <div><dt>Gruppo</dt><dd>${c.gruppo ? esc(getGruppoLabel(c.gruppo)) : 'Senza gruppo'}</dd></div>
+        <div><dt>Stato</dt><dd>${esc(statusLabel)}</dd></div>
+      </dl>
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Contatti genitori</h4>
+      ${contactsHtml}
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Cronologia gruppi</h4>
+      ${currentGruppoHtml}
+      ${gruppiHtml}
+    </section>
+
+    <section class="anag-detail-section">
+      <h4 class="anag-detail-section-title">Presenze e assenze</h4>
+      <div class="anag-detail-stats" aria-label="Riepilogo">
+        <div><span class="anag-detail-stat-val">${nP}</span><span class="anag-detail-stat-lbl">presenti</span></div>
+        <div><span class="anag-detail-stat-val">${nA}</span><span class="anag-detail-stat-lbl">assenti</span></div>
+        <div><span class="anag-detail-stat-val">${esc(rate)}</span><span class="anag-detail-stat-lbl">presenza</span></div>
+      </div>
+      ${presenzeHtml}
+    </section>
+  `;
+}
+
+function editChierichettoFromDetail(uuid) {
+  closeAnagPersonDetail();
+  editChierichetto(uuid);
+}
 
 function closeAnagPersonMenu() {
   anagMenuUuid = null;
@@ -5622,6 +5909,7 @@ function openAnagPersonMenu(uuid) {
   const promosso = isChierichettoPromosso(c);
   const canPromote = isCurrentUserAdmin() && attivo && !promosso;
   const items = [];
+  items.push({ action: 'detail', label: 'Vedi scheda', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>' });
   if (!promosso) {
     items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
   }
@@ -5669,7 +5957,8 @@ async function runAnagPersonAction(action) {
     else if (action === 'delete') await deleteCerimoniere(uuid);
     return;
   }
-  if (action === 'edit') editChierichetto(uuid);
+  if (action === 'detail') openAnagPersonDetail(uuid);
+  else if (action === 'edit') editChierichetto(uuid);
   else if (action === 'promote') startPromoteChierichetto(uuid);
   else if (action === 'ex') await setChierichettoAttivo(uuid, false);
   else if (action === 'restore') await setChierichettoAttivo(uuid, true);
@@ -6139,6 +6428,7 @@ function editChierichetto(uuid) {
     return;
   }
 
+  closeAnagPersonDetail();
   cancelPromoteChierichetto();
   switchAnagraficaTab('chierichetto', true);
 
@@ -6857,14 +7147,131 @@ function assignSelectedToGruppo(gruppoId) {
   applyGruppiEditSelection(gruppoId);
 }
 
-function buildGruppiEditChip(c) {
+/** Ultime N configurazioni → Map uuid → Set di compagni di squadra */
+function assignmentDictToPairMap(assignDict) {
+  const byGruppo = new Map();
+  Object.entries(assignDict || {}).forEach(([uuid, gruppoId]) => {
+    if (!gruppoId) return;
+    if (!byGruppo.has(gruppoId)) byGruppo.set(gruppoId, []);
+    byGruppo.get(gruppoId).push(uuid);
+  });
+  const byPerson = new Map();
+  byGruppo.forEach(ids => {
+    ids.forEach(id => {
+      byPerson.set(id, new Set(ids.filter(x => x !== id)));
+    });
+  });
+  return byPerson;
+}
+
+function snapshotToPairMap(snapshot) {
+  const byPerson = new Map();
+  for (const g of snapshot?.gruppi || []) {
+    const ids = (g.membri || []).map(m => m.uuid).filter(Boolean);
+    for (const id of ids) {
+      byPerson.set(id, new Set(ids.filter(x => x !== id)));
+    }
+  }
+  return byPerson;
+}
+
+function getGruppiPairHistoryMaps(limit = 2) {
+  ensureGruppiConfig();
+  const snaps = (state.gruppiConfig.cronologia || [])
+    .filter(e => e.tipo === 'configurazione' && e.snapshot?.gruppi)
+    .slice(0, limit)
+    .map(entry => snapshotToPairMap(entry.snapshot));
+
+  if (snaps.length) return snaps;
+
+  // Prima configurazione: confronta con la composizione attuale (baseline / live)
+  const assignDict = gruppiEditBaseline || Object.fromEntries(
+    state.chierichetti.filter(isChierichettoAttivo).map(c => [c.uuid, c.gruppo || ''])
+  );
+  const live = assignmentDictToPairMap(assignDict);
+  return live.size ? [live] : [];
+}
+
+/** Quante configurazioni consecutive (dalla più recente) hanno avuto A e B insieme */
+function countConsecutivePairHistory(uuidA, uuidB, historyMaps) {
+  let n = 0;
+  for (const map of historyMaps) {
+    if (map.get(uuidA)?.has(uuidB)) n += 1;
+    else break;
+  }
+  return n;
+}
+
+/**
+ * Per ogni membro: livello max vs altri nella stessa squadra draft.
+ * warn = insieme 1 volta precedente; danger = insieme 2 volte consecutive.
+ */
+function getGruppoMemberPairWarnings(members, historyMaps) {
+  const byUuid = new Map();
+  if (!historyMaps.length || members.length < 2) return byUuid;
+
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      const a = members[i];
+      const b = members[j];
+      const n = countConsecutivePairHistory(a.uuid, b.uuid, historyMaps);
+      if (n < 1) continue;
+      const level = n >= 2 ? 'danger' : 'warn';
+      const note = n >= 2
+        ? `già insieme nelle ultime ${n} configurazioni`
+        : 'già insieme la volta precedente';
+
+      const bump = (person, other) => {
+        const prev = byUuid.get(person.uuid) || { level: null, with: [] };
+        if (!prev.level || (level === 'danger' && prev.level !== 'danger')) prev.level = level;
+        else if (level === 'warn' && !prev.level) prev.level = 'warn';
+        prev.with.push({ nome: other.nome, level, note });
+        byUuid.set(person.uuid, prev);
+      };
+      bump(a, b);
+      bump(b, a);
+    }
+  }
+
+  byUuid.forEach(info => {
+    const danger = info.with.filter(w => w.level === 'danger');
+    const warn = info.with.filter(w => w.level === 'warn');
+    const parts = [];
+    if (danger.length) {
+      parts.push('Rosso: ' + danger.map(w => `${w.nome} (${w.note})`).join('; '));
+    }
+    if (warn.length) {
+      parts.push('Attenzione: ' + warn.map(w => `${w.nome} (${w.note})`).join('; '));
+    }
+    info.title = parts.join(' · ');
+  });
+
+  return byUuid;
+}
+
+function maxPairWarningLevel(warningsMap) {
+  let max = null;
+  warningsMap.forEach(info => {
+    if (info.level === 'danger') max = 'danger';
+    else if (info.level === 'warn' && max !== 'danger') max = 'warn';
+  });
+  return max;
+}
+
+function buildGruppiEditChip(c, pairInfo) {
   const selected = gruppiEditSelected.has(c.uuid);
+  const pairClass = pairInfo?.level === 'danger'
+    ? ' is-pair-danger'
+    : pairInfo?.level === 'warn'
+      ? ' is-pair-warn'
+      : '';
+  const title = pairInfo?.title ? ` title="${esc(pairInfo.title)}"` : '';
   return `
     <button type="button"
-      class="gruppo-member-chip is-selectable${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}${selected ? ' is-selected' : ''}"
+      class="gruppo-member-chip is-selectable${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}${selected ? ' is-selected' : ''}${pairClass}"
       data-edit-uuid="${esc(c.uuid)}"
       onclick="toggleGruppiEditSelection('${esc(c.uuid)}')"
-      aria-pressed="${selected ? 'true' : 'false'}">
+      aria-pressed="${selected ? 'true' : 'false'}"${title}>
       ${esc(c.nome)}
     </button>
   `;
@@ -6875,13 +7282,29 @@ function renderGruppiEditPanel() {
   if (!list || !gruppiEditDraft) return;
   const gruppi = getGruppiAttivi();
   const unassigned = getChierichettiSenzaGruppoDraft();
+  const historyMaps = getGruppiPairHistoryMaps(2);
+  let globalMax = null;
 
   const groupsHtml = gruppi.length
     ? gruppi.map(g => {
       const members = getChierichettiInGruppoDraft(g.id);
       const nCer = members.filter(isAppelloCerimoniere).length;
+      const warnings = getGruppoMemberPairWarnings(members, historyMaps);
+      const cardLevel = maxPairWarningLevel(warnings);
+      if (cardLevel === 'danger') globalMax = 'danger';
+      else if (cardLevel === 'warn' && globalMax !== 'danger') globalMax = 'warn';
+      const cardClass = cardLevel === 'danger'
+        ? ' is-pair-danger'
+        : cardLevel === 'warn'
+          ? ' is-pair-warn'
+          : '';
+      const pairHint = cardLevel === 'danger'
+        ? '<p class="gruppi-pair-card-hint is-danger">Alcuni erano già insieme nelle ultime 2 configurazioni</p>'
+        : cardLevel === 'warn'
+          ? '<p class="gruppi-pair-card-hint is-warn">Alcuni erano già insieme la volta precedente</p>'
+          : '';
       return `
-        <div class="gruppo-squadra-card gruppi-edit-card">
+        <div class="gruppo-squadra-card gruppi-edit-card${cardClass}">
           <div class="gruppo-squadra-head">
             <div>
               <p class="config-item-title">${esc(g.nome)}</p>
@@ -6891,13 +7314,27 @@ function renderGruppiEditPanel() {
               Assegna qui
             </button>
           </div>
+          ${pairHint}
           <div class="gruppo-member-chips">
-            ${members.length ? members.map(buildGruppiEditChip).join('') : '<span class="liturgy-meta">Nessuno — seleziona persone e assegna qui</span>'}
+            ${members.length
+              ? members.map(c => buildGruppiEditChip(c, warnings.get(c.uuid))).join('')
+              : '<span class="liturgy-meta">Nessuno — seleziona persone e assegna qui</span>'}
           </div>
         </div>
       `;
     }).join('')
     : '<p class="empty-state">Nessun gruppo attivo</p>';
+
+  const legendHtml = `
+    <div class="gruppi-pair-legend" role="note">
+      <span><span class="gruppi-pair-swatch is-ok" aria-hidden="true"></span> composizione nuova</span>
+      <span><span class="gruppi-pair-swatch is-warn" aria-hidden="true"></span> già insieme la volta scorsa</span>
+      <span><span class="gruppi-pair-swatch is-danger" aria-hidden="true"></span> già insieme 2 volte</span>
+      <span class="gruppi-pair-legend-note">${historyMaps.length
+        ? 'Solo avviso: puoi salvare comunque'
+        : 'Salva almeno una configurazione per attivare gli avvisi sulle ripetizioni'}</span>
+    </div>
+  `;
 
   const unassignedHtml = `
     <div class="gruppi-unassigned-panel gruppi-edit-unassigned">
@@ -6911,12 +7348,13 @@ function renderGruppiEditPanel() {
         </button>
       </div>
       <div class="gruppo-member-chips">
-        ${unassigned.length ? unassigned.map(buildGruppiEditChip).join('') : '<span class="liturgy-meta">Nessuno senza gruppo</span>'}
+        ${unassigned.length ? unassigned.map(c => buildGruppiEditChip(c)).join('') : '<span class="liturgy-meta">Nessuno senza gruppo</span>'}
       </div>
     </div>
   `;
 
-  list.innerHTML = unassignedHtml + groupsHtml;
+  list.innerHTML = legendHtml + unassignedHtml + groupsHtml;
+  list.dataset.pairLevel = globalMax || '';
   syncGruppiEditToolbar();
 
   const saveBtn = document.getElementById('btn-salva-gruppi-config');

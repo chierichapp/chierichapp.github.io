@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -320,6 +320,24 @@
                 </div>
               </form>
             </div>
+          </div>
+
+          <div class="panel anag-detail-panel is-collapsed" id="anag-person-detail" hidden>
+            <div class="panel-head">
+              <div class="anag-detail-head-main">
+                <button type="button" class="anag-detail-back" onclick="closeAnagPersonDetail()" aria-label="Indietro">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <div>
+                  <h3 id="anag-detail-title">Scheda chierichetto</h3>
+                  <p id="anag-detail-sub">Informazioni, contatti e storico</p>
+                </div>
+              </div>
+              <button type="button" class="anag-sheet-close" onclick="closeAnagPersonDetail()" aria-label="Chiudi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="panel-body" id="anag-person-detail-body"></div>
           </div>
 
           <div class="panel anag-list-panel">
