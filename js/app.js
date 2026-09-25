@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function prepareSupabaseAuthUi() {
   const sub = document.getElementById('form-cerimoniere-sub');
-  if (sub) sub.textContent = 'Crea login email/password per cerimonieri e Don (Supabase Auth)';
+  if (sub) sub.textContent = 'Anagrafica subito; email e password solo se vuoi abilitare il login';
   const googleBlock = document.getElementById('auth-google-block');
   if (googleBlock) googleBlock.hidden = true;
   const pwdWrap = document.getElementById('cerimoniere-password-wrap');
@@ -148,7 +148,14 @@ function prepareSupabaseAuthUi() {
     pwdWrap.style.display = '';
   }
   const pwd = document.getElementById('cerimoniere-password');
-  if (pwd) pwd.required = true;
+  if (pwd) pwd.required = false;
+  const emailInput = document.getElementById('cerimoniere-email');
+  if (emailInput) emailInput.required = false;
+  const loginHint = document.getElementById('cerimoniere-login-hint');
+  if (loginHint) {
+    loginHint.style.display = '';
+    loginHint.textContent = 'Puoi salvare solo nome e ruolo senza email/password: la persona non potrà accedere finché non le imposti.';
+  }
   onCerimoniereRuoloChange();
 }
 
