@@ -3911,9 +3911,12 @@ function esc(str) {
   return d.innerHTML;
 }
 
-/** Literal JS string for inline handlers — use inside onclick='…' / onchange='…' */
+/** Literal JS string for inline handlers (onclick / onchange), safe in "…" or '…' HTML attrs */
 function jsStr(value) {
-  return JSON.stringify(value ?? '');
+  return JSON.stringify(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
 }
 
 // ── Oggi (dashboard cerimoniere) ────────────────────────────
@@ -4596,7 +4599,7 @@ function renderRegistroByMessa(slots, rows) {
               ? people.map(renderRegistroPersonRow).join('')
               : '<p class="registro-empty-mass">Nessun appello registrato per questa messa.</p>'}
             <div style="padding:10px 16px 14px">
-              <button type="button" class="btn btn-ghost" onclick="openAppello(${jsStr(slot.data)}, ${jsStr(slotKey)})">Apri appello</button>
+              <button type="button" class="btn btn-ghost" onclick='openAppello(${jsStr(slot.data)}, ${jsStr(slotKey)})'>Apri appello</button>
             </div>
           </div>
         </div>
@@ -5962,7 +5965,7 @@ async function renderChierichetti() {
     pushTel(c.telefono2, c.telefono2Chi);
     const rowAction = `openAnagPersonDetail(${jsStr(c.uuid)})`;
     return `
-    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
+    <div class="list-item anag-person${attivo && !promosso ? '' : ' is-ex'}" role="button" tabindex="0" onclick='${rowAction}' onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}">
       <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
       <div class="anag-person-body">
         <p class="list-item-title">${chierichettoNomeHtml(c)}</p>
@@ -5971,7 +5974,7 @@ async function renderChierichetti() {
         ${contacts.length ? `<div class="anag-contact">${contacts.join('')}</div>` : ''}
       </div>
       <div class="list-item-actions">
-        <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagPersonMenu(${jsStr(c.uuid)})">
+        <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick='event.stopPropagation();openAnagPersonMenu(${jsStr(c.uuid)})'>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
         </button>
       </div>
@@ -6201,8 +6204,8 @@ function renderAnagPersonDetail(uuid) {
   const canEdit = !promosso;
   const actionsHtml = `
     <div class="anag-detail-actions">
-      ${canEdit ? `<button type="button" class="btn btn-primary" onclick="editChierichettoFromDetail(${jsStr(uuid)})">Modifica</button>` : ''}
-      <button type="button" class="btn btn-secondary" onclick="openAnagPersonMenu(${jsStr(uuid)})">Altre azioni</button>
+      ${canEdit ? `<button type="button" class="btn btn-primary" onclick='editChierichettoFromDetail(${jsStr(uuid)})'>Modifica</button>` : ''}
+      <button type="button" class="btn btn-secondary" onclick='openAnagPersonMenu(${jsStr(uuid)})'>Altre azioni</button>
     </div>
   `;
 
@@ -6315,7 +6318,7 @@ function openAnagPersonMenu(uuid) {
   if (title) title.textContent = c.nome;
   if (box) {
     box.innerHTML = items.map(it => `
-      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick="runAnagPersonAction(${jsStr(it.action)})">
+      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick='runAnagPersonAction(${jsStr(it.action)})'>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon}</svg>
         ${esc(it.label)}
       </button>
@@ -6377,7 +6380,7 @@ function openAnagCerMenu(uuid) {
   if (title) title.textContent = c.nome;
   if (box) {
     box.innerHTML = items.map(it => `
-      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick="runAnagPersonAction(${jsStr(it.action)})">
+      <button type="button" class="anag-action-item${it.danger ? ' is-danger' : ''}" onclick='runAnagPersonAction(${jsStr(it.action)})'>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon}</svg>
         ${esc(it.label)}
       </button>
@@ -6533,7 +6536,7 @@ function renderCerimonieri() {
     const showMenu = canManage || isSelf;
     const contactLine = hasCerimoniereLogin(c) ? esc(c.email) : 'Nessun accesso all’app';
     return `
-      <div class="list-item anag-person${attivo ? '' : ' is-ex'}"${rowAction ? ` role="button" tabindex="0" onclick="${rowAction}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}"` : ''}>
+      <div class="list-item anag-person${attivo ? '' : ' is-ex'}"${rowAction ? ` role="button" tabindex="0" onclick='${rowAction}' onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${rowAction}}"` : ''}>
         <div class="anag-avatar ${avatarClass}" aria-hidden="true">${esc(personInitials(c.nome))}</div>
         <div class="anag-person-body">
           <p class="list-item-title">${esc(c.nome)}</p>
@@ -6542,7 +6545,7 @@ function renderCerimonieri() {
           <div class="anag-contact"><span>${contactLine}</span></div>
         </div>
         ${showMenu ? `<div class="list-item-actions">
-          <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick="event.stopPropagation();openAnagCerMenu(${jsStr(c.uuid)})">
+          <button type="button" class="btn btn-ghost btn-icon anag-person-menu-btn" title="Azioni" aria-label="Azioni per ${esc(c.nome)}" onclick='event.stopPropagation();openAnagCerMenu(${jsStr(c.uuid)})'>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
           </button>
         </div>` : ''}
