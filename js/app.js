@@ -64,7 +64,7 @@ const DEFAULT_GRUPPI_CONFIG = {
 };
 
 let editingMessaDomenicaleId = null;
-let turniTab = 'messe';
+let turniTab = 'anteprima';
 let gruppiTab = 'squadre';
 let gruppiEditDraft = null;
 let gruppiEditBaseline = null;
@@ -2891,7 +2891,7 @@ function normalizeRotazioneConfig() {
         fine: f.fine || null,
         chiusaIl: f.chiusaIl || null
       }))
-      .slice(0, 12)
+      .slice(0, 24)
     : [];
   state.gruppiConfig.rotazione = {
     attiva: !!prev.attiva,
@@ -3106,11 +3106,14 @@ function updateMesseDomenicaliSummary() {
 
 function switchTurniTab(tab) {
   turniTab = tab;
-  document.getElementById('tab-turni-messe')?.classList.toggle('active', tab === 'messe');
-  document.getElementById('tab-turni-rotazione')?.classList.toggle('active', tab === 'rotazione');
-  document.getElementById('turni-panel-messe')?.classList.toggle('active', tab === 'messe');
-  document.getElementById('turni-panel-rotazione')?.classList.toggle('active', tab === 'rotazione');
-  if (tab === 'rotazione') renderRotazionePanel();
+  const tabs = ['anteprima', 'gestione', 'cronologia', 'messe'];
+  tabs.forEach(id => {
+    document.getElementById(`tab-turni-${id}`)?.classList.toggle('active', tab === id);
+    document.getElementById(`turni-panel-${id}`)?.classList.toggle('active', tab === id);
+  });
+  if (tab === 'anteprima') renderRotazioneAnteprima();
+  else if (tab === 'gestione') renderRotazioneGestione();
+  else if (tab === 'cronologia') renderRotazioneCronologia();
 }
 
 function switchGruppiTab(tab) {
@@ -6842,16 +6845,92 @@ function syncMessaDomenicaleFormDay() {
   if (!isSabato && vigilia) vigilia.checked = false;
 }
 
-function renderRotazionePanel() {
+function formatRotazioneDateShort(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+}
+
+function formatRotazioneDateLong(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
+
+function getRotazioneStatusCopy(rot = null) {
+  const r = rot || getRotazioneConfig();
+  const phase = getRotazionePhase(r);
+  const inizioLabel = formatRotazioneDateLong(r.inizioFinestra);
+  const fineLabel = formatRotazioneDateLong(r.fineFinestra);
+
+  if (phase === 'active') {
+    return {
+      phase,
+      badge: 'Rotazione attiva',
+      badgeClass: 'rotazione-status aperta',
+      text: fineLabel
+        ? `Finestra aperta dal ${inizioLabel} al ${fineLabel} (sab 12:00). Ogni sabato i gruppi avanzano di uno slot.`
+        : `Finestra aperta dal ${inizioLabel} ore 12:00, senza data di fine. Ogni sabato i gruppi avanzano di uno slot.`
+    };
+  }
+  if (phase === 'scheduled') {
+    return {
+      phase,
+      badge: 'Programmata',
+      badgeClass: 'rotazione-status programmata',
+      text: fineLabel
+        ? `Rotazione programmata dal ${inizioLabel} al ${fineLabel}. Prima dell’inizio le messe di servizio restano libere.`
+        : `Rotazione programmata dal ${inizioLabel}. Prima dell’inizio le messe di servizio restano libere.`
+    };
+  }
+  if (phase === 'expired') {
+    return {
+      phase,
+      badge: 'Finestra scaduta',
+      badgeClass: 'rotazione-status scaduta',
+      text: `La finestra è terminata il ${fineLabel || inizioLabel}. Dopo la fine vale l’assegnazione fissa. Chiudila da Gestione per archiviarla.`
+    };
+  }
+  return {
+    phase: 'off',
+    badge: 'Rotazione non attiva',
+    badgeClass: 'rotazione-status chiusa',
+    text: 'Nessuna finestra attiva: vale l’assegnazione fissa (messa 1→Gruppo 1, …). Apri una finestra da Gestione per far ruotare i gruppi.'
+  };
+}
+
+function applyRotazioneStatusTo(badgeId, textId) {
+  const copy = getRotazioneStatusCopy();
+  const badge = document.getElementById(badgeId);
+  const text = document.getElementById(textId);
+  if (badge) {
+    badge.textContent = copy.badge;
+    badge.className = copy.badgeClass;
+  }
+  if (text) text.textContent = copy.text;
+  return copy;
+}
+
+function renderRotazioneAnteprima() {
+  applyRotazioneStatusTo('rotazione-anteprima-badge', 'rotazione-anteprima-text');
+  renderRotazionePreview();
+}
+
+function renderRotazioneGestione() {
   const rot = getRotazioneConfig();
-  const badge = document.getElementById('rotazione-status-badge');
-  const text = document.getElementById('rotazione-status-text');
   const inizioInput = document.getElementById('rotazione-inizio');
   const fineInput = document.getElementById('rotazione-fine');
   const fineOpen = document.getElementById('rotazione-fine-open');
   const btnSalva = document.getElementById('btn-salva-rotazione');
   const btnChiudi = document.getElementById('btn-chiudi-rotazione');
   const card = document.getElementById('rotazione-window-card');
+  const presets = document.getElementById('rotazione-presets');
+  const datesRow = document.querySelector('.rotazione-dates');
+
+  const copy = applyRotazioneStatusTo('rotazione-status-badge', 'rotazione-status-text');
+  const attiva = isRotazioneAttiva();
 
   if (inizioInput && document.activeElement !== inizioInput) {
     inizioInput.value = rot.inizioFinestra || getSabatoRotazioneDefault();
@@ -6861,143 +6940,133 @@ function renderRotazionePanel() {
   }
   if (fineInput) {
     const openEnded = fineOpen ? fineOpen.checked : !rot.fineFinestra;
-    fineInput.disabled = openEnded;
+    fineInput.disabled = openEnded || attiva;
     if (document.activeElement !== fineInput) {
       fineInput.value = rot.fineFinestra || '';
     }
   }
-
-  const phase = getRotazionePhase();
-  const inizioLabel = rot.inizioFinestra
-    ? new Date(rot.inizioFinestra + 'T12:00:00').toLocaleDateString('it-IT', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-      })
-    : '';
-  const fineLabel = rot.fineFinestra
-    ? new Date(rot.fineFinestra + 'T12:00:00').toLocaleDateString('it-IT', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-      })
-    : '';
-
-  if (badge) {
-    if (phase === 'active') {
-      badge.textContent = 'Rotazione attiva';
-      badge.className = 'rotazione-status aperta';
-    } else if (phase === 'scheduled') {
-      badge.textContent = 'Programmata';
-      badge.className = 'rotazione-status programmata';
-    } else if (phase === 'expired') {
-      badge.textContent = 'Finestra scaduta';
-      badge.className = 'rotazione-status scaduta';
-    } else {
-      badge.textContent = 'Rotazione non attiva';
-      badge.className = 'rotazione-status chiusa';
-    }
-  }
-
-  if (text) {
-    if (phase === 'active') {
-      text.textContent = fineLabel
-        ? `Finestra aperta dal ${inizioLabel} al ${fineLabel} (sab 12:00). Ogni sabato i gruppi avanzano di uno slot.`
-        : `Finestra aperta dal ${inizioLabel} ore 12:00, senza data di fine. Ogni sabato i gruppi avanzano di uno slot.`;
-    } else if (phase === 'scheduled') {
-      text.textContent = fineLabel
-        ? `Rotazione programmata dal ${inizioLabel} al ${fineLabel}. Prima dell’inizio le messe di servizio restano libere.`
-        : `Rotazione programmata dal ${inizioLabel}. Prima dell’inizio le messe di servizio restano libere.`;
-    } else if (phase === 'expired') {
-      text.textContent = `La finestra è terminata il ${fineLabel || inizioLabel}. Dopo la fine vale l’assegnazione fissa (messa 1→Gruppo 1, …). Chiudi per archiviare.`;
-    } else {
-      text.textContent = 'Imposta inizio e (opzionale) fine, poi apri la finestra: i gruppi ruotano ogni sabato alle 12:00.';
-    }
-  }
+  if (inizioInput) inizioInput.disabled = attiva;
+  if (fineOpen) fineOpen.disabled = attiva;
+  if (presets) presets.hidden = attiva;
+  if (datesRow) datesRow.hidden = attiva;
 
   if (btnSalva) {
-    btnSalva.textContent = isRotazioneAttiva() ? 'Aggiorna date' : 'Apri finestra';
-    btnSalva.hidden = false;
+    btnSalva.hidden = attiva;
+    btnSalva.textContent = 'Apri finestra';
   }
-  if (btnChiudi) btnChiudi.hidden = !isRotazioneAttiva();
+  if (btnChiudi) btnChiudi.hidden = !attiva;
   if (card) {
-    card.classList.toggle('is-active', phase === 'active');
-    card.classList.toggle('is-scheduled', phase === 'scheduled');
-    card.classList.toggle('is-expired', phase === 'expired');
+    card.classList.toggle('is-active', copy.phase === 'active');
+    card.classList.toggle('is-scheduled', copy.phase === 'scheduled');
+    card.classList.toggle('is-expired', copy.phase === 'expired');
+    card.classList.toggle('is-closed-form', !attiva);
   }
 
-  renderRotazioneStorico();
-  renderRotazionePreview();
+  if (!attiva) {
+    const statusText = document.getElementById('rotazione-status-text');
+    if (statusText) {
+      statusText.textContent =
+        'Imposta inizio e (opzionale) fine, poi apri la finestra. L’anteprima turnistica si aggiorna subito dopo.';
+    }
+  }
 }
 
-function formatRotazioneDateShort(dateStr) {
-  if (!dateStr) return '—';
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
-    day: 'numeric', month: 'short', year: 'numeric'
-  });
-}
-
-function renderRotazioneStorico() {
-  const el = document.getElementById('rotazione-storico');
+function renderRotazioneCronologia() {
+  const el = document.getElementById('rotazione-cronologia');
   if (!el) return;
-  const storico = getRotazioneConfig().storicoFinestre || [];
-  if (!storico.length) {
-    el.hidden = true;
-    el.innerHTML = '';
+
+  const rot = getRotazioneConfig();
+  const storico = rot.storicoFinestre || [];
+  const items = [];
+
+  if (isRotazioneAttiva() && rot.inizioFinestra) {
+    const phase = getRotazionePhase(rot);
+    const phaseLabel = phase === 'scheduled' ? 'Programmata' : phase === 'expired' ? 'Scaduta' : 'In corso';
+    const phaseClass = phase === 'scheduled' ? 'is-scheduled' : phase === 'expired' ? 'is-expired' : 'is-current';
+    items.push({
+      inizio: rot.inizioFinestra,
+      fine: rot.fineFinestra,
+      chiusaIl: null,
+      current: true,
+      phaseLabel,
+      phaseClass
+    });
+  }
+
+  storico.forEach(f => {
+    if (!f?.inizio) return;
+    items.push({
+      inizio: f.inizio,
+      fine: f.fine || null,
+      chiusaIl: f.chiusaIl || null,
+      current: false,
+      phaseLabel: 'Chiusa',
+      phaseClass: 'is-closed'
+    });
+  });
+
+  if (!items.length) {
+    el.innerHTML = `
+      <div class="rotazione-cronologia-empty">
+        <p>Nessuna finestra di rotazione ancora registrata.</p>
+        <p class="liturgy-meta">Quando apri e chiudi una finestra da Gestione, compare qui lo storico.</p>
+      </div>
+    `;
     return;
   }
-  el.hidden = false;
+
   el.innerHTML = `
-    <h4 class="config-section-title">Finestre precedenti</h4>
-    <ul class="rotazione-storico-list">
-      ${storico.slice(0, 6).map(f => {
-        const range = f.fine
-          ? `${esc(formatRotazioneDateShort(f.inizio))} → ${esc(formatRotazioneDateShort(f.fine))}`
-          : `dal ${esc(formatRotazioneDateShort(f.inizio))} (senza fine)`;
-        const chiusa = f.chiusaIl
-          ? ` · chiusa ${esc(formatRotazioneDateShort(f.chiusaIl))}`
-          : '';
-        return `<li>${range}${chiusa}</li>`;
+    <ul class="rotazione-cronologia-list">
+      ${items.map(item => {
+        const range = item.fine
+          ? `<strong>${esc(formatRotazioneDateShort(item.inizio))}</strong> → <strong>${esc(formatRotazioneDateShort(item.fine))}</strong>`
+          : `<strong>${esc(formatRotazioneDateShort(item.inizio))}</strong> · senza data di fine`;
+        const meta = item.current
+          ? 'Finestra corrente'
+          : (item.chiusaIl ? `Chiusa il ${esc(formatRotazioneDateShort(item.chiusaIl))}` : 'Archiviata');
+        return `
+          <li class="rotazione-cronologia-item ${item.phaseClass}">
+            <div class="rotazione-cronologia-main">
+              <span class="rotazione-cronologia-badge">${esc(item.phaseLabel)}</span>
+              <span class="rotazione-cronologia-range">${range}</span>
+            </div>
+            <p class="rotazione-cronologia-meta">${meta}</p>
+          </li>
+        `;
       }).join('')}
     </ul>
   `;
 }
 
-/** Anteprima: usa le date del form (anche non salvate) come se la finestra fosse attiva. */
-function getRotazionePreviewConfig() {
-  const saved = getRotazioneConfig();
-  const inizioInput = document.getElementById('rotazione-inizio');
-  const fineInput = document.getElementById('rotazione-fine');
-  const fineOpen = document.getElementById('rotazione-fine-open');
-  const inizio = inizioInput?.value || saved.inizioFinestra;
-  if (!inizio) {
-    return { attiva: false, inizioFinestra: null, fineFinestra: null };
+/** Compat: aggiorna i pannelli rotazione visibili dopo un salvataggio config. */
+function renderRotazionePanel() {
+  if (turniTab === 'anteprima') renderRotazioneAnteprima();
+  else if (turniTab === 'gestione') renderRotazioneGestione();
+  else if (turniTab === 'cronologia') renderRotazioneCronologia();
+  else {
+    // Aggiorna anteprima in background se il DOM c’è (es. dopo salvataggio da altre sezioni)
+    if (document.getElementById('rotazione-preview')) renderRotazioneAnteprima();
   }
-  const openEnded = fineOpen ? fineOpen.checked : !saved.fineFinestra;
-  return {
-    attiva: true,
-    inizioFinestra: inizio,
-    fineFinestra: openEnded ? null : (fineInput?.value || null)
-  };
 }
 
+/** Anteprima turnistica: sempre sulla config salvata. */
 function renderRotazionePreview() {
   const container = document.getElementById('rotazione-preview');
   if (!container) return;
 
   const slots = getTurniSlot().slice().sort((a, b) => a.turnoNum - b.turnoNum);
-  const domeniche = getProssimeDomeniche(6);
+  const domeniche = getProssimeDomeniche(8);
   const today = getTodayStr();
-  const draft = getRotazionePreviewConfig();
-  const draftValid = draft.inizioFinestra && isSabatoDate(draft.inizioFinestra)
-    && (!draft.fineFinestra || (isSabatoDate(draft.fineFinestra) && draft.fineFinestra >= draft.inizioFinestra));
+  const rotForPreview = getRotazioneConfig();
 
   if (!slots.length || !domeniche.length) {
-    container.innerHTML = '';
+    container.innerHTML = '<p class="liturgy-meta">Configura almeno una messa con squadra in Struttura messe.</p>';
     return;
   }
 
   const header = slots.map(s =>
     `${formatMessaServizioLabel(s.turnoNum)}<br><span class="rotazione-th-sub">${esc(SEDI_LABEL[s.sede])} ${esc(s.ora)}</span>`
   ).join('</th><th>');
-
-  const rotForPreview = draftValid ? draft : { attiva: false, inizioFinestra: null, fineFinestra: null };
 
   container.innerHTML = `
     <table class="rotazione-table">
@@ -7009,10 +7078,10 @@ function renderRotazionePreview() {
       </thead>
       <tbody>
         ${domeniche.map(dom => {
-          const inWindow = !rotForPreview.attiva || isDomenicaInFinestraRotazione(dom, rotForPreview);
+          const inWindow = !isRotazioneAttiva() || isDomenicaInFinestraRotazione(dom, rotForPreview);
           const sabato = addDaysToDateStr(dom, -1);
-          const afterEnd = !!(rotForPreview.attiva && rotForPreview.fineFinestra && sabato > rotForPreview.fineFinestra);
-          const beforeStart = !!(rotForPreview.attiva && sabato < rotForPreview.inizioFinestra);
+          const afterEnd = !!(isRotazioneAttiva() && rotForPreview.fineFinestra && sabato > rotForPreview.fineFinestra);
+          const beforeStart = !!(isRotazioneAttiva() && sabato < rotForPreview.inizioFinestra);
           const w = getRotationWeekOffset(dom, rotForPreview);
           const isCurrent = dom >= today && dom === domeniche.find(d => d >= today);
           const dateLabel = new Date(dom + 'T12:00:00').toLocaleDateString('it-IT', {
@@ -7023,7 +7092,7 @@ function renderRotazionePreview() {
             return esc(gid ? getGruppoLabel(gid) : 'Libera');
           }).join('</td><td>');
           let turnoHint = '';
-          if (rotForPreview.attiva) {
+          if (isRotazioneAttiva()) {
             if (inWindow && w != null) {
               turnoHint = `<br><span class="rotazione-row-hint">${esc(formatRotazioneTurnoLabel(w + 1).toLowerCase())}</span>`;
             } else if (beforeStart) {
@@ -7031,12 +7100,14 @@ function renderRotazionePreview() {
             } else if (afterEnd) {
               turnoHint = '<br><span class="rotazione-row-hint">dopo · fissa</span>';
             }
+          } else {
+            turnoHint = '<br><span class="rotazione-row-hint">fissa</span>';
           }
           const rowClass = [
             isCurrent ? 'current' : '',
             beforeStart ? 'out-before' : '',
             afterEnd ? 'out-after' : '',
-            inWindow && rotForPreview.attiva ? 'in-window' : ''
+            inWindow && isRotazioneAttiva() ? 'in-window' : ''
           ].filter(Boolean).join(' ');
           return `<tr class="${rowClass}"><td>Dom ${esc(dateLabel)}${turnoHint}</td><td>${cells}</td></tr>`;
         }).join('')}
@@ -7046,12 +7117,7 @@ function renderRotazionePreview() {
 }
 
 function onRotazioneDatesChange() {
-  const fineOpen = document.getElementById('rotazione-fine-open');
-  const fineInput = document.getElementById('rotazione-fine');
-  if (fineOpen && !fineOpen.checked && fineInput && !fineInput.value) {
-    // leave empty until user picks
-  }
-  renderRotazionePreview();
+  // Date solo in Gestione: nessuna anteprima live qui
 }
 
 function onRotazioneFineOpenChange() {
@@ -7064,17 +7130,17 @@ function onRotazioneFineOpenChange() {
   } else if (!fineInput.value) {
     const inizio = document.getElementById('rotazione-inizio')?.value;
     if (inizio) {
-      fineInput.value = addDaysToDateStr(inizio, 7 * 12); // ~3 mesi default
+      fineInput.value = addDaysToDateStr(inizio, 7 * 12);
       if (!isSabatoDate(fineInput.value)) {
         fineInput.value = getNearestSaturdayOnOrBefore(fineInput.value);
       }
     }
   }
-  renderRotazionePreview();
 }
 
 function setRotazionePreset(kind) {
   if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
+  if (isRotazioneAttiva()) return;
   const inizioInput = document.getElementById('rotazione-inizio');
   const fineInput = document.getElementById('rotazione-fine');
   const fineOpen = document.getElementById('rotazione-fine-open');
@@ -7102,7 +7168,6 @@ function setRotazionePreset(kind) {
       fineInput.value = fine;
     }
   }
-  renderRotazionePreview();
 }
 
 function readRotazioneFormDates() {
@@ -7140,16 +7205,19 @@ function validateRotazioneDates(inizio, fine, fineOpen) {
 
 function salvaFinestraRotazione() {
   if (!requireAdminAction('Solo l\'admin può gestire la rotazione')) return;
+  if (isRotazioneAttiva()) {
+    showToast('Chiudi prima la finestra corrente');
+    return;
+  }
   const { inizio, fine, fineOpen } = readRotazioneFormDates();
   if (!validateRotazioneDates(inizio, fine, fineOpen)) return;
 
-  const wasActive = isRotazioneAttiva();
   const rot = getRotazioneConfig();
   rot.attiva = true;
   rot.inizioFinestra = inizio;
   rot.fineFinestra = fineOpen ? null : fine;
   afterGruppiConfigChange();
-  showToast(wasActive ? 'Date della finestra aggiornate' : 'Finestra rotazione aperta');
+  showToast('Finestra rotazione aperta');
 }
 
 function apriFinestraRotazione() {
@@ -7173,7 +7241,7 @@ function chiudiFinestraRotazione() {
       fine: fineArchivio,
       chiusaIl: oggi
     };
-    rot.storicoFinestre = [entry, ...(rot.storicoFinestre || [])].slice(0, 12);
+    rot.storicoFinestre = [entry, ...(rot.storicoFinestre || [])].slice(0, 24);
   }
   rot.attiva = false;
   afterGruppiConfigChange();
@@ -8082,7 +8150,9 @@ function renderTurni() {
   renderMesseDomenicaliList();
   updateMesseDomenicaliSummary();
   updateTurniPanelMeta();
-  if (turniTab === 'rotazione') renderRotazionePanel();
+  if (turniTab === 'anteprima') renderRotazioneAnteprima();
+  else if (turniTab === 'gestione') renderRotazioneGestione();
+  else if (turniTab === 'cronologia') renderRotazioneCronologia();
 }
 
 // ── Presenze ────────────────────────────────────────────────
