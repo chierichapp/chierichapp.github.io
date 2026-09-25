@@ -883,6 +883,122 @@ input[type="radio"] {
 
 .btn-full { width: 100%; }
 
+/* ── Account ─────────────────────────────────────────────── */
+.account-page {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.account-avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--sky) 16%, var(--cream));
+  color: var(--sky);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.account-identity-text {
+  min-width: 0;
+}
+
+.account-identity-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-identity-meta {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.account-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.account-card-title {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.account-card-desc {
+  margin: 0 0 14px;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.account-card .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.account-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+#account-email-pending:not([hidden]) {
+  display: block;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--sky) 12%, transparent);
+  color: var(--ink);
+}
+
+.account-save {
+  min-height: 48px;
+}
+
+.account-session .btn-danger {
+  min-height: 48px;
+}
+
 .form-actions {
   display: flex;
   gap: 10px;
@@ -6560,6 +6676,50 @@ body.anag-sheet-open { overflow: hidden; }
     max-width: none;
     box-sizing: border-box;
   }
+
+  #account.section.active {
+    margin-left: -14px;
+    margin-right: -14px;
+    width: calc(100% + 28px);
+    max-width: none;
+    box-sizing: border-box;
+  }
+  #account .account-page {
+    max-width: none;
+    gap: 12px;
+    padding: 0 14px 8px;
+  }
+  #account .account-identity {
+    padding: 14px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  #account .account-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 1.05rem;
+  }
+  #account .account-identity-name {
+    font-size: 1.1rem;
+  }
+  #account .account-card {
+    border-radius: var(--radius-md);
+    padding: 14px;
+    box-shadow: none;
+  }
+  #account .account-form input,
+  #account .account-form select {
+    min-height: 48px;
+    font-size: 16px;
+  }
+  #account .account-save,
+  #account .account-session .btn {
+    min-height: 50px;
+    font-size: 1rem;
+  }
   #anagrafica > .section-tabs {
     margin: 0;
     width: 100%;
@@ -8267,22 +8427,27 @@ body.anag-sheet-open { overflow: hidden; }
 
       <!-- Account (profilo personale) -->
       <section id="account" class="section">
-        <div class="panel account-panel" style="max-width:480px">
-          <div class="panel-head">
-            <h3>Il tuo account</h3>
-            <p id="account-role-label">Nome, email e password di accesso</p>
+        <div class="account-page">
+          <div class="account-identity" aria-live="polite">
+            <div class="account-avatar" id="account-avatar" aria-hidden="true">—</div>
+            <div class="account-identity-text">
+              <p class="account-identity-name" id="account-display-name">—</p>
+              <p class="account-identity-meta" id="account-role-label">Profilo</p>
+            </div>
           </div>
-          <div class="panel-body">
-            <form id="accountForm">
+
+          <form id="accountForm" class="account-form">
+            <section class="account-card">
+              <h3 class="account-card-title">Profilo</h3>
               <div class="form-group">
                 <label for="account-nome">Nome e cognome</label>
-                <input type="text" id="account-nome" required placeholder="Mario Rossi" autocomplete="name">
+                <input type="text" id="account-nome" required placeholder="Mario Rossi" autocomplete="name" enterkeyhint="next">
               </div>
               <div class="form-group">
-                <label for="account-email">Email (login)</label>
-                <input type="email" id="account-email" required placeholder="mario@parrocchia.it" autocomplete="email">
+                <label for="account-email">Email di accesso</label>
+                <input type="email" id="account-email" required placeholder="mario@parrocchia.it" autocomplete="email" enterkeyhint="next" inputmode="email">
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin-bottom:0">
                 <label for="account-parrocchia">Parrocchia di riferimento</label>
                 <select id="account-parrocchia">
                   <option value="">Entrambe (Vanzago e Mantegazza)</option>
@@ -8290,22 +8455,32 @@ body.anag-sheet-open { overflow: hidden; }
                   <option value="mantegazza">Mantegazza</option>
                 </select>
               </div>
+              <p class="form-hint account-hint" id="account-email-pending" hidden role="status"></p>
+            </section>
+
+            <section class="account-card" id="account-password-section">
+              <h3 class="account-card-title">Password</h3>
+              <p class="account-card-desc">Lascia vuoto se non vuoi cambiarla</p>
               <div class="form-group" id="account-password-wrap">
-                <label for="account-password">Nuova password (opzionale)</label>
-                <input type="password" id="account-password" minlength="6" autocomplete="new-password" placeholder="Lascia vuoto per non cambiare">
+                <label for="account-password">Nuova password</label>
+                <input type="password" id="account-password" minlength="6" autocomplete="new-password" placeholder="Almeno 6 caratteri" enterkeyhint="next">
               </div>
-              <div class="form-group" id="account-password2-wrap">
+              <div class="form-group" id="account-password2-wrap" style="margin-bottom:0">
                 <label for="account-password2">Conferma password</label>
-                <input type="password" id="account-password2" minlength="6" autocomplete="new-password" placeholder="Ripeti la nuova password">
+                <input type="password" id="account-password2" minlength="6" autocomplete="new-password" placeholder="Ripeti la nuova password" enterkeyhint="done">
               </div>
-              <p class="form-hint" style="margin:0 0 12px;font-size:0.85rem;color:var(--muted)">
-                Se cambi email riceverai un link di conferma. Lascia vuota la password per non modificarla.
-              </p>
-              <p class="form-hint" id="account-email-pending" style="display:none;margin:0 0 12px;font-size:0.85rem;padding:10px 12px;border-radius:var(--radius-sm);background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--ink)" role="status"></p>
-              <button type="submit" class="btn btn-primary btn-full" id="btn-save-account">Salva profilo</button>
-            </form>
-            <button type="button" class="btn btn-secondary btn-full" style="margin-top:12px" onclick="logout()">Esci dall’app</button>
-          </div>
+            </section>
+
+            <p class="form-hint account-hint">Se cambi email riceverai un link di conferma.</p>
+
+            <button type="submit" class="btn btn-primary btn-full account-save" id="btn-save-account">Salva modifiche</button>
+          </form>
+
+          <section class="account-card account-session">
+            <h3 class="account-card-title">Sessione</h3>
+            <p class="account-card-desc">Esci da questo dispositivo. Potrai accedere di nuovo con email e password.</p>
+            <button type="button" class="btn btn-danger btn-full" onclick="logout()">Esci dall’app</button>
+          </section>
         </div>
       </section>
 
@@ -8836,34 +9011,51 @@ function openMyProfile() {
   openAccountPage();
 }
 
+function accountInitials(nome) {
+  const parts = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function populateAccountForm() {
   if (!currentUser) return;
   const ruolo = currentUser.ruolo === 'prete' ? 'Don' : 'Cerimoniere';
+  const roleBits = [ruolo];
+  if (currentUser.admin) roleBits.push('Admin');
+  const email = (currentUser.email || '').trim();
+  if (email) roleBits.push(email);
   const roleEl = document.getElementById('account-role-label');
-  if (roleEl) {
-    roleEl.textContent = currentUser.admin
-      ? `${ruolo} · Admin — nome, email e password`
-      : `${ruolo} — nome, email e password`;
-  }
+  if (roleEl) roleEl.textContent = roleBits.join(' · ');
+
+  const displayName = document.getElementById('account-display-name');
+  if (displayName) displayName.textContent = currentUser.nome || email || 'Il tuo profilo';
+
+  const avatar = document.getElementById('account-avatar');
+  if (avatar) avatar.textContent = accountInitials(currentUser.nome || email);
+
   const nome = document.getElementById('account-nome');
-  const email = document.getElementById('account-email');
+  const emailInput = document.getElementById('account-email');
   const parrocchia = document.getElementById('account-parrocchia');
   const pwd = document.getElementById('account-password');
   const pwd2 = document.getElementById('account-password2');
   if (nome) nome.value = currentUser.nome || '';
-  if (email) email.value = currentUser.email || '';
+  if (emailInput) emailInput.value = currentUser.email || '';
   if (parrocchia) parrocchia.value = currentUser.parrocchia || '';
   if (pwd) pwd.value = '';
   if (pwd2) pwd2.value = '';
   const pending = document.getElementById('account-email-pending');
   if (pending) {
-    pending.style.display = 'none';
+    pending.hidden = true;
     pending.textContent = '';
   }
+  const pwdSection = document.getElementById('account-password-section');
   const pwdWrap = document.getElementById('account-password-wrap');
   const pwd2Wrap = document.getElementById('account-password2-wrap');
-  if (pwdWrap) pwdWrap.style.display = isGAS ? 'none' : '';
-  if (pwd2Wrap) pwd2Wrap.style.display = isGAS ? 'none' : '';
+  const hidePwd = !!isGAS;
+  if (pwdSection) pwdSection.hidden = hidePwd;
+  if (pwdWrap) pwdWrap.style.display = hidePwd ? 'none' : '';
+  if (pwd2Wrap) pwd2Wrap.style.display = hidePwd ? 'none' : '';
 }
 
 async function handleAccountFormSubmit(e) {
@@ -8923,13 +9115,13 @@ async function handleAccountFormSubmit(e) {
 
   const pendingEl = document.getElementById('account-email-pending');
   if (result.needsEmailConfirm && pendingEl) {
-    pendingEl.style.display = '';
+    pendingEl.hidden = false;
     pendingEl.textContent = result.message
       || 'Controlla la nuova email e conferma il link prima di usarla per accedere.';
     showToast('Controlla la nuova email per confermare');
   } else {
     if (pendingEl) {
-      pendingEl.style.display = 'none';
+      pendingEl.hidden = true;
       pendingEl.textContent = '';
     }
     showToast(result.message || (password ? 'Profilo e password aggiornati' : 'Profilo aggiornato'));
