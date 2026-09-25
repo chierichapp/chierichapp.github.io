@@ -5033,7 +5033,7 @@ function personInitials(nome) {
 }
 
 function isAnagMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneShell();
 }
 
 function syncAnagFab() {
@@ -6226,7 +6226,7 @@ function buildGruppoVetrinaCardHtml(g) {
 
 function buildGruppoCardHtml(g) {
   const members = getChierichettiInGruppo(g.id);
-  const mobile = window.matchMedia('(max-width: 768px)').matches;
+  const mobile = window.matchMedia('(max-width: 1024px)').matches;
   const servizioMeta = formatGruppoServizioMeta(g.id, { compact: mobile });
   const nCer = members.filter(isAppelloCerimoniere).length;
   const canManage = isCurrentUserAdmin();
@@ -6510,7 +6510,7 @@ function renderUnassignedPanel(unassigned, gruppi) {
   const gruppoSelect = document.getElementById('unassigned-gruppo-select');
   const titleEl = document.querySelector('#gruppi-unassigned-wrap .config-section-title');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
-  const mobile = window.matchMedia('(max-width: 768px)').matches;
+  const mobile = window.matchMedia('(max-width: 1024px)').matches;
   const canManage = isCurrentUserAdmin();
 
   if (!allChi.length) {
@@ -7202,7 +7202,7 @@ function selectMessaDay(dateStr, scrollIntoView) {
 }
 
 function isMesseMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneShell();
 }
 
 function syncMesseFab() {
@@ -7256,7 +7256,7 @@ function openMesseExtraSheet() {
 }
 
 function isGruppiMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneShell();
 }
 
 function syncGruppiFab() {
@@ -7757,7 +7757,7 @@ function selectCalDay(dateStr) {
   calState.selectedDate = dateStr;
   renderCalMonth();
   renderDayDetail(dateStr);
-  if (window.matchMedia('(max-width: 768px)').matches) {
+  if (window.matchMedia('(max-width: 1024px)').matches) {
     document.querySelector('#calendario .cal-day-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }

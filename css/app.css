@@ -2503,7 +2503,7 @@ body.anag-sheet-open { overflow: hidden; }
   min-height: 44px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   #messa-nota-modal .modal-actions {
     flex-direction: column-reverse;
   }
@@ -5282,7 +5282,7 @@ body.anag-sheet-open { overflow: hidden; }
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .menu-toggle { display: none; }
   .topbar-brand { width: 40px; height: 40px; border-radius: 11px; }
   .mobile-more-sheet {
@@ -7441,7 +7441,7 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 /* ── Desktop UX (allinea densità/stile alle pagine mobile) ─ */
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
   :root {
     --sticky-below-topbar: calc(84px + env(safe-area-inset-top, 0px));
   }
