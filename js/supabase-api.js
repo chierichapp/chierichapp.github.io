@@ -253,6 +253,7 @@
         await sb.auth.signOut();
         return { success: false, message: status.message || 'Non autorizzato' };
       }
+      void registraAccessoLog({ metodo: 'password', user: status.user });
       return { success: true, token: data.session.access_token, user: status.user };
     } catch (err) {
       console.error('Login post-auth failed:', err);
@@ -368,6 +369,7 @@
     if (!status.authenticated) {
       return { success: false, message: status.message || 'Account creato ma non autenticato' };
     }
+    void registraAccessoLog({ metodo: 'bootstrap', user: status.user });
     return { success: true, token: session.access_token, user: status.user };
   }
 
@@ -885,6 +887,54 @@
     return { success: true };
   }
 
+  async function registraAccessoLog({ metodo = 'password', user } = {}) {
+    const sb = requireClient();
+    const u = user || null;
+    const ua = typeof navigator !== 'undefined'
+      ? String(navigator.userAgent || '').slice(0, 280)
+      : '';
+    const metodoSafe = ['password', 'bootstrap', 'google', 'altro'].includes(metodo)
+      ? metodo
+      : 'altro';
+    const { error } = await sb.from('accessi_log').insert({
+      cerimoniere_uuid: u?.uuid || null,
+      nome: String(u?.nome || '').trim(),
+      email: String(u?.email || '').trim().toLowerCase(),
+      metodo: metodoSafe,
+      user_agent: ua
+    });
+    if (error) {
+      console.warn('[ChierichApp] registraAccessoLog:', error.message);
+      return { success: false, message: error.message };
+    }
+    return { success: true };
+  }
+
+  async function getAccessiLog({ limit = 150 } = {}) {
+    const sb = requireClient();
+    const me = await getCurrentCerimoniere();
+    if (!me?.admin) {
+      return { success: false, message: 'Solo l\'admin può vedere il log accessi', items: [] };
+    }
+    const lim = Math.min(Math.max(Number(limit) || 150, 1), 500);
+    const { data, error } = await sb
+      .from('accessi_log')
+      .select('id, at, cerimoniere_uuid, nome, email, metodo, user_agent')
+      .order('at', { ascending: false })
+      .limit(lim);
+    if (error) return { success: false, message: error.message, items: [] };
+    const items = (data || []).map(row => ({
+      id: row.id,
+      at: row.at,
+      cerimoniereUuid: row.cerimoniere_uuid || '',
+      nome: row.nome || '',
+      email: row.email || '',
+      metodo: row.metodo || 'password',
+      userAgent: row.user_agent || ''
+    }));
+    return { success: true, items };
+  }
+
   global.ChierichSupabase = {
     getAuthStatus,
     login,
@@ -910,6 +960,8 @@
     aggiornaIlMioProfilo,
     eliminaCerimoniere,
     getCalendarioLiturgico,
-    salvaCalendarioLiturgico
+    salvaCalendarioLiturgico,
+    registraAccessoLog,
+    getAccessiLog
   };
 })(typeof window !== 'undefined' ? window : globalThis);

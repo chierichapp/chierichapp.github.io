@@ -12,7 +12,8 @@ const PAGE_META = {
   messe:      { title: 'Messe',      subtitle: 'Agenda celebrazioni e indicazioni del don' },
   turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
   gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e accessi all’app' },
+  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
+  accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
   calendario: { title: 'Liturgia',   subtitle: 'Calendario ambrosiano del giorno' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -215,10 +216,10 @@ function setAuthMode(mode, extra = {}) {
   const hint = document.getElementById('auth-bootstrap-hint');
   if (isBootstrap && isGAS) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don da Anagrafica → Accessi.';
+    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
   } else if (isBootstrap) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don da Anagrafica → Accessi.';
+    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
   } else if (isForgot) {
     hint.style.display = '';
     hint.textContent = 'Inserisci l\'email dell\'account: ti invieremo un link per scegliere una nuova password.';
@@ -544,11 +545,112 @@ function updateSidebarUser() {
   syncCerimonieriAdminUi();
   syncChierichettiAdminUi();
   syncGruppiAdminUi();
+  syncAdminOnlyNav();
   const label = currentUser ? (currentUser.nome || currentUser.email || '—') : '—';
   const nameEl = document.getElementById('sidebar-user-name');
   if (nameEl) nameEl.textContent = label;
   const moreName = document.getElementById('mobile-more-user-name');
   if (moreName) moreName.textContent = label;
+}
+
+function syncAdminOnlyNav() {
+  const canAdmin = isCurrentUserAdmin();
+  document.querySelectorAll('.nav-admin-only').forEach(el => {
+    el.hidden = !canAdmin;
+  });
+  if (!canAdmin && document.getElementById('accessi')?.classList.contains('active')) {
+    void showSection('dashboard');
+  }
+}
+
+let accessiLogCache = null;
+
+function formatAccessoWhen(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return `Oggi · ${time}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `Ieri · ${time}`;
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) + ` · ${time}`;
+}
+
+function accessiMetodoLabel(metodo) {
+  if (metodo === 'bootstrap') return 'Primo avvio';
+  if (metodo === 'google') return 'Google';
+  if (metodo === 'password') return 'Email / password';
+  return 'Altro';
+}
+
+async function renderAccessiLog(force = false) {
+  const listEl = document.getElementById('accessi-list');
+  const summaryEl = document.getElementById('accessi-summary');
+  if (!listEl) return;
+  if (!isCurrentUserAdmin()) {
+    listEl.innerHTML = '<p class="empty-state">Solo l\'admin può vedere questo log.</p>';
+    if (summaryEl) summaryEl.textContent = '';
+    return;
+  }
+
+  if (force || !accessiLogCache) {
+    listEl.innerHTML = '<p class="liturgy-meta">Caricamento…</p>';
+    if (!isSupabase) {
+      accessiLogCache = [];
+      listEl.innerHTML = '<p class="empty-state">Log accessi disponibile con Supabase. Applica la migration 014_accessi_log.sql.</p>';
+      if (summaryEl) summaryEl.textContent = '';
+      return;
+    }
+    try {
+      const res = await window.ChierichSupabase.getAccessiLog({ limit: 200 });
+      if (!res.success) {
+        accessiLogCache = [];
+        listEl.innerHTML = `<p class="empty-state">${esc(res.message || 'Impossibile caricare il log')}</p>`;
+        if (summaryEl) summaryEl.textContent = '';
+        return;
+      }
+      accessiLogCache = res.items || [];
+    } catch (e) {
+      accessiLogCache = [];
+      listEl.innerHTML = `<p class="empty-state">${esc(e.message || 'Errore di rete')}</p>`;
+      if (summaryEl) summaryEl.textContent = '';
+      return;
+    }
+  }
+
+  const q = (document.getElementById('accessi-search')?.value || '').trim().toLowerCase();
+  const items = !q
+    ? accessiLogCache
+    : accessiLogCache.filter(row =>
+      (row.nome || '').toLowerCase().includes(q) ||
+      (row.email || '').toLowerCase().includes(q)
+    );
+
+  if (summaryEl) {
+    summaryEl.textContent = items.length
+      ? `${items.length} accessi mostrati${q ? ' (filtro attivo)' : ''}`
+      : (q ? 'Nessun risultato per la ricerca' : 'Nessun accesso registrato ancora');
+  }
+
+  if (!items.length) {
+    listEl.innerHTML = q
+      ? '<p class="empty-state">Nessun accesso corrisponde alla ricerca.</p>'
+      : '<p class="empty-state">Ancora nessun login registrato. Compariranno al prossimo accesso.</p>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(row => `
+    <article class="accessi-item">
+      <div class="accessi-item-main">
+        <p class="accessi-item-name">${esc(row.nome || '—')}</p>
+        <p class="accessi-item-meta">${esc(row.email || 'senza email')} · ${esc(accessiMetodoLabel(row.metodo))}</p>
+      </div>
+      <time class="accessi-item-when" datetime="${esc(row.at || '')}">${esc(formatAccessoWhen(row.at))}</time>
+    </article>
+  `).join('');
 }
 
 function showAuthError(msg) {
@@ -1337,6 +1439,11 @@ async function showSection(sectionId) {
     if (!ok) return;
   }
 
+  if (sectionId === 'accessi' && !isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può vedere il log accessi');
+    return;
+  }
+
   const next = document.getElementById(sectionId);
   if (!next) return;
 
@@ -1400,6 +1507,9 @@ async function showSection(sectionId) {
       renderCalMonth();
       ensureCalDaySelected();
     }
+  }
+  else if (sectionId === 'accessi') {
+    void renderAccessiLog(true);
   }
   else if (sectionId === 'account') {
     populateAccountForm();
