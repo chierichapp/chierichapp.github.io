@@ -1552,8 +1552,121 @@ function isLinkedCerimoniereAccount(chi) {
   return cerimonieriAccounts.some(a => (a.email || '').trim().toLowerCase() === email);
 }
 
+/** Account cerimoniere/Don senza scheda chierichetto collegata (assegnabile ai gruppi da solo). */
+function isCerimoniereAccountStandalone(a) {
+  return !!(a && a.uuid && !a.chierichettoUuid);
+}
+
+function asCerimoniereGruppoPersona(a) {
+  if (!a) return null;
+  return {
+    uuid: a.uuid,
+    nome: a.nome,
+    email: a.email || '',
+    parrocchia: a.parrocchia || '',
+    gruppo: a.gruppo || '',
+    attivo: a.attivo !== false,
+    ruolo: a.ruolo === 'prete' ? 'prete' : 'cerimoniere',
+    annoNascita: '',
+    telefono: '',
+    telefono2: '',
+    _source: 'cerimoniere',
+    cerimoniereTurno: false,
+    promosso: false
+  };
+}
+
+function getCerimonieriStandaloneForGruppi() {
+  return (cerimonieriAccounts || [])
+    .filter(a => isPersonaAttiva(a) && isCerimoniereAccountStandalone(a))
+    .map(asCerimoniereGruppoPersona);
+}
+
+/** Chierichetti attivi + cerimonieri/Don dell’anagrafica accessi (senza doppioni collegati). */
+function getPersoneGruppiPool() {
+  return [
+    ...state.chierichetti.filter(isChierichettoAttivo),
+    ...getCerimonieriStandaloneForGruppi()
+  ];
+}
+
+function findGruppoPersona(uuid) {
+  if (!uuid) return null;
+  const chi = state.chierichetti.find(c => c.uuid === uuid);
+  if (chi) return chi;
+  const acc = (cerimonieriAccounts || []).find(a => a.uuid === uuid && isCerimoniereAccountStandalone(a));
+  return acc ? asCerimoniereGruppoPersona(acc) : null;
+}
+
+function isCerimoniereAccountPersona(p) {
+  return !!(p && (p._source === 'cerimoniere' || (
+    (cerimonieriAccounts || []).some(a => a.uuid === p.uuid && isCerimoniereAccountStandalone(a))
+  )));
+}
+
+function setPersonaGruppoLocal(uuid, gruppoId) {
+  const chi = state.chierichetti.find(c => c.uuid === uuid);
+  if (chi) {
+    chi.gruppo = gruppoId || '';
+    return chi;
+  }
+  const acc = (cerimonieriAccounts || []).find(a => a.uuid === uuid);
+  if (acc) {
+    acc.gruppo = gruppoId || '';
+    return asCerimoniereGruppoPersona(acc);
+  }
+  return null;
+}
+
+async function persistPersonaGruppo(uuid, gruppoId) {
+  const persona = findGruppoPersona(uuid);
+  if (!persona) return false;
+
+  if (isCerimoniereAccountPersona(persona)) {
+    const prev = (cerimonieriAccounts.find(a => a.uuid === uuid)?.gruppo) || '';
+    setPersonaGruppoLocal(uuid, gruppoId);
+    try {
+      let result;
+      if (isGAS) result = await gasRun('aggiornaCerimoniere', uuid, { gruppo: gruppoId || '' });
+      else if (isSupabase) result = await window.ChierichSupabase.aggiornaCerimoniere(uuid, { gruppo: gruppoId || '' });
+      else result = { success: true };
+      if (result && result.success === false) {
+        setPersonaGruppoLocal(uuid, prev);
+        showToast(result.message || 'Salvataggio gruppo non riuscito');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      setPersonaGruppoLocal(uuid, prev);
+      showToast(e.message || 'Salvataggio gruppo non riuscito');
+      return false;
+    }
+  }
+
+  const chi = state.chierichetti.find(c => c.uuid === uuid);
+  if (!chi) return false;
+  const prev = chi.gruppo || '';
+  chi.gruppo = gruppoId || '';
+  const ok = await persistPersona({
+    nome: chi.nome,
+    email: chi.email || '',
+    telefono: chi.telefono || '',
+    telefono2: chi.telefono2 || '',
+    telefonoChi: chi.telefonoChi || '',
+    telefono2Chi: chi.telefono2Chi || '',
+    ruolo: chi.ruolo,
+    annoNascita: chi.annoNascita,
+    parrocchia: chi.parrocchia,
+    cerimoniereTurno: false,
+    gruppo: gruppoId || ''
+  }, chi.uuid);
+  if (!ok) chi.gruppo = prev;
+  return ok;
+}
+
 /** Cerimoniere di turno o con account login — tab Cerimonieri, escluso da Vanzago/Mantegazza */
 function isAppelloCerimoniere(c) {
+  if (c?._source === 'cerimoniere') return true;
   return isCerimoniereTurno(c) || isLinkedCerimoniereAccount(c);
 }
 
@@ -1597,10 +1710,14 @@ function getCurrentUserChierichetto() {
     if (linked) return linked;
   }
   const email = (currentUser.email || '').trim().toLowerCase();
-  if (!email) return null;
-  return state.chierichetti.find(c =>
-    isChierichettoPersona(c) && (c.email || '').trim().toLowerCase() === email
-  ) || null;
+  if (email) {
+    const byEmail = state.chierichetti.find(c =>
+      isChierichettoPersona(c) && (c.email || '').trim().toLowerCase() === email
+    );
+    if (byEmail) return byEmail;
+  }
+  const acc = (cerimonieriAccounts || []).find(a => a.uuid === currentUser.uuid && isCerimoniereAccountStandalone(a));
+  return acc ? asCerimoniereGruppoPersona(acc) : null;
 }
 
 function excludeCurrentUserFromAppelloList(list) {
@@ -1756,7 +1873,7 @@ function getAppelloFilteredList() {
   const dateStr = getAppelloDate();
   const myGruppo = getCurrentUserChierichetto()?.gruppo || '';
 
-  let list = state.chierichetti.filter(c => isChierichettoAttivo(c));
+  let list = getPersoneGruppiPool();
   list = filterAppelloChierichetti(list);
   list.sort((a, b) => sortAppelloChierichetti(a, b, myGruppo));
   return { list, myGruppo, dateStr };
@@ -1800,6 +1917,7 @@ function chierichettoCanServeSlot(chi, slotOrSede) {
   const sede = typeof slotOrSede === 'string' ? slotOrSede : slotOrSede?.sede;
   const req = getParrocchiaForSede(sede);
   if (!req) return true;
+  if (!chi.parrocchia) return true; // entrambe / non impostata
   return chi.parrocchia === req;
 }
 
@@ -2534,8 +2652,8 @@ function sortChierichettiForMessaSlot(a, b, slotGruppo) {
 
 function getExpectedForMessaSlot(slot) {
   if (!slot.gruppo) return [];
-  return state.chierichetti.filter(c =>
-    isChierichettoAttivo(c) && c.gruppo === slot.gruppo && chierichettoCanServeSlot(c, slot.sede)
+  return getPersoneGruppiPool().filter(c =>
+    c.gruppo === slot.gruppo && chierichettoCanServeSlot(c, slot.sede)
   );
 }
 
@@ -2543,16 +2661,16 @@ function getExpectedForMessaSlot(slot) {
 function getChierichettiForAppelloSlot(slot) {
   if (!slot) return [];
   if (isMessaSenzaGruppoServizio(slot)) {
-    return state.chierichetti
-      .filter(c => isChierichettoAttivo(c))
+    return getPersoneGruppiPool()
+      .slice()
       .sort((a, b) => sortChierichettiForMessaSlot(a, b, null));
   }
   return getChierichettiForMessaSlot(slot);
 }
 
 function getChierichettiForMessaSlot(slot) {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && chierichettoCanServeSlot(c, slot.sede))
+  return getPersoneGruppiPool()
+    .filter(c => chierichettoCanServeSlot(c, slot.sede))
     .sort((a, b) => sortChierichettiForMessaSlot(a, b, slot.gruppo));
 }
 
@@ -2563,7 +2681,7 @@ function removePresenzaRecord(uuid) {
 }
 
 function upsertPresenzaServizio(chierichettoUuid, slot, served) {
-  const chi = state.chierichetti.find(c => c.uuid === chierichettoUuid);
+  const chi = findGruppoPersona(chierichettoUuid);
   if (!chi) return Promise.resolve(true);
   const removed = state.presenze.filter(p =>
     p.data === slot.data && p.ora === slot.ora && p.sede === slot.sede &&
@@ -2600,7 +2718,7 @@ function toggleServizioMessa(chierichettoUuid, slotKey, served) {
 }
 
 function upsertPresenza(chierichettoUuid, dateStr, stato, motivo) {
-  const chi = state.chierichetti.find(c => c.uuid === chierichettoUuid);
+  const chi = findGruppoPersona(chierichettoUuid);
   if (!chi) return;
   state.presenze = state.presenze.filter(p => !(p.data === dateStr && isPresenzaGiorno(p) && (
     p.chierichettoUuid === chierichettoUuid ||
@@ -2756,6 +2874,9 @@ function syncGruppiToTurniSlots() {
     const removedIds = new Set(removed.map(g => g.id));
     state.chierichetti.forEach(c => {
       if (c.gruppo && removedIds.has(c.gruppo)) c.gruppo = '';
+    });
+    (cerimonieriAccounts || []).forEach(a => {
+      if (a.gruppo && removedIds.has(a.gruppo)) a.gruppo = '';
     });
   }
   gruppi.forEach((g, i) => { g.ordine = i; });
@@ -3141,11 +3262,10 @@ function switchGruppiTab(tab) {
 
 function updateGruppiPanelMeta() {
   syncGruppiToTurniSlots();
-  const chierichetti = state.chierichetti.filter(isChierichettoAttivo);
-  const nonAssegnati = chierichetti.filter(c => !c.gruppo).length;
+  const pool = getPersoneGruppiPool();
+  const nonAssegnati = pool.filter(c => !c.gruppo).length;
   const wrap = document.getElementById('gruppi-unassigned-wrap');
-  const allChi = state.chierichetti.filter(isChierichettoAttivo);
-  if (wrap) wrap.style.display = (nonAssegnati > 0 || !allChi.length) ? '' : 'none';
+  if (wrap) wrap.style.display = (nonAssegnati > 0 || !pool.length) ? '' : 'none';
   const countEl = document.getElementById('gruppi-attivi-count');
   if (countEl) countEl.textContent = String(getGruppiAttivi().length);
 }
@@ -3443,7 +3563,7 @@ function isChierichettoAttivo(p) {
 
 function countChierichettiInGruppo(gruppo) {
   if (!gruppo) return 0;
-  return state.chierichetti.filter(c => isChierichettoAttivo(c) && c.gruppo === gruppo).length;
+  return getPersoneGruppiPool().filter(c => c.gruppo === gruppo).length;
 }
 
 function getMesseOrdinarieSlots(domenicaDateStr) {
@@ -4873,7 +4993,7 @@ function getAppelloStatsForSlot(dateStr, slot) {
   const gruppi = getGruppiServizioForDate(dateStr);
   const { list } = getAppelloFilteredList();
   const expected = gruppi.length
-    ? state.chierichetti.filter(c => isChierichettoAttivo(c) && gruppi.includes(c.gruppo))
+    ? getPersoneGruppiPool().filter(c => gruppi.includes(c.gruppo))
     : list;
   const diServizio = expected.length;
   const presenti = expected.filter(c => isDraftPresente(c.uuid, dateStr, null)).length;
@@ -5990,6 +6110,13 @@ function editChierichettoFromDetail(uuid) {
 }
 
 async function openAnagPersonDetailFromGruppi(uuid) {
+  const acc = (cerimonieriAccounts || []).find(a => a.uuid === uuid && isCerimoniereAccountStandalone(a));
+  if (acc) {
+    await showSection('anagrafica');
+    switchAnagraficaTab('cerimoniere', true);
+    editCerimoniere(uuid);
+    return;
+  }
   await showSection('anagrafica');
   switchAnagraficaTab('chierichetto', true);
   openAnagPersonDetail(uuid);
@@ -6130,7 +6257,9 @@ async function loadCerimonieriAccounts(force) {
     }
     cerimonieriAccounts = (cerimonieriAccounts || []).map(c => ({
       ...c,
-      ruolo: c.ruolo === 'prete' ? 'prete' : 'cerimoniere'
+      ruolo: c.ruolo === 'prete' ? 'prete' : 'cerimoniere',
+      gruppo: c.gruppo || '',
+      chierichettoUuid: c.chierichettoUuid || c.chierichetto_uuid || ''
     }));
     cerimonieriHydrated = true;
     if (syncCurrentUserAdminFlag()) updateSidebarUser();
@@ -6233,6 +6362,9 @@ function renderCerimonieri() {
     if (!attivo) chips.push('<span class="anag-chip">Ex</span>');
     if (!hasCerimoniereLogin(c)) chips.push('<span class="anag-chip">Senza login</span>');
     if (!isPrete && linked) chips.push(`<span class="anag-chip">ex chierichetto → ${esc(linked.nome)}</span>`);
+    const gruppoEff = linked?.gruppo || c.gruppo || '';
+    if (gruppoEff) chips.push(`<span class="anag-chip ok">${esc(getGruppoLabel(gruppoEff))}</span>`);
+    else if (attivo && isCerimoniereAccountStandalone(c)) chips.push('<span class="anag-chip warn">Senza gruppo</span>');
     const metaParts = mobile
       ? [accountRuoloLabel(c), hasCerimoniereLogin(c) ? c.email : 'Senza login'].filter(Boolean)
       : [accountRuoloLabel(c), parrocchia];
@@ -6240,6 +6372,7 @@ function renderCerimonieri() {
     if (isSelf) metaParts.push('Tu');
     if (!attivo) metaParts.push('Ex');
     if (!hasCerimoniereLogin(c) && !mobile) metaParts.push('Senza login');
+    if (gruppoEff && !mobile) metaParts.push(getGruppoLabel(gruppoEff));
     const metaLine = metaParts.join(' · ');
     const avatarClass = !attivo ? 'is-ex' : (isPrete ? 'is-cer' : '');
     const canRowEdit = canManage || isSelf;
@@ -7306,20 +7439,20 @@ function chiudiFinestraRotazione() {
 }
 
 function getChierichettiInGruppo(gruppoId) {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && c.gruppo === gruppoId)
+  return getPersoneGruppiPool()
+    .filter(c => c.gruppo === gruppoId)
     .sort(sortChierichettiInGruppo);
 }
 
 function getChierichettiSenzaGruppo() {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && !c.gruppo)
+  return getPersoneGruppiPool()
+    .filter(c => !c.gruppo)
     .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 }
 
 function getChierichettiAssegnabiliA(gruppoId) {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && c.gruppo !== gruppoId && chierichettoCanJoinGruppo(c, gruppoId))
+  return getPersoneGruppiPool()
+    .filter(c => c.gruppo !== gruppoId && chierichettoCanJoinGruppo(c, gruppoId))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 }
 
@@ -7345,9 +7478,9 @@ function buildGruppoPersonaSelectOptions(assignable) {
 }
 
 function renderGruppoAddRow(gruppoId) {
-  const allChi = state.chierichetti.filter(isChierichettoAttivo);
-  if (!allChi.length) {
-    return `<p class="liturgy-meta" style="margin:0">Nessuna persona attiva in anagrafica — <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('anagrafica')">registrane una</button></p>`;
+  const allPersone = getPersoneGruppiPool();
+  if (!allPersone.length) {
+    return `<p class="liturgy-meta" style="margin:0">Nessuna persona attiva — <button type="button" class="btn btn-ghost-light" style="padding:0;font-size:inherit" onclick="showSection('anagrafica')">registrane una in Anagrafica</button></p>`;
   }
   const assignable = getChierichettiAssegnabiliA(gruppoId);
   if (!assignable.length) {
@@ -7369,11 +7502,11 @@ function renderUnassignedPanel(unassigned) {
   const hintEl = document.getElementById('gruppi-unassigned-hint');
   const chipsEl = document.getElementById('gruppi-non-assegnati');
   const titleEl = document.querySelector('#gruppi-unassigned-wrap .config-section-title');
-  const allChi = state.chierichetti.filter(isChierichettoAttivo);
+  const allPersone = getPersoneGruppiPool();
 
-  if (!allChi.length) {
+  if (!allPersone.length) {
     if (titleEl) titleEl.textContent = 'Senza gruppo';
-    if (hintEl) hintEl.textContent = 'Prima registra i chierichetti in Anagrafica, poi torna qui per assegnarli.';
+    if (hintEl) hintEl.textContent = 'Prima registra chierichetti o cerimonieri in Anagrafica, poi torna qui per assegnarli.';
     if (chipsEl) chipsEl.innerHTML = '';
     return;
   }
@@ -7398,7 +7531,7 @@ function renderUnassignedPanel(unassigned) {
     return `<button type="button" class="gruppo-member-chip is-readonly is-link${cer}" onclick="openAnagPersonDetailFromGruppi('${esc(c.uuid)}')">${label}</button>`;
   };
 
-  const byParrocchia = (id) => unassigned.filter(c => c.parrocchia === id);
+  const byParrocchia = (id) => unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === id);
   const sections = ['vanzago', 'mantegazza'].map(pid => {
     const list = byParrocchia(pid);
     if (!list.length) return '';
@@ -7412,7 +7545,17 @@ function renderUnassignedPanel(unassigned) {
     `;
   }).join('');
 
-  const senzaParrocchia = unassigned.filter(c => !c.parrocchia);
+  const cerList = unassigned.filter(isAppelloCerimoniere);
+  const cerSection = cerList.length ? `
+    <div class="gruppi-parrocchia-section">
+      <p class="gruppi-parrocchia-title">Cerimonieri</p>
+      <div class="gruppo-member-chips">
+        ${cerList.map(chipHtml).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const senzaParrocchia = unassigned.filter(c => !isAppelloCerimoniere(c) && !c.parrocchia);
   const extraSection = senzaParrocchia.length ? `
     <div class="gruppi-parrocchia-section">
       <p class="gruppi-parrocchia-title">Parrocchia da impostare</p>
@@ -7422,36 +7565,31 @@ function renderUnassignedPanel(unassigned) {
     </div>
   ` : '';
 
-  if (chipsEl) chipsEl.innerHTML = sections + extraSection;
+  if (chipsEl) chipsEl.innerHTML = sections + cerSection + extraSection;
 }
 
 async function assignChierichettoToGruppo(uuid, gruppoId) {
   if (!requireAdminAction('Solo l\'admin può assegnare i gruppi')) return;
-  const chi = state.chierichetti.find(c => c.uuid === uuid);
-  if (!chi || !isChierichettoPersona(chi)) return;
+  const chi = findGruppoPersona(uuid);
+  if (!chi) return;
   if (!getGruppi().some(g => g.id === gruppoId)) {
     showToast('Gruppo non valido');
     return;
   }
   if (!chierichettoCanJoinGruppo(chi, gruppoId)) {
-    showToast(`${chi.nome} (${getParrocchiaLabel(chi.parrocchia)}) non può servire in nessuna messa del turno`);
+    showToast(`${chi.nome} non può servire in nessuna messa del turno`);
     return;
   }
-  const prevGruppo = chi.gruppo;
-  chi.gruppo = gruppoId;
-  saveData();
+  const prevGruppo = chi.gruppo || '';
+  const ok = await persistPersonaGruppo(uuid, gruppoId);
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
-  if (!ok) {
-    chi.gruppo = prevGruppo;
-    saveData();
-    renderGruppiVetrinaList();
-    renderGruppiGestioneList();
-    return;
-  }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
+  if (document.getElementById('anagrafica').classList.contains('active')) {
+    renderChierichetti();
+    renderCerimonieri();
+  }
+  if (!ok) return;
   if (prevGruppo && prevGruppo !== gruppoId) {
     showToast(`${chi.nome} spostato da ${getGruppoLabel(prevGruppo)} a ${getGruppoLabel(gruppoId)}`);
   } else {
@@ -7461,23 +7599,17 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
 
 async function unassignChierichettoFromGruppo(uuid) {
   if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
-  const chi = state.chierichetti.find(c => c.uuid === uuid);
+  const chi = findGruppoPersona(uuid);
   if (!chi) return;
-  const prevGruppo = chi.gruppo;
-  chi.gruppo = '';
-  saveData();
+  const ok = await persistPersonaGruppo(uuid, '');
   void persistConfig();
-  const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: '' }, chi.uuid);
-  if (!ok) {
-    chi.gruppo = prevGruppo;
-    saveData();
-    renderGruppiVetrinaList();
-    renderGruppiGestioneList();
-    return;
-  }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
+  if (document.getElementById('anagrafica').classList.contains('active')) {
+    renderChierichetti();
+    renderCerimonieri();
+  }
+  if (!ok) return;
   showToast(`${chi.nome} rimosso dal gruppo`);
 }
 
@@ -7507,14 +7639,14 @@ function getDraftGruppoFor(uuid) {
 }
 
 function getChierichettiInGruppoDraft(gruppoId) {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && getDraftGruppoFor(c.uuid) === gruppoId)
+  return getPersoneGruppiPool()
+    .filter(c => getDraftGruppoFor(c.uuid) === gruppoId)
     .sort(sortChierichettiInGruppo);
 }
 
 function getChierichettiSenzaGruppoDraft() {
-  return state.chierichetti
-    .filter(c => isChierichettoAttivo(c) && !getDraftGruppoFor(c.uuid))
+  return getPersoneGruppiPool()
+    .filter(c => !getDraftGruppoFor(c.uuid))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 }
 
@@ -7534,7 +7666,7 @@ function openGruppiEdit() {
   gruppiEditDraft = {};
   gruppiEditUndoStack = [];
   // Baseline = composizione attuale; bozza = tutti da riassegnare (gruppi vuoti)
-  state.chierichetti.filter(isChierichettoAttivo).forEach(c => {
+  getPersoneGruppiPool().forEach(c => {
     gruppiEditBaseline[c.uuid] = c.gruppo || '';
     gruppiEditDraft[c.uuid] = '';
   });
@@ -7708,7 +7840,7 @@ function applyGruppiEditSelection(forcedGruppoId) {
   let skipped = 0;
   let moved = 0;
   for (const uuid of [...gruppiEditSelected]) {
-    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    const chi = findGruppoPersona(uuid);
     if (!chi) continue;
     if (gruppoId && !chierichettoCanJoinGruppo(chi, gruppoId)) {
       skipped += 1;
@@ -8004,7 +8136,7 @@ async function saveGruppiEditConfig() {
     const next = gruppiEditDraft[uuid] || '';
     const prev = gruppiEditBaseline[uuid] || '';
     if (next === prev) continue;
-    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    const chi = findGruppoPersona(uuid);
     if (!chi) continue;
     if (next && !chierichettoCanJoinGruppo(chi, next)) {
       showToast(`${chi.nome} non può entrare in ${getGruppoLabel(next)}`);
@@ -8017,41 +8149,22 @@ async function saveGruppiEditConfig() {
       daId: prev,
       aId: next
     });
-    toPersist.push({ chi, next, prev });
+    toPersist.push({ uuid, chi, next, prev });
   }
 
   const saveBtn = document.getElementById('btn-salva-gruppi-config');
   if (saveBtn) saveBtn.disabled = true;
 
-  for (const { chi, next, prev } of toPersist) {
-    chi.gruppo = next;
-  }
-  saveData();
-
   let failed = null;
-  for (const { chi, next, prev } of toPersist) {
-    const ok = await persistPersona({
-      nome: chi.nome,
-      email: '',
-      telefono: chi.telefono || '',
-      telefono2: chi.telefono2 || '',
-      telefonoChi: chi.telefonoChi || '',
-      telefono2Chi: chi.telefono2Chi || '',
-      ruolo: chi.ruolo,
-      annoNascita: chi.annoNascita,
-      parrocchia: chi.parrocchia,
-      cerimoniereTurno: false,
-      gruppo: next
-    }, chi.uuid);
+  for (const { uuid, chi, next } of toPersist) {
+    const ok = await persistPersonaGruppo(uuid, next);
     if (!ok) {
-      chi.gruppo = prev;
       failed = chi.nome;
       break;
     }
   }
 
   if (failed) {
-    saveData();
     if (saveBtn) saveBtn.disabled = false;
     renderGruppiEditPanel();
     showToast(`Salvataggio interrotto su ${failed}`);

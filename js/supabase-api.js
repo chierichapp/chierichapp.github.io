@@ -94,6 +94,7 @@
       nome: row.nome,
       email: String(row.email || '').toLowerCase(),
       parrocchia: row.parrocchia || '',
+      gruppo: row.gruppo || '',
       chierichettoUuid: row.chierichetto_uuid || '',
       attivo: row.attivo !== false,
       admin: !!row.is_admin,
@@ -632,6 +633,7 @@
         nome: String(dati.nome || '').trim(),
         email,
         parrocchia: dati.parrocchia || '',
+        gruppo: dati.gruppo || '',
         chierichetto_uuid: dati.chierichettoUuid || null,
         attivo: dati.attivo === false ? false : true,
         is_admin: false,
@@ -656,6 +658,7 @@
       nome: String(dati.nome || '').trim(),
       email: '',
       parrocchia: dati.parrocchia || '',
+      gruppo: dati.gruppo || '',
       chierichetto_uuid: dati.chierichettoUuid || null,
       attivo: dati.attivo === false ? false : true,
       is_admin: false,
@@ -752,6 +755,7 @@
       if (dati.nome) patch.nome = String(dati.nome).trim();
       if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia || '';
       if (dati.chierichettoUuid !== undefined) patch.chierichetto_uuid = dati.chierichettoUuid || null;
+      if (dati.gruppo !== undefined) patch.gruppo = dati.gruppo || '';
       if (dati.attivo !== undefined) patch.attivo = !!dati.attivo;
       if (dati.ruolo !== undefined) patch.ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
       if (Object.keys(patch).length) {
@@ -785,6 +789,7 @@
     }
     if (dati.parrocchia !== undefined) patch.parrocchia = dati.parrocchia || '';
     if (dati.chierichettoUuid !== undefined) patch.chierichetto_uuid = dati.chierichettoUuid || null;
+    if (dati.gruppo !== undefined) patch.gruppo = dati.gruppo || '';
     if (dati.attivo !== undefined) patch.attivo = !!dati.attivo;
     if (dati.ruolo !== undefined) patch.ruolo = dati.ruolo === 'prete' ? 'prete' : 'cerimoniere';
     const { error } = await sb.from('cerimonieri').update(patch).eq('uuid', uuid);
