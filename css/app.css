@@ -7645,11 +7645,14 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .gruppi-gestione-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0 0 16px;
 }
 
 .gruppi-gestione-cta .liturgy-meta {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
 }
 

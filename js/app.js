@@ -67,6 +67,7 @@ let editingMessaDomenicaleId = null;
 let turniTab = 'anteprima';
 let gruppiTab = 'squadre';
 let gruppiEditDraft = null;
+let gruppiEditMode = 'nuovi'; // 'nuovi' | 'aggiorna'
 let gruppiEditBaseline = null;
 let gruppiEditSelected = new Set();
 let gruppiEditUndoStack = [];
@@ -3298,6 +3299,28 @@ function appendGruppoCronologia(tipo, gruppoId, extra = {}) {
   }
 }
 
+/** Aggiorna l’ultima configurazione in cronologia (niente nuovo record). */
+function updateLastGruppoConfigurazioneCronologia(extra = {}) {
+  ensureGruppiConfig();
+  if (!Array.isArray(state.gruppiConfig.cronologia)) {
+    state.gruppiConfig.cronologia = [];
+  }
+  const idx = state.gruppiConfig.cronologia.findIndex(e => e.tipo === 'configurazione');
+  if (idx < 0) {
+    appendGruppoCronologia('configurazione', '', extra);
+    return 'created';
+  }
+  const prev = state.gruppiConfig.cronologia[idx];
+  state.gruppiConfig.cronologia[idx] = {
+    ...prev,
+    ...extra,
+    tipo: 'configurazione',
+    at: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  return 'updated';
+}
+
 function formatGruppoCronologiaWhen(iso) {
   const d = new Date(iso);
   const now = new Date();
@@ -3428,7 +3451,7 @@ function renderGruppiCronologia() {
     entry.tipo === 'rimosso'
   );
   if (!items.length) {
-    container.innerHTML = '<p class="empty-state">Nessuna configurazione salvata — usa Modifica Gruppi e salva</p>';
+    container.innerHTML = '<p class="empty-state">Nessuna configurazione salvata — usa «Nuovi gruppi × nuovi turni» e salva</p>';
     return;
   }
   container.innerHTML = items.map(entry => {
@@ -6019,7 +6042,7 @@ function renderAnagPersonDetail(uuid) {
           </div>
         </li>
       `).join('')}</ol>`
-    : '<p class="liturgy-meta">Nessuna cronologia gruppi ancora — compare dopo i salvataggi in Modifica Gruppi</p>';
+    : '<p class="liturgy-meta">Nessuna cronologia gruppi ancora — compare dopo «Nuovi gruppi × nuovi turni» o «Aggiorna composizione»</p>';
 
   const presenze = getChierichettoPresenzaHistory(uuid);
   const nP = presenze.filter(p => p.stato === 'presente').length;
@@ -6921,7 +6944,7 @@ function buildGruppoCardHtml(g) {
           <p class="config-item-meta">${nCer ? nCer + ' cerim. · ' : ''}${members.length} in squadra</p>
         </div>
         <div class="config-item-actions">
-          ${canManage ? `<button type="button" class="btn btn-ghost btn-icon" title="Rinomina gruppo" onclick="editGruppoSquadra('${esc(g.id)}')">
+          ${canManage ? `<button type="button" class="btn btn-ghost btn-icon" title="Aggiorna composizione" aria-label="Aggiorna composizione" onclick="openGruppiEdit('aggiorna')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>` : ''}
         </div>
@@ -7521,7 +7544,7 @@ function renderUnassignedPanel(unassigned) {
   if (titleEl) titleEl.textContent = `Senza gruppo · ${unassigned.length}`;
   if (hintEl) {
     hintEl.textContent = isCurrentUserAdmin()
-      ? 'Apri Modifica Gruppi per assegnarli.'
+      ? 'Usa «Nuovi gruppi × nuovi turni» o «Aggiorna composizione» per assegnarli.'
       : `${unassigned.length} persone senza gruppo.`;
   }
 
@@ -7659,16 +7682,19 @@ function hasGruppiEditChanges() {
   return false;
 }
 
-function openGruppiEdit() {
+function openGruppiEdit(mode = 'nuovi') {
   if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
   closeGruppiFormSheet();
+  gruppiEditMode = mode === 'aggiorna' ? 'aggiorna' : 'nuovi';
   gruppiEditBaseline = {};
   gruppiEditDraft = {};
   gruppiEditUndoStack = [];
-  // Baseline = composizione attuale; bozza = tutti da riassegnare (gruppi vuoti)
+  // Baseline = composizione attuale
+  // nuovi: bozza vuota (riassegna tutto) · aggiorna: bozza = attuale
   getPersoneGruppiPool().forEach(c => {
-    gruppiEditBaseline[c.uuid] = c.gruppo || '';
-    gruppiEditDraft[c.uuid] = '';
+    const g = c.gruppo || '';
+    gruppiEditBaseline[c.uuid] = g;
+    gruppiEditDraft[c.uuid] = gruppiEditMode === 'aggiorna' ? g : '';
   });
   gruppiEditSelected = new Set();
   document.body.classList.add('gruppi-edit-open');
@@ -7677,9 +7703,26 @@ function openGruppiEdit() {
   const panel = document.getElementById('gruppi-edit-panel');
   if (view) view.hidden = true;
   if (panel) panel.hidden = false;
+  syncGruppiEditPanelChrome();
   renderGruppiEditPanel();
   syncGruppiFab();
   panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function syncGruppiEditPanelChrome() {
+  const title = document.getElementById('gruppi-edit-title');
+  const sub = document.getElementById('gruppi-edit-sub');
+  const saveBtn = document.getElementById('btn-salva-gruppi-config');
+  const isAggiorna = gruppiEditMode === 'aggiorna';
+  if (title) title.textContent = isAggiorna ? 'Aggiorna composizione' : 'Nuovi gruppi × nuovi turni';
+  if (sub) {
+    sub.textContent = isAggiorna
+      ? 'Modifica le squadre attuali: al salvataggio si aggiorna l’ultimo record in cronologia'
+      : 'Parti da squadre vuote: al salvataggio crei una nuova configurazione in cronologia';
+  }
+  if (saveBtn) {
+    saveBtn.textContent = isAggiorna ? 'Aggiorna' : 'Salva nuova configurazione';
+  }
 }
 
 function closeGruppiEdit(force = false) {
@@ -7690,6 +7733,7 @@ function closeGruppiEdit(force = false) {
   gruppiEditBaseline = null;
   gruppiEditSelected = new Set();
   gruppiEditUndoStack = [];
+  gruppiEditMode = 'nuovi';
   const view = document.getElementById('gruppi-gestione-view');
   const panel = document.getElementById('gruppi-edit-panel');
   if (view) view.hidden = false;
@@ -8118,7 +8162,12 @@ function renderGruppiEditPanel() {
   const saveBtn = document.getElementById('btn-salva-gruppi-config');
   if (saveBtn) {
     saveBtn.disabled = nChanges === 0;
-    saveBtn.textContent = nChanges ? `Salva (${nChanges})` : 'Salva configurazione';
+    const isAggiorna = gruppiEditMode === 'aggiorna';
+    if (!nChanges) {
+      saveBtn.textContent = isAggiorna ? 'Aggiorna' : 'Salva nuova configurazione';
+    } else {
+      saveBtn.textContent = isAggiorna ? `Aggiorna (${nChanges})` : `Salva nuova (${nChanges})`;
+    }
   }
 }
 
@@ -8171,14 +8220,24 @@ async function saveGruppiEditConfig() {
     return;
   }
 
-  appendGruppoCronologia('configurazione', '', {
+  const payload = {
     changes,
     summary: summarizeGruppiChanges(changes),
     snapshot: buildGruppiSnapshotFromState()
-  });
-  closeGruppiEdit(true);
-  afterGruppiConfigChange();
-  showToast('Configurazione gruppi salvata');
+  };
+  if (gruppiEditMode === 'aggiorna') {
+    const result = updateLastGruppoConfigurazioneCronologia(payload);
+    closeGruppiEdit(true);
+    afterGruppiConfigChange();
+    showToast(result === 'updated'
+      ? 'Composizione aggiornata (stesso record in cronologia)'
+      : 'Composizione salvata in cronologia');
+  } else {
+    appendGruppoCronologia('configurazione', '', payload);
+    closeGruppiEdit(true);
+    afterGruppiConfigChange();
+    showToast('Nuova configurazione gruppi salvata');
+  }
 }
 
 function addChierichettoToGruppoFromSelect(gruppoId) {
@@ -8232,9 +8291,16 @@ function editGruppoSquadra(id) {
   }
   const nomePrecedente = g.nome;
   g.nome = trimmed;
-  appendGruppoCronologia('rinominato', id, { nomePrecedente, nomeNuovo: trimmed });
+  // Rinomina senza nuovo record: aggiorna solo il nome e, se c’è, lo snapshot corrente
+  const lastCfg = (state.gruppiConfig.cronologia || []).find(e => e.tipo === 'configurazione');
+  if (lastCfg?.snapshot?.gruppi) {
+    const snapG = lastCfg.snapshot.gruppi.find(x => x.id === id);
+    if (snapG) snapG.nome = trimmed;
+    lastCfg.gruppoNome = trimmed;
+    lastCfg.updatedAt = new Date().toISOString();
+  }
   afterGruppiConfigChange();
-  showToast('Squadra rinominata');
+  showToast(nomePrecedente !== trimmed ? 'Squadra rinominata' : 'Nessuna modifica');
 }
 
 function deleteGruppoSquadra() {

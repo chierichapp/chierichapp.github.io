@@ -660,7 +660,8 @@
                   <p>Composizione attuale delle squadre</p>
                 </div>
                 <div class="gruppi-gestione-head-actions" id="gruppi-gestione-head-actions">
-                  <button type="button" class="btn btn-primary" id="btn-modifica-gruppi" onclick="openGruppiEdit()">Modifica Gruppi</button>
+                  <button type="button" class="btn btn-primary" id="btn-modifica-gruppi" onclick="openGruppiEdit('nuovi')">Nuovi gruppi × nuovi turni</button>
+                  <button type="button" class="btn btn-secondary" id="btn-aggiorna-gruppi" onclick="openGruppiEdit('aggiorna')">Aggiorna composizione</button>
                 </div>
               </div>
               <div class="panel-body">
@@ -721,8 +722,9 @@
                 </div>
                 <div class="gruppi-gestione-lists">
                   <div class="gruppi-gestione-cta" id="gruppi-gestione-cta">
-                    <button type="button" class="btn btn-primary btn-full" id="btn-modifica-gruppi-mobile" onclick="openGruppiEdit()">Modifica Gruppi</button>
-                    <p class="liturgy-meta">Assegna più persone e salva una nuova configurazione</p>
+                    <button type="button" class="btn btn-primary btn-full" id="btn-modifica-gruppi-mobile" onclick="openGruppiEdit('nuovi')">Nuovi gruppi × nuovi turni</button>
+                    <button type="button" class="btn btn-secondary btn-full" id="btn-aggiorna-gruppi-mobile" onclick="openGruppiEdit('aggiorna')">Aggiorna composizione</button>
+                    <p class="liturgy-meta">Nuova configurazione in cronologia, oppure aggiorna quella attuale senza nuovo record</p>
                   </div>
                   <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
                     <h4 class="config-section-title">Senza gruppo</h4>
@@ -739,7 +741,7 @@
             <div class="panel gruppi-edit-panel" id="gruppi-edit-panel" hidden>
               <div class="panel-head">
                 <div>
-                  <h3>Modifica Gruppi</h3>
+                  <h3 id="gruppi-edit-title">Nuovi gruppi × nuovi turni</h3>
                   <p id="gruppi-edit-sub">Tocca i nomi, poi tocca una squadra</p>
                 </div>
                 <button type="button" class="messe-sheet-close" onclick="closeGruppiEdit()" aria-label="Chiudi">
