@@ -5196,7 +5196,9 @@ function startNewChierichetto() {
   const cancelBtn = document.getElementById('btn-cancel-edit');
   if (cancelBtn && isAnagMobile()) cancelBtn.style.display = 'block';
   if (!isAnagMobile()) {
-    document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => {
+      document.getElementById('chierichetto-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }
   document.getElementById('nome')?.focus();
 }
@@ -7186,6 +7188,7 @@ function goMesseToday() {
 
 function selectMessaDay(dateStr, scrollIntoView) {
   messeState.selectedDate = dateStr;
+  closeMesseExtraPanel();
   renderMesseAgenda();
   renderMessaDetail(dateStr);
   openMesseSheet('detail');
@@ -7212,7 +7215,10 @@ function syncMesseFab() {
 }
 
 function openMesseSheet(mode) {
-  if (!isMesseMobile()) return;
+  if (!isMesseMobile()) {
+    if (mode === 'add') openMesseExtraPanel();
+    return;
+  }
   const sheetMode = mode === 'add' ? 'add' : 'detail';
   document.body.classList.add('messe-sheet-open');
   document.body.classList.toggle('messe-sheet-detail', sheetMode === 'detail');
@@ -7222,8 +7228,24 @@ function openMesseSheet(mode) {
 
 function closeMesseSheet() {
   closeMessaNotaModal();
+  closeMesseExtraPanel();
   document.body.classList.remove('messe-sheet-open', 'messe-sheet-detail', 'messe-sheet-add');
   syncMesseFab();
+}
+
+function openMesseExtraPanel() {
+  document.body.classList.add('messe-extra-open');
+  const panel = document.getElementById('messe-extra-panel');
+  panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeMesseExtraPanel() {
+  document.body.classList.remove('messe-extra-open');
+}
+
+function closeMesseExtraUi() {
+  closeMesseExtraPanel();
+  if (isMesseMobile()) closeMesseSheet();
 }
 
 function openMesseExtraSheet() {
@@ -7870,6 +7892,8 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
   void persistConfig();
   showToast('Messa straordinaria aggiunta');
   e.target.reset();
+  closeMesseExtraPanel();
+  closeMesseSheet();
   document.getElementById('anno-messe').value = data.slice(0, 4);
   messeState.selectedDate = data;
   loadMesseAgenda().then(() => selectMessaDay(data, true));

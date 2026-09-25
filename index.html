@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -141,9 +141,8 @@
         <button type="button" class="sidebar-user-info" onclick="openAccountPage()" aria-label="Apri il tuo account">
           <span class="sidebar-user-label">Account</span>
           <span class="sidebar-user-name" id="sidebar-user-name">—</span>
-          <span class="sidebar-user-hint">Modifica profilo</span>
+          <span class="sidebar-user-hint">Profilo e logout</span>
         </button>
-        <button type="button" class="btn-logout" onclick="logout()">Esci</button>
       </div>
       <span class="sidebar-footer-note">Sistema parrocchiale · chierichetti di Vanzago e Mantegazza.</span>
       <span id="sync-status" style="display:block;margin-top:12px;font-size:0.68rem;opacity:0.7"></span>
@@ -850,7 +849,10 @@
                       <span class="messe-past-label-short">Passate</span>
                     </label>
                   </div>
-                  <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
+                  <div class="messe-toolbar-right">
+                    <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
+                    <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
+                  </div>
                 </div>
                 <div id="messe-agenda" class="messe-agenda">
                   <div class="cal-loading">Caricamento agenda…</div>
@@ -879,7 +881,7 @@
                       <h3>Aggiungi messa straordinaria</h3>
                       <p>Vigilie, festività, mercoledì delle Ceneri…</p>
                     </div>
-                    <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
+                    <button type="button" class="messe-sheet-close" onclick="closeMesseExtraUi()" aria-label="Chiudi">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                     </button>
                   </div>
