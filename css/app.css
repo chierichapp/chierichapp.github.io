@@ -8140,6 +8140,62 @@ body.anag-sheet-open { overflow: hidden; }
   .gruppi-struttura-grid { grid-template-columns: 1fr; }
 }
 
+.accessi-panel { margin-bottom: 20px; }
+
+.accessi-toolbar {
+  margin-bottom: 12px;
+}
+
+.accessi-toolbar .anag-search {
+  width: 100%;
+  max-width: 420px;
+}
+
+.accessi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accessi-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+
+.accessi-item-name {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.accessi-item-meta {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.accessi-item-when {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .accessi-item {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
 .rotazione-panel { margin-bottom: 20px; }
 
 .rotazione-status {

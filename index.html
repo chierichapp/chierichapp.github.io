@@ -34,7 +34,7 @@
     </div>
     <div id="auth-error" class="auth-error" role="alert"></div>
     <p id="auth-bootstrap-hint" class="auth-hint" style="display:none">
-      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi da Anagrafica → Accessi.
+      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi da Anagrafica → Cerimonieri e Don.
     </p>
     <p id="auth-info-hint" class="auth-hint" style="display:none" role="status"></p>
     <div id="auth-google-block" class="auth-google-block" hidden>
@@ -133,6 +133,12 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg>
         </span>
         Anagrafica
+      </button>
+      <button class="nav-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
+        <span class="nav-item-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        </span>
+        Accessi
       </button>
     </nav>
 
@@ -1098,6 +1104,26 @@
         <p class="cal-source" id="cal-source"></p>
       </section>
 
+      <!-- Accessi (log login — solo admin) -->
+      <section id="accessi" class="section">
+        <div class="panel accessi-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Log accessi</h3>
+              <p>Ogni login riuscito all’app (non l’anagrafica account)</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="renderAccessiLog(true)">Aggiorna</button>
+          </div>
+          <div class="panel-body">
+            <div class="accessi-toolbar">
+              <input type="search" class="anag-search" id="accessi-search" placeholder="Cerca nome o email…" oninput="renderAccessiLog()" aria-label="Cerca accessi">
+            </div>
+            <p class="liturgy-meta" id="accessi-summary"></p>
+            <div id="accessi-list" class="accessi-list"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- Account (profilo personale) -->
       <section id="account" class="section">
         <div class="account-page">
@@ -1221,6 +1247,10 @@
       <button type="button" class="mobile-more-item" data-section="anagrafica" onclick="showSection('anagrafica')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg></span>
         Anagrafica
+      </button>
+      <button type="button" class="mobile-more-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
+        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>
+        Accessi
       </button>
     </nav>
     <div class="mobile-more-footer">
