@@ -62,6 +62,10 @@ const DEFAULT_GRUPPI_CONFIG = {
   ],
   /** Orario tipico delle solennità (Natale, Assunzione…): lo indica l’admin */
   messeFestive: [],
+  /** Solennità che la parrocchia non celebra (sync non le riaaggiunge) */
+  festivitaEscluse: [],
+  /** Orari/preset per festa (eventKey LitCal) — ereditati di anno in anno */
+  festivitaModelli: [],
   rotazione: { attiva: false, inizioFinestra: null, fineFinestra: null, storicoFinestre: [] },
   cronologia: []
 };
@@ -3032,6 +3036,12 @@ function ensureGruppiConfig() {
   if (!Array.isArray(state.gruppiConfig.messeFestive)) {
     state.gruppiConfig.messeFestive = [];
   }
+  if (!Array.isArray(state.gruppiConfig.festivitaEscluse)) {
+    state.gruppiConfig.festivitaEscluse = [];
+  }
+  if (!Array.isArray(state.gruppiConfig.festivitaModelli)) {
+    state.gruppiConfig.festivitaModelli = [];
+  }
   renumberMesseDomenicali();
   renumberMesseFestive();
   repairGruppiConfig();
@@ -3594,6 +3604,7 @@ function formatFestivitaDateShort(dateStr) {
 function renderStrutturaFestivitaSection() {
   const anno = getStrutturaFestivitaAnno();
   const list = getFestivitaListForAnno(anno);
+  const escluse = getFestivitaEscluse();
   const canManage = isCurrentUserAdmin();
   const items = list.length
     ? list.map(extra => {
@@ -3605,7 +3616,7 @@ function renderStrutturaFestivitaSection() {
           <button type="button" class="btn btn-ghost btn-icon" title="Apri e modifica orari" onclick="openFestivitaFromStruttura(${jsStr(extra.data)})">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button type="button" class="btn btn-danger btn-icon" title="Rimuovi dall'agenda" onclick="removeMessaExtra(${jsStr(extra.uuid)})">
+          <button type="button" class="btn btn-danger btn-icon" title="Non la celebriamo" onclick="escludiFestivita(${jsStr(extra.uuid)})">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
           </button>
         </div>` : '';
@@ -3620,6 +3631,25 @@ function renderStrutturaFestivitaSection() {
     }).join('')
     : `<p class="empty-state" style="margin:0">Nessuna festività in agenda per il ${esc(anno)}.</p>`;
 
+  const escluseHtml = escluse.length ? `
+    <h4 class="turni-messe-group-title" style="margin-top:18px">Non celebrate</h4>
+    <p class="liturgy-meta" style="margin:-4px 0 10px">Escluse dallo sync automatico</p>
+    <div class="config-list">
+      ${escluse.map(ex => `
+        <div class="config-item">
+          <div class="config-item-main">
+            <p class="config-item-title">${esc(ex.nome || ex.eventKey || ex.data || 'Festività')}</p>
+            <p class="config-item-meta">${ex.eventKey ? 'Tutti gli anni' : esc(ex.data || '')}</p>
+          </div>
+          ${canManage ? `
+            <div class="config-item-actions">
+              <button type="button" class="btn btn-ghost" onclick="ripristinaFestivitaEsclusa(${jsStr(ex.eventKey || ex.data)})">Ripristina</button>
+            </div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
   return `
     <div class="struttura-festivita-block">
       <h4 class="turni-messe-group-title">Festività ${esc(anno)}</h4>
@@ -3629,6 +3659,7 @@ function renderStrutturaFestivitaSection() {
         <div class="messa-actions" style="margin-top:12px;justify-content:flex-start;flex-wrap:wrap;gap:8px">
           <button type="button" class="btn btn-secondary" onclick="syncFestivitaFromStruttura()">Sync festività ${esc(anno)}</button>
         </div>` : ''}
+      ${escluseHtml}
     </div>
   `;
 }
@@ -9066,6 +9097,111 @@ function isSolennitaFestivaDay(dateStr) {
   return primary?.tipo === 'solennita';
 }
 
+function getFestivitaEscluse() {
+  ensureGruppiConfig();
+  return state.gruppiConfig.festivitaEscluse || [];
+}
+
+function getEventKeysForDate(dateStr) {
+  const events = calState.data?.byDate?.[dateStr] || [];
+  return events.map(e => e.eventKey).filter(Boolean);
+}
+
+function isFestivitaEsclusa(dateStr) {
+  const list = getFestivitaEscluse();
+  if (!list.length) return false;
+  const keys = new Set(getEventKeysForDate(dateStr));
+  return list.some(ex => {
+    if (ex?.eventKey && keys.has(ex.eventKey)) return true;
+    if (ex?.data && ex.data === dateStr) return true;
+    return false;
+  });
+}
+
+function findFestivitaEsclusaIndex({ eventKey, data } = {}) {
+  const list = getFestivitaEscluse();
+  return list.findIndex(ex => {
+    if (eventKey && ex.eventKey && ex.eventKey === eventKey) return true;
+    if (data && ex.data && ex.data === data) return true;
+    return false;
+  });
+}
+
+function addFestivitaEsclusa(dateStr, { nome } = {}) {
+  ensureGruppiConfig();
+  if (!Array.isArray(state.gruppiConfig.festivitaEscluse)) {
+    state.gruppiConfig.festivitaEscluse = [];
+  }
+  const events = calState.data?.byDate?.[dateStr] || [];
+  const primary = primaryEvent(events) || events[0];
+  const eventKey = primary?.eventKey || null;
+  const label = nome || primary?.nome || dateStr;
+  const idx = findFestivitaEsclusaIndex({ eventKey, data: dateStr });
+  const entry = {
+    eventKey,
+    data: dateStr,
+    nome: label,
+    excludedAt: new Date().toISOString()
+  };
+  if (idx >= 0) state.gruppiConfig.festivitaEscluse[idx] = entry;
+  else state.gruppiConfig.festivitaEscluse.push(entry);
+  return entry;
+}
+
+function ripristinaFestivitaEsclusa(eventKeyOrData) {
+  if (!requireAdminAction('Solo l\'admin può gestire le festività escluse')) return;
+  ensureGruppiConfig();
+  const key = String(eventKeyOrData || '');
+  state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
+    ex.eventKey !== key && ex.data !== key
+  );
+  saveData();
+  void persistConfig();
+  showToast('Festività ripristinata — puoi sincronizzarla di nuovo');
+  if (strutturaMesseKind === 'festivo') {
+    renderMesseDomenicaliList();
+    updateMesseDomenicaliSummary();
+  }
+}
+
+/**
+ * Rimuove la festività dall'agenda e la esclude dalle sync future
+ * (es. S. Carlo, vigilia di Cristo Re se non le celebrate).
+ */
+function escludiFestivita(uuidOrDate) {
+  if (!requireAdminAction('Solo l\'admin può escludere festività')) return;
+  let extra = null;
+  let dateStr = null;
+  if (typeof uuidOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(uuidOrDate)) {
+    dateStr = uuidOrDate;
+    extra = getMessaExtraForDate(dateStr);
+  } else {
+    extra = (state.messeExtra || []).find(m => m.uuid === uuidOrDate);
+    dateStr = extra?.data;
+  }
+  if (!dateStr) {
+    showToast('Festività non trovata');
+    return;
+  }
+  const nome = extra?.nota || primaryEvent(calState.data?.byDate?.[dateStr] || [])?.nome || dateStr;
+  if (!confirm(`Non celebrate «${nome}»?\n\nVerrà tolta dall'agenda e non verrà più aggiunta con Sync.`)) return;
+
+  addFestivitaEsclusa(dateStr, { nome });
+  if (extra?.uuid) {
+    state.messeExtra = (state.messeExtra || []).filter(m => m.uuid !== extra.uuid);
+    delete ensureMesseIndicazioni()[dateStr];
+  }
+  saveData();
+  void persistConfig();
+  showToast('Esclusa dalle festività');
+  if (messeState.selectedDate === dateStr) messeState.selectedDate = null;
+  if (strutturaMesseKind === 'festivo') {
+    renderMesseDomenicaliList();
+    updateMesseDomenicaliSummary();
+  }
+  loadMesseAgenda();
+}
+
 /** Preset orario per festività speciali (Triduo, Natale, solennità tipiche). */
 const FESTIVITY_PRESETS = {
   solennita: {
@@ -9175,12 +9311,104 @@ function getFestivityPresetMeta(presetId) {
   return FESTIVITY_PRESETS[presetId] || FESTIVITY_PRESETS.solennita;
 }
 
+function getPrimaryFestivityEventKey(dateStr) {
+  const events = calState.data?.byDate?.[dateStr] || [];
+  const primary = primaryEvent(events) || events[0];
+  return primary?.eventKey || null;
+}
+
+function getFestivitaModelli() {
+  ensureGruppiConfig();
+  return state.gruppiConfig.festivitaModelli || [];
+}
+
+function getFestivitaModello(eventKey) {
+  if (!eventKey) return null;
+  return getFestivitaModelli().find(m => m.eventKey === eventKey) || null;
+}
+
+function cloneFestivaSlotsForModello(slots) {
+  if (!Array.isArray(slots)) return null;
+  return slots.map(s => ({
+    dayOffset: s.dayOffset === -1 ? -1 : 0,
+    ora: s.ora || '10:00',
+    sede: s.sede || 'santuario',
+    vigilia: !!s.vigilia || s.dayOffset === -1,
+    conTurno: !!s.conTurno
+  }));
+}
+
+/** Salva orario/preset della festa per gli anni successivi (chiave LitCal). */
+function saveFestivitaModelloFromExtra(extra) {
+  if (!extra?.data) return null;
+  const eventKey = getPrimaryFestivityEventKey(extra.data);
+  if (!eventKey) return null;
+  ensureGruppiConfig();
+  if (!Array.isArray(state.gruppiConfig.festivitaModelli)) {
+    state.gruppiConfig.festivitaModelli = [];
+  }
+  const entry = {
+    eventKey,
+    preset: extra.preset || detectFestivityPreset(extra.data),
+    slots: Array.isArray(extra.slots) ? cloneFestivaSlotsForModello(extra.slots) : null,
+    nota: extra.nota || null,
+    updatedFrom: extra.data,
+    updatedAt: new Date().toISOString()
+  };
+  const idx = state.gruppiConfig.festivitaModelli.findIndex(m => m.eventKey === eventKey);
+  if (idx >= 0) state.gruppiConfig.festivitaModelli[idx] = entry;
+  else state.gruppiConfig.festivitaModelli.push(entry);
+  extra.eventKey = eventKey;
+  return entry;
+}
+
+function applyFestivitaModelloToExtra(extra, modello) {
+  if (!extra || !modello) return false;
+  const preset = modello.preset || detectFestivityPreset(extra.data);
+  extra.preset = preset;
+  extra.tipo = 'festiva';
+  extra.usaOrarioDomenicale = true;
+  extra.eventKey = modello.eventKey || extra.eventKey;
+  extra.inheritedFrom = modello.updatedFrom || null;
+  if (Array.isArray(modello.slots)) {
+    extra.slots = renumberFestivaSlots(modello.slots.map(s => ({
+      id: newFestivaSlotId(),
+      dayOffset: s.dayOffset === -1 ? -1 : 0,
+      ora: s.ora || '10:00',
+      sede: s.sede || 'santuario',
+      vigilia: !!s.vigilia || s.dayOffset === -1,
+      conTurno: !!s.conTurno
+    })));
+  } else {
+    const built = buildFestivityPresetSlots(preset);
+    if (Array.isArray(built)) extra.slots = built;
+    else delete extra.slots;
+  }
+  return true;
+}
+
+/** Se manca il modello, lo crea dalle festività già personalizzate quest’anno. */
+function backfillFestivitaModelliFromExtras(anno) {
+  anno = String(anno);
+  let n = 0;
+  (state.messeExtra || []).forEach(extra => {
+    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (!hasCustomFestivaSlots(extra) && !(extra.preset && extra.preset !== 'solennita')) return;
+    const key = getPrimaryFestivityEventKey(extra.data);
+    if (!key || getFestivitaModello(key)) return;
+    saveFestivitaModelloFromExtra(extra);
+    n++;
+  });
+  return n;
+}
+
 function applyPresetToFestivaExtra(extra, presetId) {
   if (!extra) return;
   const id = FESTIVITY_PRESETS[presetId] ? presetId : detectFestivityPreset(extra.data);
   extra.preset = id;
   extra.tipo = 'festiva';
   extra.usaOrarioDomenicale = true;
+  delete extra.inheritedFrom;
   const slots = buildFestivityPresetSlots(id);
   if (Array.isArray(slots)) extra.slots = slots;
   else delete extra.slots;
@@ -9189,6 +9417,7 @@ function applyPresetToFestivaExtra(extra, presetId) {
 function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
   const events = calState.data?.byDate?.[dateStr] || [];
   const primary = primaryEvent(events) || events[0];
+  const eventKey = primary?.eventKey || null;
   const preset = detectFestivityPreset(dateStr);
   const extra = {
     uuid: newMessaExtraUuid('MES-FEST'),
@@ -9197,10 +9426,13 @@ function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
     tipo: 'festiva',
     usaOrarioDomenicale: true,
     preset,
+    eventKey: eventKey || undefined,
     source,
     createdAt: new Date().toISOString()
   };
-  applyPresetToFestivaExtra(extra, preset);
+  const modello = getFestivitaModello(eventKey);
+  if (modello) applyFestivitaModelloToExtra(extra, modello);
+  else applyPresetToFestivaExtra(extra, preset);
   return extra;
 }
 
@@ -9312,23 +9544,33 @@ function syncFestivitaAnno(anno) {
   if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
   let added = 0;
   let updated = 0;
+  backfillFestivitaModelliFromExtras(anno);
   Object.keys(calState.data.byDate).forEach(dateStr => {
     if (!dateStr.startsWith(anno)) return;
     if (!isSolennitaFestivaDay(dateStr)) return;
+    if (isFestivitaEsclusa(dateStr)) return;
     if (getMessaExtraForDate(dateStr)) return;
     state.messeExtra.push(buildFestivaExtraRecord(dateStr, { source: 'auto' }));
     added++;
   });
   (state.messeExtra || []).forEach(extra => {
     if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (isFestivitaEsclusa(extra.data)) return;
     if (extra.preset) return;
-    const detected = detectFestivityPreset(extra.data);
-    if (!hasCustomFestivaSlots(extra) && detected !== 'solennita') {
-      applyPresetToFestivaExtra(extra, detected);
+    const eventKey = getPrimaryFestivityEventKey(extra.data);
+    const modello = getFestivitaModello(eventKey);
+    if (modello) {
+      applyFestivitaModelloToExtra(extra, modello);
       updated++;
     } else {
-      extra.preset = detected;
-      updated++;
+      const detected = detectFestivityPreset(extra.data);
+      if (!hasCustomFestivaSlots(extra) && detected !== 'solennita') {
+        applyPresetToFestivaExtra(extra, detected);
+        updated++;
+      } else {
+        extra.preset = detected;
+        updated++;
+      }
     }
   });
   return { added, needsConfig: false, updated };
@@ -9689,11 +9931,15 @@ function renderMessaDetail(dateStr) {
 
   if (!massInfo) {
     const canFest = isSolennitaFestivaDay(dateStr);
+    const esclusa = canFest && isFestivitaEsclusa(dateStr);
     container.innerHTML = `
       <p class="day-detail-date">${esc(dateLabel)}</p>
-      <p class="day-detail-empty empty-state-inline">Non è una messa in agenda (solo domeniche, festività e eccezioni).</p>
+      <p class="day-detail-empty empty-state-inline">${esclusa
+        ? 'Festività esclusa: non la celebrate (non rientra in agenda con Sync).'
+        : 'Non è una messa in agenda (solo domeniche, festività e eccezioni).'}</p>
       <div class="messa-actions">
-        ${canFest && canManage ? `<button type="button" class="btn btn-primary" onclick="addFestivitaFromDate(${jsStr(dateStr)})">Aggiungi come festività</button>` : ''}
+        ${esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="ripristinaEAggiungiFestivita(${jsStr(dateStr)})">Ripristina e aggiungi</button>` : ''}
+        ${canFest && !esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="addFestivitaFromDate(${jsStr(dateStr)})">Aggiungi come festività</button>` : ''}
         <button type="button" class="btn ${canFest ? 'btn-secondary' : 'btn-primary'}" onclick="prefillMessaExtra(${jsStr(dateStr)})">Aggiungi messa straordinaria</button>
       </div>
     `;
@@ -9731,13 +9977,14 @@ function renderMessaDetail(dateStr) {
     const presetMeta = massInfo.type === 'festiva'
       ? getFestivityPresetMeta(massInfo.extra?.preset || detectFestivityPreset(dateStr))
       : null;
+    const inherited = massInfo.type === 'festiva' && massInfo.extra?.inheritedFrom;
     const orarioHint = massInfo.type === 'festiva'
       ? (personalized
         ? (nCelebrazioni
-          ? `Preset «${presetMeta.label}» (modificabile)`
+          ? `Preset «${presetMeta.label}» (modificabile)${inherited ? ' · da anno scorso' : ''}`
           : `Preset «${presetMeta.label}» — nessuna celebrazione`)
         : (hasOrarioFestivoConfig()
-          ? `Preset «${presetMeta.label}» · orario festivo tipico`
+          ? `Preset «${presetMeta.label}» · orario festivo tipico${inherited ? ' · da anno scorso' : ''}`
           : 'Orario festivo non configurato — usa la domenica'))
       : '';
     turniHtml = `
@@ -9782,7 +10029,8 @@ function renderMessaDetail(dateStr) {
 
   const actions = [];
   if (massInfo.type === 'festiva' && canManage && massInfo.extra?.uuid) {
-    actions.push(`<button type="button" class="btn btn-secondary" onclick="removeMessaExtra(${jsStr(massInfo.extra.uuid)})">Rimuovi festività</button>`);
+    actions.push(`<button type="button" class="btn btn-secondary" onclick="escludiFestivita(${jsStr(massInfo.extra.uuid)})">Non la celebriamo</button>`);
+    actions.push(`<button type="button" class="btn btn-ghost" onclick="removeMessaExtra(${jsStr(massInfo.extra.uuid)})">Rimuovi solo quest'anno</button>`);
   }
   if (massInfo.type === 'extra' && massInfo.extra?.uuid) {
     if (canManage) {
@@ -9844,10 +10092,11 @@ function applyFestivityPresetToExtra(uuid, presetId) {
   const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
   if (!extra) return;
   applyPresetToFestivaExtra(extra, presetId);
+  saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
   const meta = getFestivityPresetMeta(extra.preset);
-  showToast(`Applicato preset «${meta.label}»`);
+  showToast(`Applicato preset «${meta.label}» (vale anche per gli anni successivi)`);
   if (extra.data) renderMessaDetail(extra.data);
   renderMesseAgenda();
 }
@@ -9863,6 +10112,14 @@ function addFestivitaFromDate(dateStr) {
     showToast('Questa data è già in agenda');
     return;
   }
+  if (isFestivitaEsclusa(dateStr)) {
+    const events = calState.data?.byDate?.[dateStr] || [];
+    const primary = primaryEvent(events) || events[0];
+    const key = primary?.eventKey || dateStr;
+    state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
+      ex.eventKey !== key && ex.data !== dateStr
+    );
+  }
   const extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
   state.messeExtra.push(extra);
   saveData();
@@ -9875,6 +10132,18 @@ function addFestivitaFromDate(dateStr) {
   openMesseSheet('detail');
 }
 
+function ripristinaEAggiungiFestivita(dateStr) {
+  if (!requireAdminAction('Solo l\'admin può gestire le festività')) return;
+  const events = calState.data?.byDate?.[dateStr] || [];
+  const primary = primaryEvent(events) || events[0];
+  const key = primary?.eventKey || dateStr;
+  ensureGruppiConfig();
+  state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
+    ex.eventKey !== key && ex.data !== dateStr
+  );
+  addFestivitaFromDate(dateStr);
+}
+
 function convertExtraToFestiva(uuid) {
   if (!requireAdminAction('Solo l\'admin può gestire le festività')) return;
   if (!hasOrarioFestivoConfig()) {
@@ -9884,7 +10153,10 @@ function convertExtraToFestiva(uuid) {
   }
   const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
   if (!extra) return;
-  applyPresetToFestivaExtra(extra, detectFestivityPreset(extra.data));
+  const modello = getFestivitaModello(getPrimaryFestivityEventKey(extra.data));
+  if (modello) applyFestivitaModelloToExtra(extra, modello);
+  else applyPresetToFestivaExtra(extra, detectFestivityPreset(extra.data));
+  saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
   showToast('Ora usa l\'orario festivo');
@@ -9919,9 +10191,10 @@ function ripristinaOrarioFestiva(uuid) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
   const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
   if (!extra) return;
-  if (!confirm('Ripristinare il preset di questa festività? Le modifiche andranno perse.')) return;
-  const preset = extra.preset || detectFestivityPreset(extra.data);
+  if (!confirm('Ripristinare il preset di questa festività? Le modifiche andranno perse anche per gli anni successivi.')) return;
+  const preset = detectFestivityPreset(extra.data);
   applyPresetToFestivaExtra(extra, preset);
+  saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
   showToast('Ripristinato preset «' + getFestivityPresetMeta(preset).label + '»');
@@ -10073,9 +10346,13 @@ function saveFestivaSlotsEditor(uuid) {
   }
   extra.tipo = 'festiva';
   extra.usaOrarioDomenicale = true;
+  delete extra.inheritedFrom;
+  saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
-  showToast(slots.length ? 'Orari festività salvati' : 'Nessuna celebrazione — orario salvato');
+  showToast(slots.length
+    ? 'Orari salvati (vale anche per gli anni successivi)'
+    : 'Nessuna celebrazione — salvato anche per gli anni successivi');
   renderMesseDetail(extra.data);
   renderMesseAgenda();
 }
