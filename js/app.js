@@ -1077,40 +1077,103 @@ async function ensureCalendarioForToday() {
   if (document.getElementById('dashboard').classList.contains('active')) renderDashboard();
 }
 
-async function ensureCalendarioForYear(anno) {
+/** Unisce più pack LitCal (anno liturgico ambrosiano ≠ anno civile). */
+function mergeCalendarioPacks(packs, civilAnno) {
+  const list = (packs || []).filter(p => p?.byDate && Object.keys(p.byDate).length);
+  const byDate = {};
+  list.forEach(pack => {
+    Object.keys(pack.byDate).forEach(dateStr => {
+      if (!byDate[dateStr]) byDate[dateStr] = [];
+      (pack.byDate[dateStr] || []).forEach(ev => {
+        const key = ev.eventKey || ev.nome;
+        if (key && byDate[dateStr].some(x => (x.eventKey || x.nome) === key)) return;
+        byDate[dateStr].push(ev);
+      });
+    });
+  });
+  const events = [];
+  Object.keys(byDate).sort().forEach(d => events.push(...byDate[d]));
+  const primary = list[0] || {};
+  return {
+    anno: String(civilAnno),
+    civilAnno: String(civilAnno),
+    litYears: list.map(p => String(p.anno)).filter(Boolean),
+    byDate,
+    events,
+    source: primary.source || list.find(p => p.source)?.source || '',
+    fetchedAt: new Date().toISOString(),
+    provider: primary.provider || list.find(p => p.provider)?.provider || ''
+  };
+}
+
+function calendarioCoversCivilYear(data, anno) {
+  if (!data?.byDate) return false;
+  const keys = Object.keys(data.byDate);
+  if (!keys.length) return false;
+  const y = String(anno);
+  // Pack singolo ambrosiano finisce ~14 nov: serve anche Avvento (da metà nov)
+  const hasLate = keys.some(d => d >= `${y}-11-15`);
+  const hasYearBody = keys.some(d => d.startsWith(`${y}-`) && d < `${y}-11-15`);
+  return hasYearBody && hasLate;
+}
+
+async function loadCalendarioPackYear(anno, { refresh = false } = {}) {
   anno = String(anno);
-  if (calState.data?.anno === anno && calState.data?.byDate && Object.keys(calState.data.byDate).length) {
-    calState.unavailable = false;
-    return calState.data;
-  }
   try {
     if (isGAS) {
-      const data = await gasRun('getCalendarioLiturgico', anno);
-      if (data?.byDate && Object.keys(data.byDate).length) {
-        calState.data = data;
-        calState.unavailable = false;
-        return calState.data;
+      return await gasRun('getCalendarioLiturgico', anno, !!refresh);
+    }
+    if (isSupabase) {
+      if (refresh) {
+        const data = await fetchAmbrosianCalendarYear(anno);
+        const saved = await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
+        if (!saved.success) throw new Error(saved.message || 'Salvataggio in cache non riuscito');
+        return data;
       }
-    } else if (isSupabase) {
       let data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
       if (!data?.byDate || !Object.keys(data.byDate).length) {
         data = await fetchAmbrosianCalendarYear(anno);
         await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
       }
-      if (data?.byDate && Object.keys(data.byDate).length) {
-        calState.data = data;
-        calState.unavailable = false;
-        return calState.data;
-      }
-    } else {
-      const res = await fetch(`${API_BASE}/api/calendario/${anno}`);
-      if (res.ok) {
-        calState.data = await res.json();
-        if (calState.data?.byDate && Object.keys(calState.data.byDate).length) {
-          calState.unavailable = false;
-          return calState.data;
-        }
-      }
+      return data;
+    }
+    const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Errore HTTP ' + res.status);
+    return await res.json();
+  } catch (err) {
+    console.warn('[ChierichApp] loadCalendarioPackYear', anno, err);
+    return null;
+  }
+}
+
+async function ensureCalendarioForYear(anno) {
+  anno = String(anno);
+  const nextAnno = String(Number(anno) + 1);
+  // Già unito per quest’anno civile (anche se l’anno liturgico successivo manca)
+  if (calState.data?.civilAnno === anno && Object.keys(calState.data.byDate || {}).length) {
+    calState.unavailable = false;
+    return calState.data;
+  }
+  if (
+    calState.data?.anno === anno
+    && !calState.data?.civilAnno
+    && calendarioCoversCivilYear(calState.data, anno)
+  ) {
+    calState.unavailable = false;
+    return calState.data;
+  }
+
+  try {
+    const packs = await Promise.all([
+      loadCalendarioPackYear(anno),
+      loadCalendarioPackYear(nextAnno)
+    ]);
+    const merged = mergeCalendarioPacks(packs, anno);
+    if (Object.keys(merged.byDate).length) {
+      calState.data = normalizeCalendarioPack(merged);
+      calState.unavailable = false;
+      return calState.data;
     }
   } catch { /* offline ok */ }
   calState.unavailable = true;
@@ -8748,28 +8811,39 @@ function buildMessaAgendaItem(dateStr) {
   const isPast = dateStr < todayStr;
   const isSelected = dateStr === messeState.selectedDate;
   const title = getMessaAgendaTitle(dateStr, massInfo, primary);
-  const typeLabel = massInfo?.type === 'extra' ? 'Eccezione' : 'Domenica';
+  const isExtra = massInfo?.type === 'extra';
   const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
   const isDomenica = massInfo?.type === 'domenica';
   const nTurni = getTurniPerDomenica();
   const assignedSlots = isDomenica ? countAssignedSlots(dateStr) : turni.length;
   const coverageComplete = isDomenica && nTurni > 0 && assignedSlots >= nTurni;
-  const coverageWarn = isDomenica && nTurni > 0 && assignedSlots < nTurni;
+  const litColor = primary?.colore || '';
 
   const classes = ['messe-agenda-item'];
   if (isToday) classes.push('today');
   if (isPast) classes.push('past');
   if (isSelected) classes.push('selected');
-  if (coverageComplete) classes.push('has-turno', 'is-covered');
-  else if (assignedSlots > 0) classes.push('has-turno');
-  if (coverageWarn) classes.push('is-uncovered');
-  if (massInfo?.type === 'extra') classes.push('extra');
+  if (litColor) classes.push(`lit-${litColor}`);
 
-  const metaParts = [typeLabel];
+  const metaParts = [];
+  if (!isExtra) metaParts.push('Domenica');
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
-  if (isDomenica && nTurni > 0) metaParts.push(`${assignedSlots}/${nTurni} coperte`);
-  else if (!isDomenica && turni.length) metaParts.push('Con servizio');
   const metaLine = metaParts.join(' · ');
+
+  const badges = [];
+  if (litColor) {
+    const litLabel = litColor.charAt(0).toUpperCase() + litColor.slice(1);
+    badges.push(`<span class="messe-agenda-badge lit-${litColor}" title="Colore liturgico">${esc(litLabel)}</span>`);
+  }
+  if (isExtra) {
+    badges.push('<span class="messe-agenda-badge is-extra">Straordinaria</span>');
+  }
+  if (isDomenica && nTurni > 0) {
+    const covClass = coverageComplete ? 'is-covered' : 'is-uncovered';
+    badges.push(`<span class="messe-agenda-badge ${covClass}">${assignedSlots}/${nTurni} coperte</span>`);
+  } else if (!isDomenica && turni.length) {
+    badges.push('<span class="messe-agenda-badge is-covered">Con servizio</span>');
+  }
 
   return `
     <article class="${classes.join(' ')}" id="messa-item-${dateStr}" data-date="${dateStr}" onclick="selectMessaDay('${dateStr}')">
@@ -8779,7 +8853,10 @@ function buildMessaAgendaItem(dateStr) {
       </div>
       <div class="messe-agenda-main">
         <p class="messa-agenda-title">${esc(title)}</p>
-        <p class="messa-agenda-meta">${esc(metaLine)}</p>
+        <p class="messa-agenda-meta">
+          ${metaLine ? `<span class="messa-agenda-meta-text">${esc(metaLine)}</span>` : ''}
+          ${badges.length ? `<span class="messe-agenda-badges">${badges.join('')}</span>` : ''}
+        </p>
       </div>
     </article>
   `;
@@ -9254,6 +9331,7 @@ async function fetchAmbrosianCalendarYear(anno) {
 
 async function loadCalendario(refresh) {
   const anno = getCalAnno();
+  const nextAnno = String(Number(anno) + 1);
   const container = document.getElementById('calendario-container');
   if (calState.loading) return;
 
@@ -9261,27 +9339,11 @@ async function loadCalendario(refresh) {
   container.innerHTML = '<div class="cal-loading">Caricamento calendario liturgico…</div>';
 
   try {
-    let data;
-    if (isGAS) {
-      data = await gasRun('getCalendarioLiturgico', anno, !!refresh);
-    } else if (isSupabase) {
-      if (refresh) {
-        data = await fetchAmbrosianCalendarYear(anno);
-        const saved = await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
-        if (!saved.success) throw new Error(saved.message || 'Salvataggio in cache non riuscito');
-      } else {
-        data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
-        if (!data?.byDate || !Object.keys(data.byDate).length) {
-          data = await fetchAmbrosianCalendarYear(anno);
-          await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
-        }
-      }
-    } else {
-      const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Errore HTTP ' + res.status);
-      data = await res.json();
-    }
+    const packs = await Promise.all([
+      loadCalendarioPackYear(anno, { refresh: !!refresh }),
+      loadCalendarioPackYear(nextAnno, { refresh: !!refresh })
+    ]);
+    let data = mergeCalendarioPacks(packs, anno);
 
     if (!data?.byDate) throw new Error('Dati calendario non validi');
     data = normalizeCalendarioPack(data);
