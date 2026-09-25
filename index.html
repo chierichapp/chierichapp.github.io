@@ -693,26 +693,37 @@
               <div class="panel-head">
                 <div>
                   <h3>Modifica Gruppi</h3>
-                  <p>Tocca i nomi, poi tocca una squadra per assegnarli</p>
+                  <p id="gruppi-edit-sub">Tocca i nomi, poi tocca una squadra</p>
                 </div>
                 <button type="button" class="messe-sheet-close" onclick="closeGruppiEdit()" aria-label="Chiudi">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               </div>
-              <div class="panel-body">
+              <div class="gruppi-edit-chrome" id="gruppi-edit-chrome">
                 <div class="gruppi-edit-toolbar" id="gruppi-edit-toolbar" hidden>
-                  <p class="gruppi-edit-selection-count" id="gruppi-edit-selection-count">0 selezionati</p>
-                  <p class="gruppi-edit-toolbar-hint" id="gruppi-edit-toolbar-hint">Tocca una squadra qui sotto</p>
+                  <div class="gruppi-edit-toolbar-text">
+                    <p class="gruppi-edit-selection-count" id="gruppi-edit-selection-count">0 selezionati</p>
+                    <p class="gruppi-edit-toolbar-hint" id="gruppi-edit-toolbar-hint">Tocca la squadra di destinazione</p>
+                  </div>
                   <div class="gruppi-edit-toolbar-actions">
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-gruppi-edit-unassign" onclick="applyGruppiEditSelection('')">Togli dal gruppo</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyGruppiEditSelection('')">Togli</button>
                     <button type="button" class="btn btn-ghost btn-sm" onclick="clearGruppiEditSelection()">Annulla</button>
                   </div>
                 </div>
-                <div id="gruppi-edit-list" class="gruppi-edit-list"></div>
-                <div class="gruppi-edit-footer">
-                  <button type="button" class="btn btn-secondary" onclick="closeGruppiEdit()">Chiudi</button>
-                  <button type="button" class="btn btn-primary" id="btn-salva-gruppi-config" onclick="saveGruppiEditConfig()">Salva configurazione</button>
+                <div class="gruppi-edit-changes" id="gruppi-edit-changes" hidden>
+                  <p class="gruppi-edit-changes-text" id="gruppi-edit-changes-text"></p>
+                  <div class="gruppi-edit-changes-actions">
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-gruppi-edit-undo" onclick="undoLastGruppiEdit()" hidden>Annulla ultimo</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="resetGruppiEditDraft()">Ripristina</button>
+                  </div>
                 </div>
+              </div>
+              <div class="panel-body">
+                <div id="gruppi-edit-list" class="gruppi-edit-list"></div>
+              </div>
+              <div class="gruppi-edit-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeGruppiEdit()">Chiudi</button>
+                <button type="button" class="btn btn-primary" id="btn-salva-gruppi-config" onclick="saveGruppiEditConfig()">Salva configurazione</button>
               </div>
             </div>
           </div>

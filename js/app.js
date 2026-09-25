@@ -69,6 +69,7 @@ let gruppiTab = 'squadre';
 let gruppiEditDraft = null;
 let gruppiEditBaseline = null;
 let gruppiEditSelected = new Set();
+let gruppiEditUndoStack = [];
 let appelloParrocchiaTab = 'mine';
 let appelloParrocchiaTabBySlot = {};
 let appelloSelectedSlotKey = '';
@@ -7053,13 +7054,15 @@ function openGruppiEdit() {
   closeGruppiFormSheet();
   gruppiEditBaseline = {};
   gruppiEditDraft = {};
+  gruppiEditUndoStack = [];
+  // Baseline = composizione attuale; bozza = tutti da riassegnare (gruppi vuoti)
   state.chierichetti.filter(isChierichettoAttivo).forEach(c => {
-    const g = c.gruppo || '';
-    gruppiEditBaseline[c.uuid] = g;
-    gruppiEditDraft[c.uuid] = g;
+    gruppiEditBaseline[c.uuid] = c.gruppo || '';
+    gruppiEditDraft[c.uuid] = '';
   });
   gruppiEditSelected = new Set();
   document.body.classList.add('gruppi-edit-open');
+  document.body.classList.remove('gruppi-edit-selecting');
   const view = document.getElementById('gruppi-gestione-view');
   const panel = document.getElementById('gruppi-edit-panel');
   if (view) view.hidden = true;
@@ -7072,10 +7075,11 @@ function openGruppiEdit() {
 function closeGruppiEdit(force = false) {
   if (!document.body.classList.contains('gruppi-edit-open') && !gruppiEditDraft) return true;
   if (!force && hasGruppiEditChanges() && !confirm('Scartare le modifiche non salvate?')) return false;
-  document.body.classList.remove('gruppi-edit-open');
+  document.body.classList.remove('gruppi-edit-open', 'gruppi-edit-selecting');
   gruppiEditDraft = null;
   gruppiEditBaseline = null;
   gruppiEditSelected = new Set();
+  gruppiEditUndoStack = [];
   const view = document.getElementById('gruppi-gestione-view');
   const panel = document.getElementById('gruppi-edit-panel');
   if (view) view.hidden = false;
@@ -7090,12 +7094,11 @@ function toggleGruppiEditSelection(uuid) {
   if (gruppiEditSelected.has(uuid)) gruppiEditSelected.delete(uuid);
   else gruppiEditSelected.add(uuid);
   const nowEmpty = gruppiEditSelected.size === 0;
-  // Rirender quando compare/scompare la modalità “assegna toccando la squadra”
   if (wasEmpty || nowEmpty) {
     renderGruppiEditPanel();
     return;
   }
-  syncGruppiEditToolbar();
+  syncGruppiEditChrome();
   document.querySelectorAll(`#gruppi-edit-list [data-edit-uuid="${CSS.escape(uuid)}"]`).forEach(el => {
     el.classList.toggle('is-selected', gruppiEditSelected.has(uuid));
   });
@@ -7107,18 +7110,114 @@ function clearGruppiEditSelection() {
   renderGruppiEditPanel();
 }
 
-function syncGruppiEditToolbar() {
+function selectAllUnassignedInEdit(section) {
+  if (!gruppiEditDraft) return;
+  const list = getChierichettiSenzaGruppoDraft();
+  const filtered = section === 'cerimonieri'
+    ? list.filter(isAppelloCerimoniere)
+    : section === 'vanzago'
+      ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'vanzago')
+      : section === 'mantegazza'
+        ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'mantegazza')
+        : section === 'altro'
+          ? list.filter(c => !isAppelloCerimoniere(c) && c.parrocchia !== 'vanzago' && c.parrocchia !== 'mantegazza')
+          : list;
+  filtered.forEach(c => gruppiEditSelected.add(c.uuid));
+  renderGruppiEditPanel();
+}
+
+function buildGruppiEditUnassignedSections(unassigned, hasSelection) {
+  const byNome = (a, b) => a.nome.localeCompare(b.nome, 'it');
+  const sections = [
+    {
+      id: 'vanzago',
+      title: 'Vanzago',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'vanzago').sort(byNome)
+    },
+    {
+      id: 'mantegazza',
+      title: 'Mantegazza',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia === 'mantegazza').sort(byNome)
+    },
+    {
+      id: 'cerimonieri',
+      title: 'Cerimonieri',
+      list: unassigned.filter(isAppelloCerimoniere).sort(byNome)
+    },
+    {
+      id: 'altro',
+      title: 'Parrocchia da impostare',
+      list: unassigned.filter(c => !isAppelloCerimoniere(c) && c.parrocchia !== 'vanzago' && c.parrocchia !== 'mantegazza').sort(byNome)
+    }
+  ].filter(sec => sec.list.length);
+
+  if (!sections.length) {
+    return '<span class="liturgy-meta">Tutti assegnati</span>';
+  }
+
+  return sections.map(sec => `
+    <div class="gruppi-edit-pool-section">
+      <div class="gruppi-edit-pool-head">
+        <p class="gruppi-parrocchia-title">${esc(sec.title)} · ${sec.list.length}</p>
+        ${!hasSelection && sec.list.length > 1
+          ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectAllUnassignedInEdit('${esc(sec.id)}')">Seleziona</button>`
+          : ''}
+      </div>
+      <div class="gruppo-member-chips">
+        ${sec.list.map(c => buildGruppiEditChip(c)).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function syncGruppiEditChrome() {
+  const n = gruppiEditSelected.size;
+  const nChanges = countGruppiEditChanges();
   const toolbar = document.getElementById('gruppi-edit-toolbar');
+  const changesBar = document.getElementById('gruppi-edit-changes');
   const countEl = document.getElementById('gruppi-edit-selection-count');
   const hintEl = document.getElementById('gruppi-edit-toolbar-hint');
-  const n = gruppiEditSelected.size;
+  const changesText = document.getElementById('gruppi-edit-changes-text');
+  const undoBtn = document.getElementById('btn-gruppi-edit-undo');
+  const subEl = document.getElementById('gruppi-edit-sub');
+
+  document.body.classList.toggle('gruppi-edit-selecting', n > 0);
+  document.getElementById('gruppi-edit-list')?.classList.toggle('has-selection', n > 0);
+  document.getElementById('gruppi-edit-panel')?.classList.toggle('has-selection', n > 0);
+
+  const activeCount = state.chierichetti.filter(isChierichettoAttivo).length;
+  const unassignedCount = getChierichettiSenzaGruppoDraft().length;
+  const atEmptyStart = unassignedCount === activeCount && !gruppiEditUndoStack.length;
+
   if (toolbar) {
     toolbar.hidden = n === 0;
     toolbar.classList.toggle('is-visible', n > 0);
   }
   if (countEl) countEl.textContent = n === 1 ? '1 selezionato' : `${n} selezionati`;
   if (hintEl) hintEl.textContent = 'Tocca la squadra di destinazione';
-  document.getElementById('gruppi-edit-list')?.classList.toggle('has-selection', n > 0);
+  if (subEl) {
+    subEl.textContent = n > 0
+      ? 'Scegli dove spostarli'
+      : atEmptyStart
+        ? 'Gruppi vuoti — assegna da Vanzago, Mantegazza e Cerimonieri'
+        : (nChanges
+          ? `${nChanges} da confermare — salva quando hai finito`
+          : 'Tocca i nomi, poi tocca una squadra');
+  }
+
+  const showChanges = n === 0 && nChanges > 0 && !atEmptyStart;
+  if (changesBar) {
+    changesBar.hidden = !showChanges;
+    changesBar.classList.toggle('is-visible', showChanges);
+  }
+  if (changesText && showChanges) {
+    changesText.textContent = nChanges === 1
+      ? '1 persona spostata — salva per confermare'
+      : `${nChanges} persone spostate — salva per confermare`;
+  }
+  if (undoBtn) {
+    undoBtn.hidden = !gruppiEditUndoStack.length;
+  }
 }
 
 function applyGruppiEditSelection(forcedGruppoId) {
@@ -7127,6 +7226,7 @@ function applyGruppiEditSelection(forcedGruppoId) {
     return;
   }
   const gruppoId = forcedGruppoId !== undefined ? forcedGruppoId : '';
+  const undoBatch = [];
   let skipped = 0;
   let moved = 0;
   for (const uuid of [...gruppiEditSelected]) {
@@ -7136,8 +7236,15 @@ function applyGruppiEditSelection(forcedGruppoId) {
       skipped += 1;
       continue;
     }
+    const prev = gruppiEditDraft[uuid] || '';
+    if (prev === gruppoId) continue;
+    undoBatch.push({ uuid, prev });
     gruppiEditDraft[uuid] = gruppoId;
     moved += 1;
+  }
+  if (undoBatch.length) {
+    gruppiEditUndoStack.push(undoBatch);
+    if (gruppiEditUndoStack.length > 30) gruppiEditUndoStack.shift();
   }
   gruppiEditSelected = new Set();
   renderGruppiEditPanel();
@@ -7145,15 +7252,39 @@ function applyGruppiEditSelection(forcedGruppoId) {
     showToast('Nessuno può entrare in quella squadra');
   } else if (skipped) {
     showToast(`${moved} assegnati · ${skipped} non compatibili`);
-  } else if (gruppoId) {
+  } else if (moved && gruppoId) {
     showToast(`${moved} → ${getGruppoLabel(gruppoId)}`);
-  } else {
+  } else if (moved) {
     showToast(moved === 1 ? '1 persona senza gruppo' : `${moved} senza gruppo`);
   }
 }
 
 function assignSelectedToGruppo(gruppoId) {
   applyGruppiEditSelection(gruppoId);
+}
+
+function undoLastGruppiEdit() {
+  const batch = gruppiEditUndoStack.pop();
+  if (!batch || !gruppiEditDraft) return;
+  batch.forEach(({ uuid, prev }) => {
+    gruppiEditDraft[uuid] = prev;
+  });
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  showToast('Ultima modifica annullata');
+}
+
+function resetGruppiEditDraft() {
+  if (!gruppiEditDraft || !gruppiEditBaseline) return;
+  if (!hasGruppiEditChanges()) return;
+  if (!confirm('Ripristinare la composizione iniziale?')) return;
+  Object.keys(gruppiEditBaseline).forEach(uuid => {
+    gruppiEditDraft[uuid] = gruppiEditBaseline[uuid];
+  });
+  gruppiEditUndoStack = [];
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  showToast('Composizione ripristinata');
 }
 
 function wereTogetherInBaseline(uuidA, uuidB) {
@@ -7272,15 +7403,25 @@ function buildGruppiEditChip(c, pairInfo) {
     : pairInfo?.level === 'warn'
       ? ' is-pair-warn'
       : '';
-  const title = pairInfo?.title ? ` title="${esc(pairInfo.title)}"` : '';
-  const changed = gruppiEditBaseline && (gruppiEditDraft[c.uuid] || '') !== (gruppiEditBaseline[c.uuid] || '');
+  const baselineG = gruppiEditBaseline?.[c.uuid] || '';
+  const draftG = gruppiEditDraft?.[c.uuid] || '';
+  const changed = baselineG !== draftG;
+  const fromLabel = changed
+    ? (baselineG ? getGruppoLabel(baselineG) : 'Senza gruppo')
+    : '';
+  const titleParts = [];
+  if (pairInfo?.title) titleParts.push(pairInfo.title);
+  if (fromLabel) titleParts.push('da ' + fromLabel);
+  const title = titleParts.length ? ` title="${esc(titleParts.join(' · '))}"` : '';
   return `
     <button type="button"
       class="gruppo-member-chip is-selectable${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}${selected ? ' is-selected' : ''}${changed ? ' is-moved' : ''}${pairClass}"
       data-edit-uuid="${esc(c.uuid)}"
       onclick="toggleGruppiEditSelection('${esc(c.uuid)}')"
       aria-pressed="${selected ? 'true' : 'false'}"${title}>
-      ${esc(c.nome)}
+      <span class="gruppi-edit-chip-check" aria-hidden="true"></span>
+      <span class="gruppi-edit-chip-label">${esc(c.nome)}</span>
+      ${fromLabel ? `<span class="gruppi-edit-chip-from">${esc(fromLabel)}</span>` : ''}
     </button>
   `;
 }
@@ -7293,7 +7434,6 @@ function renderGruppiEditPanel() {
   const historyMaps = getGruppiPairHistoryMaps(2);
   const hasSelection = gruppiEditSelected.size > 0;
   const nChanges = countGruppiEditChanges();
-  let globalMax = null;
   let warnCount = 0;
 
   const groupsHtml = gruppi.length
@@ -7302,8 +7442,6 @@ function renderGruppiEditPanel() {
       const nCer = members.filter(isAppelloCerimoniere).length;
       const warnings = getGruppoMemberPairWarnings(members, historyMaps);
       const cardLevel = maxPairWarningLevel(warnings);
-      if (cardLevel === 'danger') globalMax = 'danger';
-      else if (cardLevel === 'warn' && globalMax !== 'danger') globalMax = 'warn';
       if (cardLevel) warnCount += 1;
       const cardClass = [
         cardLevel === 'danger' ? 'is-pair-danger' : '',
@@ -7315,9 +7453,6 @@ function renderGruppiEditPanel() {
         : cardLevel === 'warn'
           ? '<p class="gruppi-pair-card-hint is-warn">Nuove coppie già insieme la volta scorsa</p>'
           : '';
-      const assignBtn = hasSelection
-        ? `<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();assignSelectedToGruppo('${esc(g.id)}')">Assegna qui</button>`
-        : `<span class="gruppi-edit-card-count">${members.length}</span>`;
       return `
         <div class="gruppo-squadra-card gruppi-edit-card ${cardClass}" ${hasSelection ? `role="button" tabindex="0" onclick="assignSelectedToGruppo('${esc(g.id)}')"` : ''}>
           <div class="gruppo-squadra-head">
@@ -7325,13 +7460,15 @@ function renderGruppiEditPanel() {
               <p class="config-item-title">${esc(g.nome)}</p>
               <p class="config-item-meta">${nCer ? nCer + ' cerim. · ' : ''}${members.length} in squadra</p>
             </div>
-            ${assignBtn}
+            ${hasSelection
+              ? '<span class="gruppi-edit-drop-label">Assegna qui</span>'
+              : `<span class="gruppi-edit-card-count">${members.length}</span>`}
           </div>
           ${pairHint}
           <div class="gruppo-member-chips" onclick="event.stopPropagation()">
             ${members.length
               ? members.map(c => buildGruppiEditChip(c, warnings.get(c.uuid))).join('')
-              : '<span class="liturgy-meta">Vuota — tocca dopo aver selezionato</span>'}
+              : '<span class="liturgy-meta">Squadra vuota</span>'}
           </div>
         </div>
       `;
@@ -7342,43 +7479,36 @@ function renderGruppiEditPanel() {
     ? `<div class="gruppi-pair-legend" role="note">
         <span><span class="gruppi-pair-swatch is-warn" aria-hidden="true"></span> già insieme 1 volta</span>
         <span><span class="gruppi-pair-swatch is-danger" aria-hidden="true"></span> già insieme 2 volte</span>
-        <span class="gruppi-pair-legend-note">Solo avviso — puoi salvare comunque</span>
       </div>`
-    : '';
-
-  const guideHtml = (!hasSelection && !nChanges && !warnCount)
-    ? '<p class="gruppi-edit-guide">Seleziona i nomi, poi tocca la squadra.</p>'
     : '';
 
   const unassignedHtml = `
     <div class="gruppi-unassigned-panel gruppi-edit-unassigned${hasSelection ? ' is-drop-target' : ''}"
-      ${hasSelection ? 'role="button" tabindex="0" onclick="applyGruppiEditSelection(\'\')"' : ''}>
+      ${hasSelection ? `role="button" tabindex="0" onclick="applyGruppiEditSelection('')"` : ''}>
       <div class="gruppo-squadra-head">
         <div>
-          <h4 class="config-section-title">Senza gruppo${unassigned.length ? ` · ${unassigned.length}` : ''}</h4>
-          ${hasSelection
-            ? '<p class="liturgy-meta gruppi-unassigned-hint">Tocca qui per toglierli dal gruppo</p>'
-            : (unassigned.length ? '' : '<p class="liturgy-meta gruppi-unassigned-hint">Nessuno senza gruppo</p>')}
+          <h4 class="config-section-title">Da assegnare${unassigned.length ? ` · ${unassigned.length}` : ''}</h4>
+          <p class="liturgy-meta gruppi-unassigned-hint">${hasSelection
+            ? 'Tocca per togliere dal gruppo'
+            : 'Vanzago, Mantegazza e Cerimonieri — tocca i nomi, poi una squadra'}</p>
         </div>
+        ${hasSelection
+          ? '<span class="gruppi-edit-drop-label is-warn">Togli</span>'
+          : ''}
       </div>
-      <div class="gruppo-member-chips" onclick="event.stopPropagation()">
-        ${unassigned.length ? unassigned.map(c => buildGruppiEditChip(c)).join('') : ''}
+      <div class="gruppi-edit-pool" onclick="event.stopPropagation()">
+        ${buildGruppiEditUnassignedSections(unassigned, hasSelection)}
       </div>
     </div>
   `;
 
-  // Pool da assegnare in cima, poi squadre, legenda solo se serve
-  list.innerHTML = guideHtml + unassignedHtml + groupsHtml + legendHtml;
-  list.classList.toggle('has-selection', hasSelection);
-  list.dataset.pairLevel = globalMax || '';
-  syncGruppiEditToolbar();
+  list.innerHTML = unassignedHtml + groupsHtml + legendHtml;
+  syncGruppiEditChrome();
 
   const saveBtn = document.getElementById('btn-salva-gruppi-config');
   if (saveBtn) {
     saveBtn.disabled = nChanges === 0;
-    saveBtn.textContent = nChanges
-      ? `Salva (${nChanges} modific${nChanges === 1 ? 'a' : 'he'})`
-      : 'Salva configurazione';
+    saveBtn.textContent = nChanges ? `Salva (${nChanges})` : 'Salva configurazione';
   }
 }
 
