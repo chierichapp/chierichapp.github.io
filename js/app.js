@@ -66,6 +66,9 @@ const DEFAULT_GRUPPI_CONFIG = {
 let editingMessaDomenicaleId = null;
 let turniTab = 'messe';
 let gruppiTab = 'squadre';
+let gruppiEditDraft = null;
+let gruppiEditBaseline = null;
+let gruppiEditSelected = new Set();
 let appelloParrocchiaTab = 'mine';
 let appelloParrocchiaTabBySlot = {};
 let appelloSelectedSlotKey = '';
@@ -377,18 +380,21 @@ function syncChierichettiAdminUi() {
 
 function syncGruppiAdminUi() {
   const formWrap = document.getElementById('gruppi-gestione-form-wrap');
+  const canAdmin = isCurrentUserAdmin();
   if (formWrap) {
-    if (!isCurrentUserAdmin()) {
+    if (!canAdmin) {
       formWrap.style.display = 'none';
       closeGruppiFormSheet();
     } else {
       formWrap.style.display = '';
     }
   }
-  const unassignedActions = document.getElementById('gruppi-unassigned-actions');
-  if (unassignedActions && !isCurrentUserAdmin()) unassignedActions.style.display = 'none';
+  document.querySelectorAll('#btn-modifica-gruppi, #btn-modifica-gruppi-mobile, #gruppi-gestione-head-actions').forEach(el => {
+    el.hidden = !canAdmin;
+  });
   const turniForm = document.querySelector('.turni-form-panel');
-  if (turniForm) turniForm.style.display = isCurrentUserAdmin() ? '' : 'none';
+  if (turniForm) turniForm.style.display = canAdmin ? '' : 'none';
+  if (!canAdmin && document.body.classList.contains('gruppi-edit-open')) closeGruppiEdit(true);
   syncGruppiFab();
 }
 
@@ -3010,6 +3016,9 @@ function switchTurniTab(tab) {
 }
 
 function switchGruppiTab(tab) {
+  if (tab !== 'gestione' && document.body.classList.contains('gruppi-edit-open')) {
+    if (!closeGruppiEdit()) return;
+  }
   gruppiTab = tab;
   document.getElementById('tab-gruppi-squadre')?.classList.toggle('active', tab === 'squadre');
   document.getElementById('tab-gruppi-gestione')?.classList.toggle('active', tab === 'gestione');
@@ -3029,15 +3038,18 @@ function updateGruppiPanelMeta() {
   const wrap = document.getElementById('gruppi-unassigned-wrap');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
   if (wrap) wrap.style.display = (nonAssegnati > 0 || !allChi.length) ? '' : 'none';
+  const countEl = document.getElementById('gruppi-attivi-count');
+  if (countEl) countEl.textContent = String(getGruppiAttivi().length);
 }
 
 const GRUPPO_CRONOLOGIA_TIPO_LABEL = {
   creato: 'Gruppo creato',
   rinominato: 'Rinominato',
+  rimosso: 'Gruppo rimosso',
+  configurazione: 'Configurazione salvata',
   membro_aggiunto: 'Assegnato',
   membro_spostato: 'Spostato',
-  membro_rimosso: 'Rimosso',
-  rimosso: 'Gruppo rimosso'
+  membro_rimosso: 'Rimosso'
 };
 
 function appendGruppoCronologia(tipo, gruppoId, extra = {}) {
@@ -3065,7 +3077,49 @@ function formatGruppoCronologiaWhen(iso) {
   if (sameDay) {
     return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   }
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return 'Ieri ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) +
+    ' · ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function summarizeGruppiChanges(changes) {
+  if (!changes?.length) return 'Nessun cambio di assegnazione';
+  let assegnati = 0;
+  let spostati = 0;
+  let rimossi = 0;
+  changes.forEach(ch => {
+    if (!ch.daId && ch.aId) assegnati += 1;
+    else if (ch.daId && !ch.aId) rimossi += 1;
+    else spostati += 1;
+  });
+  const parts = [];
+  if (assegnati) parts.push(assegnati === 1 ? '1 assegnazione' : `${assegnati} assegnazioni`);
+  if (spostati) parts.push(spostati === 1 ? '1 spostamento' : `${spostati} spostamenti`);
+  if (rimossi) parts.push(rimossi === 1 ? '1 rimozione' : `${rimossi} rimozioni`);
+  return parts.join(' · ') || `${changes.length} cambiamenti`;
+}
+
+function buildGruppiSnapshotFromState() {
+  return {
+    gruppi: getGruppiAttivi().map(g => ({
+      id: g.id,
+      nome: g.nome,
+      membri: getChierichettiInGruppo(g.id).map(c => ({
+        uuid: c.uuid,
+        nome: c.nome,
+        cer: isAppelloCerimoniere(c)
+      }))
+    })),
+    senzaGruppo: getChierichettiSenzaGruppo().map(c => ({
+      uuid: c.uuid,
+      nome: c.nome,
+      cer: isAppelloCerimoniere(c)
+    }))
+  };
 }
 
 function describeGruppoCronologiaEntry(entry) {
@@ -3074,6 +3128,9 @@ function describeGruppoCronologiaEntry(entry) {
   let detail = '';
 
   switch (entry.tipo) {
+    case 'configurazione':
+      detail = esc(entry.summary || summarizeGruppiChanges(entry.changes));
+      break;
     case 'creato':
       detail = entry.messa ? esc(entry.messa) : 'Nuova squadra nel turno';
       break;
@@ -3106,23 +3163,56 @@ function describeGruppoCronologiaEntry(entry) {
   };
 }
 
+function renderGruppiCronologiaSnapshot(entry) {
+  const snap = entry.snapshot;
+  if (!snap?.gruppi?.length) return '';
+  const groupsHtml = snap.gruppi.map(g => {
+    const membri = (g.membri || []).map(m => esc(m.nome)).join(', ') || '—';
+    return `<li><strong>${esc(g.nome)}</strong>: ${membri}</li>`;
+  }).join('');
+  const senza = (snap.senzaGruppo || []).map(m => esc(m.nome)).join(', ');
+  const senzaHtml = senza
+    ? `<li><strong>Senza gruppo</strong>: ${senza}</li>`
+    : '';
+  const changes = (entry.changes || []).slice(0, 12).map(ch =>
+    `<li>${esc(ch.personaNome)}: ${esc(ch.da)} → ${esc(ch.a)}</li>`
+  ).join('');
+  const more = (entry.changes || []).length > 12
+    ? `<li class="gruppi-cronologia-more">+${entry.changes.length - 12} altri</li>`
+    : '';
+  return `
+    <details class="gruppi-cronologia-details">
+      <summary>Dettaglio composizione</summary>
+      ${changes ? `<ul class="gruppi-cronologia-changes">${changes}${more}</ul>` : ''}
+      <ul class="gruppi-cronologia-snapshot">${groupsHtml}${senzaHtml}</ul>
+    </details>
+  `;
+}
+
 function renderGruppiCronologia() {
   const container = document.getElementById('gruppi-cronologia-list');
   if (!container) return;
   ensureGruppiConfig();
-  const items = state.gruppiConfig.cronologia || [];
+  const items = (state.gruppiConfig.cronologia || []).filter(entry =>
+    entry.tipo === 'configurazione' ||
+    entry.tipo === 'creato' ||
+    entry.tipo === 'rinominato' ||
+    entry.tipo === 'rimosso'
+  );
   if (!items.length) {
-    container.innerHTML = '<p class="empty-state">Nessun evento — creazioni e assegnazioni appariranno qui</p>';
+    container.innerHTML = '<p class="empty-state">Nessuna configurazione salvata — usa Modifica Gruppi e salva</p>';
     return;
   }
   container.innerHTML = items.map(entry => {
     const { title, detail } = describeGruppoCronologiaEntry(entry);
+    const extra = entry.tipo === 'configurazione' ? renderGruppiCronologiaSnapshot(entry) : '';
     return `
-      <div class="gruppi-cronologia-item">
+      <div class="gruppi-cronologia-item${entry.tipo === 'configurazione' ? ' is-config' : ''}">
         <time class="gruppi-cronologia-when" datetime="${esc(entry.at)}">${formatGruppoCronologiaWhen(entry.at)}</time>
         <div class="gruppi-cronologia-body">
           <p class="gruppi-cronologia-tipo">${esc(title)}</p>
           <p class="gruppi-cronologia-dettaglio">${detail}</p>
+          ${extra}
         </div>
       </div>
     `;
@@ -6226,19 +6316,18 @@ function buildGruppoVetrinaCardHtml(g) {
 
 function buildGruppoCardHtml(g) {
   const members = getChierichettiInGruppo(g.id);
-  const mobile = window.matchMedia('(max-width: 1024px)').matches;
+  const mobile = isPhoneShell();
   const servizioMeta = formatGruppoServizioMeta(g.id, { compact: mobile });
   const nCer = members.filter(isAppelloCerimoniere).length;
   const canManage = isCurrentUserAdmin();
 
   const membersHtml = members.length
     ? members.map(c => `
-      <span class="gruppo-member-chip${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}">
+      <span class="gruppo-member-chip is-readonly${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}">
         ${chierichettoNomeHtml(c)}
-        ${canManage ? `<button type="button" title="Rimuovi dal gruppo" onclick="unassignChierichettoFromGruppo('${esc(c.uuid)}')" aria-label="Rimuovi">×</button>` : ''}
       </span>
     `).join('')
-    : (mobile ? '' : '<span class="liturgy-meta">Squadra vuota — aggiungi chierichetti o cerimonieri sotto</span>');
+    : '<span class="liturgy-meta">Squadra vuota</span>';
 
   return `
     <div class="gruppo-squadra-card">
@@ -6254,8 +6343,7 @@ function buildGruppoCardHtml(g) {
           </button>` : ''}
         </div>
       </div>
-      ${membersHtml ? `<div class="gruppo-member-chips">${membersHtml}</div>` : ''}
-      ${canManage ? renderGruppoAddRow(g.id) : ''}
+      <div class="gruppo-member-chips">${membersHtml}</div>
     </div>
   `;
 }
@@ -6502,48 +6590,36 @@ function renderGruppoAddRow(gruppoId) {
   `;
 }
 
-function renderUnassignedPanel(unassigned, gruppi) {
+function renderUnassignedPanel(unassigned) {
   const hintEl = document.getElementById('gruppi-unassigned-hint');
   const chipsEl = document.getElementById('gruppi-non-assegnati');
-  const actionsEl = document.getElementById('gruppi-unassigned-actions');
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  const gruppoSelect = document.getElementById('unassigned-gruppo-select');
   const titleEl = document.querySelector('#gruppi-unassigned-wrap .config-section-title');
   const allChi = state.chierichetti.filter(isChierichettoAttivo);
-  const mobile = window.matchMedia('(max-width: 1024px)').matches;
-  const canManage = isCurrentUserAdmin();
 
   if (!allChi.length) {
     if (titleEl) titleEl.textContent = 'Senza gruppo';
     if (hintEl) hintEl.textContent = 'Prima registra i chierichetti in Anagrafica, poi torna qui per assegnarli.';
     if (chipsEl) chipsEl.innerHTML = '';
-    if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
   if (!unassigned.length) {
     if (titleEl) titleEl.textContent = 'Senza gruppo';
-    if (hintEl) hintEl.textContent = '';
+    if (hintEl) hintEl.textContent = 'Tutti sono assegnati a una squadra.';
     if (chipsEl) chipsEl.innerHTML = '';
-    if (actionsEl) actionsEl.style.display = 'none';
     return;
   }
 
   if (titleEl) titleEl.textContent = `Senza gruppo · ${unassigned.length}`;
   if (hintEl) {
-    hintEl.textContent = mobile
-      ? 'Tocca un nome, scegli la squadra e assegna.'
-      : `${unassigned.length} chierichetti o cerimonieri senza gruppo — assegnali a una squadra compatibile con le messe del turno.`;
+    hintEl.textContent = isCurrentUserAdmin()
+      ? 'Usa Modifica Gruppi per assegnarli alle squadre.'
+      : `${unassigned.length} persone senza gruppo.`;
   }
 
   const chipHtml = (c) => {
-    const label = mobile
-      ? esc(c.nome)
-      : `${esc(c.nome)} · ${esc(formatAnnoNascitaLabel(c.annoNascita))}`;
-    if (mobile && canManage) {
-      return `<button type="button" class="gruppo-member-chip" data-unassigned-uuid="${esc(c.uuid)}" onclick="selectUnassignedPerson('${esc(c.uuid)}')">${label}</button>`;
-    }
-    return `<span class="gruppo-member-chip">${label}</span>`;
+    const label = `${esc(c.nome)}${isAppelloCerimoniere(c) ? '' : ''}`;
+    return `<span class="gruppo-member-chip is-readonly${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}">${label}</span>`;
   };
 
   const byParrocchia = (id) => unassigned.filter(c => c.parrocchia === id);
@@ -6571,58 +6647,6 @@ function renderUnassignedPanel(unassigned, gruppi) {
   ` : '';
 
   if (chipsEl) chipsEl.innerHTML = sections + extraSection;
-
-  if (chiSelect) {
-    chiSelect.innerHTML = '<option value="">Seleziona chierichetto o cerimoniere…</option>' +
-      buildGruppoPersonaSelectOptions(unassigned);
-    chiSelect.setAttribute('aria-label', 'Chierichetto o cerimoniere');
-    chiSelect.onchange = () => {
-      syncUnassignedChipSelection(chiSelect.value);
-      populateUnassignedGruppoSelect(gruppi);
-    };
-  }
-  populateUnassignedGruppoSelect(gruppi);
-  if (actionsEl) actionsEl.style.display = canManage ? 'flex' : 'none';
-}
-
-function selectUnassignedPerson(uuid) {
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  if (!chiSelect) return;
-  chiSelect.value = uuid || '';
-  syncUnassignedChipSelection(uuid);
-  populateUnassignedGruppoSelect(getGruppiAttivi());
-  requestAnimationFrame(() => {
-    document.getElementById('unassigned-gruppo-select')?.focus();
-  });
-}
-
-function syncUnassignedChipSelection(uuid) {
-  document.querySelectorAll('#gruppi-non-assegnati [data-unassigned-uuid]').forEach(el => {
-    el.classList.toggle('is-selected', el.getAttribute('data-unassigned-uuid') === uuid);
-  });
-}
-
-function populateUnassignedGruppoSelect(gruppi) {
-  const chiSelect = document.getElementById('unassigned-chi-select');
-  const gruppoSelect = document.getElementById('unassigned-gruppo-select');
-  if (!gruppoSelect) return;
-  const uuid = chiSelect?.value;
-  const chi = uuid ? state.chierichetti.find(c => c.uuid === uuid) : null;
-  const compatible = chi
-    ? gruppi.filter(g => chierichettoCanJoinGruppo(chi, g.id))
-    : gruppi;
-  gruppoSelect.innerHTML = '<option value="">Seleziona gruppo…</option>' +
-    compatible.map(g => `<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join('');
-}
-
-function assignFromUnassignedPanel() {
-  const uuid = document.getElementById('unassigned-chi-select')?.value;
-  const gruppoId = document.getElementById('unassigned-gruppo-select')?.value;
-  if (!uuid || !gruppoId) {
-    showToast('Seleziona chierichetto e gruppo');
-    return;
-  }
-  assignChierichettoToGruppo(uuid, gruppoId);
 }
 
 async function assignChierichettoToGruppo(uuid, gruppoId) {
@@ -6639,11 +6663,6 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   }
   const prevGruppo = chi.gruppo;
   chi.gruppo = gruppoId;
-  appendGruppoCronologia(
-    prevGruppo && prevGruppo !== gruppoId ? 'membro_spostato' : 'membro_aggiunto',
-    gruppoId,
-    { personaNome: chi.nome, gruppoPrecedente: prevGruppo ? getGruppoLabel(prevGruppo) : '' }
-  );
   saveData();
   void persistConfig();
   const ok = await persistPersona({ nome: chi.nome, email: '', telefono: chi.telefono || '', telefono2: chi.telefono2 || '', telefonoChi: chi.telefonoChi || '', telefono2Chi: chi.telefono2Chi || '', ruolo: chi.ruolo, annoNascita: chi.annoNascita, parrocchia: chi.parrocchia, cerimoniereTurno: false, gruppo: gruppoId }, chi.uuid);
@@ -6656,7 +6675,6 @@ async function assignChierichettoToGruppo(uuid, gruppoId) {
   }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  renderGruppiCronologia();
   if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
   if (prevGruppo && prevGruppo !== gruppoId) {
     showToast(`${chi.nome} spostato da ${getGruppoLabel(prevGruppo)} a ${getGruppoLabel(gruppoId)}`);
@@ -6670,7 +6688,6 @@ async function unassignChierichettoFromGruppo(uuid) {
   const chi = state.chierichetti.find(c => c.uuid === uuid);
   if (!chi) return;
   const prevGruppo = chi.gruppo;
-  appendGruppoCronologia('membro_rimosso', prevGruppo, { personaNome: chi.nome });
   chi.gruppo = '';
   saveData();
   void persistConfig();
@@ -6684,7 +6701,6 @@ async function unassignChierichettoFromGruppo(uuid) {
   }
   renderGruppiVetrinaList();
   renderGruppiGestioneList();
-  renderGruppiCronologia();
   if (document.getElementById('anagrafica').classList.contains('active')) renderChierichetti();
   showToast(`${chi.nome} rimosso dal gruppo`);
 }
@@ -6703,8 +6719,286 @@ function renderGruppiGestioneList() {
     container.innerHTML = gruppi.map(g => buildGruppoCardHtml(g)).join('');
   }
 
-  renderUnassignedPanel(unassigned, gruppi);
+  renderUnassignedPanel(unassigned);
   updateGruppiPanelMeta();
+  syncGruppiAdminUi();
+  if (document.body.classList.contains('gruppi-edit-open')) renderGruppiEditPanel();
+}
+
+function getDraftGruppoFor(uuid) {
+  if (!gruppiEditDraft) return '';
+  return gruppiEditDraft[uuid] || '';
+}
+
+function getChierichettiInGruppoDraft(gruppoId) {
+  return state.chierichetti
+    .filter(c => isChierichettoAttivo(c) && getDraftGruppoFor(c.uuid) === gruppoId)
+    .sort(sortChierichettiInGruppo);
+}
+
+function getChierichettiSenzaGruppoDraft() {
+  return state.chierichetti
+    .filter(c => isChierichettoAttivo(c) && !getDraftGruppoFor(c.uuid))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+}
+
+function hasGruppiEditChanges() {
+  if (!gruppiEditDraft || !gruppiEditBaseline) return false;
+  const keys = new Set([...Object.keys(gruppiEditDraft), ...Object.keys(gruppiEditBaseline)]);
+  for (const uuid of keys) {
+    if ((gruppiEditDraft[uuid] || '') !== (gruppiEditBaseline[uuid] || '')) return true;
+  }
+  return false;
+}
+
+function openGruppiEdit() {
+  if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
+  closeGruppiFormSheet();
+  gruppiEditBaseline = {};
+  gruppiEditDraft = {};
+  state.chierichetti.filter(isChierichettoAttivo).forEach(c => {
+    const g = c.gruppo || '';
+    gruppiEditBaseline[c.uuid] = g;
+    gruppiEditDraft[c.uuid] = g;
+  });
+  gruppiEditSelected = new Set();
+  document.body.classList.add('gruppi-edit-open');
+  const view = document.getElementById('gruppi-gestione-view');
+  const panel = document.getElementById('gruppi-edit-panel');
+  if (view) view.hidden = true;
+  if (panel) panel.hidden = false;
+  renderGruppiEditPanel();
+  syncGruppiFab();
+  panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeGruppiEdit(force = false) {
+  if (!document.body.classList.contains('gruppi-edit-open') && !gruppiEditDraft) return true;
+  if (!force && hasGruppiEditChanges() && !confirm('Scartare le modifiche non salvate?')) return false;
+  document.body.classList.remove('gruppi-edit-open');
+  gruppiEditDraft = null;
+  gruppiEditBaseline = null;
+  gruppiEditSelected = new Set();
+  const view = document.getElementById('gruppi-gestione-view');
+  const panel = document.getElementById('gruppi-edit-panel');
+  if (view) view.hidden = false;
+  if (panel) panel.hidden = true;
+  syncGruppiFab();
+  return true;
+}
+
+function toggleGruppiEditSelection(uuid) {
+  if (!gruppiEditDraft) return;
+  if (gruppiEditSelected.has(uuid)) gruppiEditSelected.delete(uuid);
+  else gruppiEditSelected.add(uuid);
+  syncGruppiEditToolbar();
+  document.querySelectorAll(`#gruppi-edit-list [data-edit-uuid="${CSS.escape(uuid)}"]`).forEach(el => {
+    el.classList.toggle('is-selected', gruppiEditSelected.has(uuid));
+  });
+}
+
+function clearGruppiEditSelection() {
+  gruppiEditSelected = new Set();
+  syncGruppiEditToolbar();
+  document.querySelectorAll('#gruppi-edit-list [data-edit-uuid]').forEach(el => {
+    el.classList.remove('is-selected');
+  });
+}
+
+function syncGruppiEditToolbar() {
+  const toolbar = document.getElementById('gruppi-edit-toolbar');
+  const countEl = document.getElementById('gruppi-edit-selection-count');
+  const target = document.getElementById('gruppi-edit-target');
+  const n = gruppiEditSelected.size;
+  if (toolbar) toolbar.hidden = n === 0;
+  if (countEl) countEl.textContent = n === 1 ? '1 selezionato' : `${n} selezionati`;
+  if (target && n > 0) {
+    const selectedPeople = [...gruppiEditSelected]
+      .map(uuid => state.chierichetti.find(c => c.uuid === uuid))
+      .filter(Boolean);
+    const gruppi = getGruppiAttivi().filter(g =>
+      selectedPeople.every(chi => chierichettoCanJoinGruppo(chi, g.id))
+    );
+    const prev = target.value;
+    target.innerHTML = '<option value="">Assegna a…</option>' +
+      gruppi.map(g => `<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join('');
+    if (prev && [...target.options].some(o => o.value === prev)) target.value = prev;
+  }
+}
+
+function applyGruppiEditSelection(forcedGruppoId) {
+  if (!gruppiEditDraft || !gruppiEditSelected.size) {
+    showToast('Seleziona almeno una persona');
+    return;
+  }
+  const gruppoId = forcedGruppoId !== undefined
+    ? forcedGruppoId
+    : (document.getElementById('gruppi-edit-target')?.value || '');
+  if (forcedGruppoId === undefined && !gruppoId) {
+    showToast('Scegli il gruppo di destinazione');
+    return;
+  }
+  let skipped = 0;
+  for (const uuid of [...gruppiEditSelected]) {
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi) continue;
+    if (gruppoId && !chierichettoCanJoinGruppo(chi, gruppoId)) {
+      skipped += 1;
+      continue;
+    }
+    gruppiEditDraft[uuid] = gruppoId;
+  }
+  gruppiEditSelected = new Set();
+  renderGruppiEditPanel();
+  if (skipped) showToast(`${skipped} persone non compatibili con quella squadra`);
+}
+
+function assignSelectedToGruppo(gruppoId) {
+  applyGruppiEditSelection(gruppoId);
+}
+
+function buildGruppiEditChip(c) {
+  const selected = gruppiEditSelected.has(c.uuid);
+  return `
+    <button type="button"
+      class="gruppo-member-chip is-selectable${isAppelloCerimoniere(c) ? ' is-cerimoniere' : ''}${selected ? ' is-selected' : ''}"
+      data-edit-uuid="${esc(c.uuid)}"
+      onclick="toggleGruppiEditSelection('${esc(c.uuid)}')"
+      aria-pressed="${selected ? 'true' : 'false'}">
+      ${esc(c.nome)}
+    </button>
+  `;
+}
+
+function renderGruppiEditPanel() {
+  const list = document.getElementById('gruppi-edit-list');
+  if (!list || !gruppiEditDraft) return;
+  const gruppi = getGruppiAttivi();
+  const unassigned = getChierichettiSenzaGruppoDraft();
+
+  const groupsHtml = gruppi.length
+    ? gruppi.map(g => {
+      const members = getChierichettiInGruppoDraft(g.id);
+      const nCer = members.filter(isAppelloCerimoniere).length;
+      return `
+        <div class="gruppo-squadra-card gruppi-edit-card">
+          <div class="gruppo-squadra-head">
+            <div>
+              <p class="config-item-title">${esc(g.nome)}</p>
+              <p class="config-item-meta">${nCer ? nCer + ' cerim. · ' : ''}${members.length} in squadra</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="assignSelectedToGruppo('${esc(g.id)}')" ${gruppiEditSelected.size ? '' : 'disabled'}>
+              Assegna qui
+            </button>
+          </div>
+          <div class="gruppo-member-chips">
+            ${members.length ? members.map(buildGruppiEditChip).join('') : '<span class="liturgy-meta">Nessuno — seleziona persone e assegna qui</span>'}
+          </div>
+        </div>
+      `;
+    }).join('')
+    : '<p class="empty-state">Nessun gruppo attivo</p>';
+
+  const unassignedHtml = `
+    <div class="gruppi-unassigned-panel gruppi-edit-unassigned">
+      <div class="gruppo-squadra-head">
+        <div>
+          <h4 class="config-section-title">Senza gruppo${unassigned.length ? ` · ${unassigned.length}` : ''}</h4>
+          <p class="liturgy-meta gruppi-unassigned-hint">Tocca per selezionare più persone, poi assegna a una squadra</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="applyGruppiEditSelection('')" ${gruppiEditSelected.size ? '' : 'disabled'}>
+          Togli dal gruppo
+        </button>
+      </div>
+      <div class="gruppo-member-chips">
+        ${unassigned.length ? unassigned.map(buildGruppiEditChip).join('') : '<span class="liturgy-meta">Nessuno senza gruppo</span>'}
+      </div>
+    </div>
+  `;
+
+  list.innerHTML = unassignedHtml + groupsHtml;
+  syncGruppiEditToolbar();
+
+  const saveBtn = document.getElementById('btn-salva-gruppi-config');
+  if (saveBtn) saveBtn.disabled = !hasGruppiEditChanges();
+}
+
+async function saveGruppiEditConfig() {
+  if (!requireAdminAction('Solo l\'admin può modificare i gruppi')) return;
+  if (!gruppiEditDraft || !gruppiEditBaseline) return;
+  if (!hasGruppiEditChanges()) {
+    showToast('Nessuna modifica da salvare');
+    return;
+  }
+
+  const changes = [];
+  const toPersist = [];
+  for (const uuid of Object.keys(gruppiEditDraft)) {
+    const next = gruppiEditDraft[uuid] || '';
+    const prev = gruppiEditBaseline[uuid] || '';
+    if (next === prev) continue;
+    const chi = state.chierichetti.find(c => c.uuid === uuid);
+    if (!chi) continue;
+    if (next && !chierichettoCanJoinGruppo(chi, next)) {
+      showToast(`${chi.nome} non può entrare in ${getGruppoLabel(next)}`);
+      return;
+    }
+    changes.push({
+      personaNome: chi.nome,
+      da: prev ? getGruppoLabel(prev) : 'Senza gruppo',
+      a: next ? getGruppoLabel(next) : 'Senza gruppo',
+      daId: prev,
+      aId: next
+    });
+    toPersist.push({ chi, next, prev });
+  }
+
+  const saveBtn = document.getElementById('btn-salva-gruppi-config');
+  if (saveBtn) saveBtn.disabled = true;
+
+  for (const { chi, next, prev } of toPersist) {
+    chi.gruppo = next;
+  }
+  saveData();
+
+  let failed = null;
+  for (const { chi, next, prev } of toPersist) {
+    const ok = await persistPersona({
+      nome: chi.nome,
+      email: '',
+      telefono: chi.telefono || '',
+      telefono2: chi.telefono2 || '',
+      telefonoChi: chi.telefonoChi || '',
+      telefono2Chi: chi.telefono2Chi || '',
+      ruolo: chi.ruolo,
+      annoNascita: chi.annoNascita,
+      parrocchia: chi.parrocchia,
+      cerimoniereTurno: false,
+      gruppo: next
+    }, chi.uuid);
+    if (!ok) {
+      chi.gruppo = prev;
+      failed = chi.nome;
+      break;
+    }
+  }
+
+  if (failed) {
+    saveData();
+    if (saveBtn) saveBtn.disabled = false;
+    renderGruppiEditPanel();
+    showToast(`Salvataggio interrotto su ${failed}`);
+    return;
+  }
+
+  appendGruppoCronologia('configurazione', '', {
+    changes,
+    summary: summarizeGruppiChanges(changes),
+    snapshot: buildGruppiSnapshotFromState()
+  });
+  closeGruppiEdit(true);
+  afterGruppiConfigChange();
+  showToast('Configurazione gruppi salvata');
 }
 
 function addChierichettoToGruppoFromSelect(gruppoId) {
@@ -7265,7 +7559,8 @@ function syncGruppiFab() {
   const onGruppi = document.getElementById('gruppi')?.classList.contains('active');
   const onGestione = gruppiTab === 'gestione';
   const sheetOpen = document.body.classList.contains('gruppi-sheet-open');
-  const show = !!(onGruppi && onGestione && isGruppiMobile() && !sheetOpen && isCurrentUserAdmin());
+  const editOpen = document.body.classList.contains('gruppi-edit-open');
+  const show = !!(onGruppi && onGestione && isGruppiMobile() && !sheetOpen && !editOpen && isCurrentUserAdmin());
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
 }

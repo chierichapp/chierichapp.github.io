@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -587,85 +587,116 @@
         </div>
 
         <div id="gruppi-panel-gestione" class="gruppi-tab-panel">
-          <div class="panel gruppi-gestione-panel">
-            <div class="panel-head">
-              <h3>Gestione gruppi</h3>
-              <p>Rinomina le squadre, assegna i chierichetti o aggiungine di nuove</p>
-            </div>
-            <div class="panel-body">
-              <div class="gruppi-gestione-stack">
-              <div class="gruppi-gestione-form is-collapsed" id="gruppi-gestione-form-wrap">
-                <div class="gruppi-form-sheet-head">
-                  <div>
-                    <h3 class="gruppi-gestione-form-title">Aggiungi squadra</h3>
-                    <p class="gruppi-form-sheet-sub">Crea un gruppo legato a una messa del turno</p>
-                  </div>
-                  <button type="button" class="anag-sheet-close" id="btn-gruppi-sheet-close" onclick="closeGruppiFormSheet()" aria-label="Chiudi">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  </button>
+          <div class="gruppi-gestione-layout">
+            <div class="panel gruppi-gestione-panel" id="gruppi-gestione-view">
+              <div class="panel-head">
+                <div>
+                  <h3>Gestione gruppi</h3>
+                  <p>Composizione attuale delle squadre</p>
                 </div>
-                <p class="gruppi-gestione-form-title gruppi-form-desktop-title">Aggiungi squadra</p>
-                <form id="nuovoGruppoForm">
-                  <div class="form-group">
-                    <label for="nuovo-gruppo-nome">Nome squadra</label>
-                    <input type="text" id="nuovo-gruppo-nome" placeholder="Gruppo 4" autocomplete="off">
+                <div class="gruppi-gestione-head-actions" id="gruppi-gestione-head-actions">
+                  <button type="button" class="btn btn-primary" id="btn-modifica-gruppi" onclick="openGruppiEdit()">Modifica Gruppi</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="gruppi-gestione-stack">
+                <div class="gruppi-gestione-form is-collapsed" id="gruppi-gestione-form-wrap">
+                  <div class="gruppi-form-sheet-head">
+                    <div>
+                      <h3 class="gruppi-gestione-form-title">Aggiungi squadra</h3>
+                      <p class="gruppi-form-sheet-sub">Crea un gruppo legato a una messa del turno</p>
+                    </div>
+                    <button type="button" class="anag-sheet-close" id="btn-gruppi-sheet-close" onclick="closeGruppiFormSheet()" aria-label="Chiudi">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
                   </div>
-                  <div class="form-row">
+                  <p class="gruppi-gestione-form-title gruppi-form-desktop-title">Aggiungi squadra</p>
+                  <form id="nuovoGruppoForm">
                     <div class="form-group">
-                      <label for="nuovo-gruppo-day">Giorno messa</label>
-                      <select id="nuovo-gruppo-day" required onchange="syncNuovoGruppoFormDay()">
-                        <option value="-1">Sabato (vigilia)</option>
-                        <option value="0" selected>Domenica</option>
+                      <label for="nuovo-gruppo-nome">Nome squadra</label>
+                      <input type="text" id="nuovo-gruppo-nome" placeholder="Gruppo 4" autocomplete="off">
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="nuovo-gruppo-day">Giorno messa</label>
+                        <select id="nuovo-gruppo-day" required onchange="syncNuovoGruppoFormDay()">
+                          <option value="-1">Sabato (vigilia)</option>
+                          <option value="0" selected>Domenica</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label for="nuovo-gruppo-ora">Ora</label>
+                        <input type="time" id="nuovo-gruppo-ora" required value="10:00">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="nuovo-gruppo-sede">Sede</label>
+                      <select id="nuovo-gruppo-sede" required>
+                        <option value="santuario">Santuario</option>
+                        <option value="vanzago">Vanzago</option>
+                        <option value="mantegazza">Mantegazza</option>
                       </select>
                     </div>
-                    <div class="form-group">
-                      <label for="nuovo-gruppo-ora">Ora</label>
-                      <input type="time" id="nuovo-gruppo-ora" required value="10:00">
+                    <label class="form-check" id="nuovo-gruppo-vigilia-wrap" for="nuovo-gruppo-vigilia" hidden>
+                      <input type="checkbox" id="nuovo-gruppo-vigilia">
+                      <span class="form-check-text">
+                        <span class="form-check-title">Vigilia domenicale</span>
+                        <span class="form-check-desc">Messa del sabato sera</span>
+                      </span>
+                    </label>
+                    <div class="form-actions gruppi-form-actions">
+                      <button type="submit" class="btn btn-primary btn-full">Aggiungi gruppo</button>
                     </div>
+                  </form>
+                  <p class="liturgy-meta gruppi-gestione-form-note">
+                    <strong id="gruppi-attivi-count">3</strong> gruppi attivi.
+                    Per rimuovere un gruppo, togli la squadra dalla messa in
+                    <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('turni')">Turni</button>.
+                  </p>
+                </div>
+                <div class="gruppi-gestione-lists">
+                  <div class="gruppi-gestione-toolbar">
+                    <p class="gruppi-gestione-form-title gruppi-list-title">Squadre attuali</p>
+                    <button type="button" class="btn btn-primary btn-sm gruppi-modifica-btn-mobile" id="btn-modifica-gruppi-mobile" onclick="openGruppiEdit()">Modifica Gruppi</button>
                   </div>
-                  <div class="form-group">
-                    <label for="nuovo-gruppo-sede">Sede</label>
-                    <select id="nuovo-gruppo-sede" required>
-                      <option value="santuario">Santuario</option>
-                      <option value="vanzago">Vanzago</option>
-                      <option value="mantegazza">Mantegazza</option>
-                    </select>
+                  <div id="gruppi-gestione-list"></div>
+                  <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
+                    <h4 class="config-section-title">Senza gruppo</h4>
+                    <p class="liturgy-meta gruppi-unassigned-hint" id="gruppi-unassigned-hint"></p>
+                    <div id="gruppi-non-assegnati" class="gruppo-member-chips"></div>
                   </div>
-                  <label class="form-check" id="nuovo-gruppo-vigilia-wrap" for="nuovo-gruppo-vigilia" hidden>
-                    <input type="checkbox" id="nuovo-gruppo-vigilia">
-                    <span class="form-check-text">
-                      <span class="form-check-title">Vigilia domenicale</span>
-                      <span class="form-check-desc">Messa del sabato sera</span>
-                    </span>
-                  </label>
-                  <div class="form-actions gruppi-form-actions">
-                    <button type="submit" class="btn btn-primary btn-full">Aggiungi gruppo</button>
-                  </div>
-                </form>
-                <p class="liturgy-meta gruppi-gestione-form-note">
-                  <strong id="gruppi-attivi-count">3</strong> gruppi attivi.
-                  Per rimuovere un gruppo, togli la squadra dalla messa in
-                  <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('turni')">Turni</button>.
-                </p>
-              </div>
-              <div class="gruppi-gestione-lists">
-              <p class="gruppi-gestione-form-title gruppi-list-title">Squadre attuali</p>
-              <div id="gruppi-gestione-list"></div>
-              <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
-                <h4 class="config-section-title">Senza gruppo</h4>
-                <p class="liturgy-meta gruppi-unassigned-hint" id="gruppi-unassigned-hint"></p>
-                <div id="gruppi-non-assegnati" class="gruppo-member-chips"></div>
-                <div class="gruppo-add-row gruppi-unassigned-actions" id="gruppi-unassigned-actions" style="display:none">
-                  <select id="unassigned-chi-select" aria-label="Chierichetto o cerimoniere">
-                    <option value="">Seleziona persona…</option>
-                  </select>
-                  <select id="unassigned-gruppo-select" aria-label="Gruppo">
-                    <option value="">Seleziona gruppo…</option>
-                  </select>
-                  <button type="button" class="btn btn-primary btn-sm" onclick="assignFromUnassignedPanel()">Assegna</button>
+                </div>
                 </div>
               </div>
+            </div>
+
+            <div class="panel gruppi-edit-panel" id="gruppi-edit-panel" hidden>
+              <div class="panel-head">
+                <div>
+                  <h3>Modifica Gruppi</h3>
+                  <p>Seleziona più persone e assegnalle a una squadra, poi salva</p>
+                </div>
+                <button type="button" class="messe-sheet-close" onclick="closeGruppiEdit()" aria-label="Chiudi">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
               </div>
+              <div class="panel-body">
+                <div class="gruppi-edit-toolbar" id="gruppi-edit-toolbar" hidden>
+                  <p class="gruppi-edit-selection-count" id="gruppi-edit-selection-count">0 selezionati</p>
+                  <div class="gruppi-edit-toolbar-actions">
+                    <select id="gruppi-edit-target" aria-label="Assegna al gruppo">
+                      <option value="">Assegna a…</option>
+                    </select>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="applyGruppiEditSelection()">Assegna</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyGruppiEditSelection('')">Togli</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="clearGruppiEditSelection()">Annulla sel.</button>
+                  </div>
+                </div>
+                <div id="gruppi-edit-list" class="gruppi-edit-list"></div>
+                <div class="gruppi-edit-footer">
+                  <button type="button" class="btn btn-secondary" onclick="closeGruppiEdit()">Annulla</button>
+                  <button type="button" class="btn btn-primary" id="btn-salva-gruppi-config" onclick="saveGruppiEditConfig()">Salva configurazione</button>
+                </div>
               </div>
             </div>
           </div>
@@ -675,7 +706,7 @@
           <div class="panel">
             <div class="panel-head">
               <h3>Cronologia gruppi</h3>
-              <p>Creazioni, rinomine e assegnazioni recenti</p>
+              <p>Configurazioni salvate e cambiamenti alle squadre</p>
             </div>
             <div class="panel-body">
               <div id="gruppi-cronologia-list" class="gruppi-cronologia-list"></div>
