@@ -565,18 +565,40 @@
               <span class="rotazione-status chiusa" id="rotazione-status-badge">Rotazione non attiva</span>
             </div>
             <div class="panel-body">
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="rotazione-inizio">Inizio finestra (sabato, ore 12:00)</label>
-                  <input type="date" id="rotazione-inizio">
+              <p class="rotazione-status-text" id="rotazione-status-text">Imposta inizio e fine per attivare la rotazione automatica gruppi ↔ messe.</p>
+
+              <div class="rotazione-window-card" id="rotazione-window-card">
+                <div class="rotazione-presets" id="rotazione-presets" role="group" aria-label="Scorciatoie date">
+                  <button type="button" class="rotazione-preset" onclick="setRotazionePreset('questo')">Questo sabato</button>
+                  <button type="button" class="rotazione-preset" onclick="setRotazionePreset('prossimo')">Sabato prossimo</button>
+                  <button type="button" class="rotazione-preset" onclick="setRotazionePreset('pastorale')">Anno pastorale</button>
+                </div>
+
+                <div class="form-row rotazione-dates">
+                  <div class="form-group">
+                    <label for="rotazione-inizio">Inizio (sabato, ore 12:00)</label>
+                    <input type="date" id="rotazione-inizio" onchange="onRotazioneDatesChange()">
+                  </div>
+                  <div class="form-group">
+                    <label for="rotazione-fine">Fine (sabato, ore 12:00)</label>
+                    <input type="date" id="rotazione-fine" onchange="onRotazioneDatesChange()">
+                    <label class="rotazione-fine-open-label" for="rotazione-fine-open">
+                      <input type="checkbox" id="rotazione-fine-open" onchange="onRotazioneFineOpenChange()">
+                      Senza data di fine
+                    </label>
+                  </div>
+                </div>
+
+                <div class="rotazione-actions">
+                  <button type="button" class="btn btn-primary" id="btn-salva-rotazione" onclick="salvaFinestraRotazione()">Apri finestra</button>
+                  <button type="button" class="btn btn-secondary" id="btn-chiudi-rotazione" onclick="chiudiFinestraRotazione()" hidden>Chiudi ora</button>
                 </div>
               </div>
-              <p class="liturgy-meta" id="rotazione-status-text">Apri una finestra per far ruotare automaticamente l'assegnazione gruppi ↔ messe ogni turno (settimana).</p>
-              <div class="rotazione-actions">
-                <button type="button" class="btn btn-primary" id="btn-apri-rotazione" onclick="apriFinestraRotazione()">Apri finestra</button>
-                <button type="button" class="btn btn-secondary" id="btn-chiudi-rotazione" onclick="chiudiFinestraRotazione()" style="display:none">Chiudi finestra</button>
-              </div>
+
+              <div class="rotazione-storico" id="rotazione-storico" hidden></div>
+
               <h4 class="config-section-title">Anteprima prossime settimane</h4>
+              <p class="liturgy-meta rotazione-preview-hint" id="rotazione-preview-hint">L’anteprima segue le date qui sopra, anche prima di salvare.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
             </div>
           </div>
