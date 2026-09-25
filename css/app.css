@@ -6242,96 +6242,105 @@ body.anag-sheet-open { overflow: hidden; }
     order: 2;
   }
 
-  /* Gestione gruppi — lista first, form a sheet, FAB */
+  /* Gestione gruppi — allineata alle altre sezioni (niente full-bleed) */
   #gruppi-panel-gestione .gruppi-gestione-panel {
     border: none;
     border-radius: 0;
     box-shadow: none;
     background: transparent;
-    margin-left: -14px;
-    margin-right: -14px;
-    width: calc(100% + 28px);
+    margin: 0;
+    width: 100%;
   }
   #gruppi-panel-gestione .panel-head { display: none; }
   #gruppi-panel-gestione .panel-body {
     padding: 0 0 100px;
   }
   #gruppi-panel-gestione .gruppi-list-title {
-    padding: 0 14px;
-    margin: 4px 0 8px;
+    padding: 0;
+    margin: 12px 0 8px;
   }
   #gruppi-gestione-list {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
+    gap: 10px;
+    background: transparent;
+    border: none;
   }
   #gruppi-gestione-list .gruppo-squadra-card {
     margin: 0;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-    border-top: 1px solid var(--border);
-    padding: 12px 14px 14px;
-    box-shadow: none;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
   }
-  #gruppi-gestione-list .gruppo-squadra-card:first-child { border-top: none; }
+  #gruppi-gestione-list .gruppo-squadra-card:first-child { border-top: 1px solid var(--border); }
   #gruppi-gestione-list .gruppo-add-row .btn {
     width: 100%;
   }
   #gruppi-gestione-list .empty-state {
     padding: 28px 14px;
     margin: 0;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
   }
 
-  /* Gestione: senza gruppo in cima, squadre compatte, assegna solo dal pannello */
+  /* Gestione: CTA → senza gruppo → squadre */
   #gruppi-panel-gestione .gruppi-gestione-lists {
     display: flex;
     flex-direction: column;
     gap: 0;
   }
-  #gruppi-panel-gestione .gruppi-unassigned-panel {
+  #gruppi-panel-gestione .gruppi-gestione-cta {
+    order: -2;
+    margin: 0 0 14px;
+    padding: 0;
+  }
+  #gruppi-panel-gestione .gruppi-gestione-cta .liturgy-meta {
+    margin: 8px 0 0;
+    text-align: center;
+    font-size: 0.78rem;
+  }
+  #gruppi-gestione-view .gruppi-unassigned-panel {
     order: -1;
     position: static;
     z-index: auto;
-    margin: 0 0 12px;
+    margin: 0 0 14px;
     padding: 12px 14px 14px;
     background: var(--surface);
-    border: none;
-    border-bottom: 1px solid rgba(196, 92, 18, 0.22);
-    border-radius: 0;
-    box-shadow: none;
+    border: 1px solid rgba(196, 92, 18, 0.22);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
   }
-  #gruppi-panel-gestione .gruppi-unassigned-panel .config-section-title {
+  #gruppi-gestione-view .gruppi-unassigned-panel .config-section-title {
     font-size: 0.72rem;
     margin: 0 0 4px;
   }
-  #gruppi-panel-gestione .gruppi-unassigned-hint {
+  #gruppi-gestione-view .gruppi-unassigned-hint {
     font-size: 0.78rem;
     margin: 0 0 10px;
     line-height: 1.35;
   }
-  #gruppi-panel-gestione .gruppi-parrocchia-title {
+  #gruppi-gestione-view .gruppi-parrocchia-title {
     font-size: 0.68rem;
     margin: 8px 0 6px;
     letter-spacing: 0.04em;
   }
-  #gruppi-panel-gestione .gruppi-parrocchia-section:first-child .gruppi-parrocchia-title {
+  #gruppi-gestione-view .gruppi-parrocchia-section:first-child .gruppi-parrocchia-title {
     margin-top: 0;
   }
-  #gruppi-panel-gestione #gruppi-non-assegnati {
+  #gruppi-gestione-view #gruppi-non-assegnati {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
-  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chips {
+  #gruppi-gestione-view #gruppi-non-assegnati .gruppo-member-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
   }
-  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chip {
+  #gruppi-gestione-view #gruppi-non-assegnati .gruppo-member-chip {
     padding: 6px 10px;
     font-size: 0.78rem;
     font-family: inherit;
@@ -6343,11 +6352,11 @@ body.anag-sheet-open { overflow: hidden; }
     cursor: pointer;
     touch-action: manipulation;
   }
-  #gruppi-panel-gestione #gruppi-non-assegnati button.gruppo-member-chip {
+  #gruppi-gestione-view #gruppi-non-assegnati button.gruppo-member-chip {
     appearance: none;
     -webkit-appearance: none;
   }
-  #gruppi-panel-gestione #gruppi-non-assegnati .gruppo-member-chip.is-selected {
+  #gruppi-gestione-view #gruppi-non-assegnati .gruppo-member-chip.is-selected {
     border-color: rgba(37, 99, 168, 0.45);
     background: var(--sky-muted);
     color: var(--sky);
@@ -6365,7 +6374,7 @@ body.anag-sheet-open { overflow: hidden; }
   }
   #gruppi-panel-gestione .gruppi-list-title {
     order: 0;
-    padding: 4px 14px 8px;
+    padding: 4px 0 8px;
     margin: 0;
   }
   #gruppi-gestione-list { order: 1; }
@@ -7635,18 +7644,32 @@ body.anag-sheet-open { overflow: hidden; }
   flex-shrink: 0;
 }
 
-.gruppi-gestione-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
+.gruppi-gestione-cta {
+  margin: 0 0 16px;
 }
 
-.gruppi-gestione-toolbar .gruppi-list-title { margin-bottom: 0; }
+.gruppi-gestione-cta .liturgy-meta {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.gruppi-gestione-toolbar {
+  display: none;
+}
 
 .gruppi-modifica-btn-mobile { display: none; }
+
+.gruppo-member-chip.is-link {
+  cursor: pointer;
+  font: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.gruppo-member-chip.is-link:hover {
+  border-color: rgba(37, 99, 168, 0.35);
+  color: var(--sky);
+}
 
 .gruppi-edit-panel .panel-head {
   display: flex;
@@ -7672,26 +7695,41 @@ body.anag-sheet-open { overflow: hidden; }
 .gruppi-edit-panel .messe-sheet-close svg { width: 18px; height: 18px; }
 
 .gruppi-edit-toolbar {
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px 12px;
   margin: 0 0 14px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--sky-muted) 70%, var(--surface));
-  border: 1px solid rgba(37, 99, 168, 0.2);
+  padding: 12px 14px;
+  background: var(--sky);
+  color: #fff;
   border-radius: var(--radius-md);
   position: sticky;
   top: var(--sticky-below-topbar);
   z-index: 30;
+  box-shadow: 0 6px 18px rgba(37, 99, 168, 0.28);
+}
+
+.gruppi-edit-toolbar.is-visible {
+  display: flex;
+}
+
+.gruppi-edit-toolbar[hidden] {
+  display: none !important;
 }
 
 .gruppi-edit-selection-count {
   margin: 0;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--sky);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.gruppi-edit-toolbar-hint {
+  margin: 0;
+  flex: 1 1 140px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .gruppi-edit-toolbar-actions {
@@ -7699,11 +7737,52 @@ body.anag-sheet-open { overflow: hidden; }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
-.gruppi-edit-toolbar-actions select {
-  min-height: 36px;
-  min-width: 140px;
+.gruppi-edit-toolbar-actions .btn-secondary {
+  background: #fff;
+  color: var(--sky);
+  border-color: #fff;
+}
+
+.gruppi-edit-toolbar-actions .btn-ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.gruppi-edit-card-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--cream-dark);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.gruppi-edit-unassigned {
+  border: 1px dashed rgba(196, 92, 18, 0.35);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning-bg) 40%, var(--surface));
+  padding: 12px 14px;
+  margin: 0;
+}
+
+.gruppi-edit-footer .btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gruppi-edit-guide {
+  margin: 0 0 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .gruppi-edit-list {
@@ -7711,6 +7790,20 @@ body.anag-sheet-open { overflow: hidden; }
   flex-direction: column;
   gap: 12px;
   padding-bottom: 12px;
+}
+
+.gruppi-edit-list.has-selection .gruppi-edit-card.is-drop-target,
+.gruppi-edit-list.has-selection .gruppi-edit-unassigned.is-drop-target {
+  border-color: rgba(37, 99, 168, 0.45);
+  box-shadow: 0 0 0 2px rgba(37, 99, 168, 0.12);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.gruppi-edit-list.has-selection .gruppi-edit-card.is-drop-target:hover,
+.gruppi-edit-list.has-selection .gruppi-edit-unassigned.is-drop-target:hover {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(37, 99, 168, 0.18);
 }
 
 .gruppi-edit-footer {
@@ -7723,7 +7816,7 @@ body.anag-sheet-open { overflow: hidden; }
   border-top: 1px solid var(--border);
   position: sticky;
   bottom: 0;
-  background: linear-gradient(to top, var(--surface) 70%, transparent);
+  background: linear-gradient(to top, var(--cream) 55%, transparent);
   padding-bottom: 4px;
 }
 
@@ -7807,6 +7900,11 @@ body.anag-sheet-open { overflow: hidden; }
   box-shadow: 0 0 0 2px rgba(37, 99, 168, 0.15);
 }
 
+.gruppo-member-chip.is-moved:not(.is-pair-warn):not(.is-pair-danger):not(.is-selected) {
+  border-style: dashed;
+  border-color: rgba(37, 99, 168, 0.4);
+}
+
 .gruppo-member-chip.is-pair-warn {
   border-color: rgba(196, 92, 18, 0.5);
   background: var(--warning-bg);
@@ -7824,11 +7922,12 @@ body.anag-sheet-open { overflow: hidden; }
   box-shadow: 0 0 0 2px rgba(37, 99, 168, 0.2);
 }
 
-body.gruppi-edit-open { overflow: hidden; }
+@media (min-width: 1025px) {
+  .gruppi-gestione-cta { display: none; }
+}
 
 @media (max-width: 1024px) {
   .gruppi-gestione-head-actions { display: none; }
-  .gruppi-modifica-btn-mobile { display: inline-flex; }
 
   body.gruppi-edit-open .gruppi-edit-panel {
     display: flex !important;
@@ -7844,24 +7943,42 @@ body.gruppi-edit-open { overflow: hidden; }
     border: none;
     border-top: 1px solid var(--border);
     overflow: hidden;
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  body.gruppi-edit-open .gruppi-edit-panel .panel-head {
+    flex-shrink: 0;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
   }
 
   body.gruppi-edit-open .gruppi-edit-panel .panel-body {
     flex: 1;
     overflow: auto;
-    padding-bottom: 24px;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 14px 20px;
+    background: var(--cream);
   }
 
   body.gruppi-edit-open .gruppi-edit-toolbar {
     top: 0;
+    border-radius: var(--radius-md);
+    margin: 0 0 12px;
+  }
+
+  body.gruppi-edit-open .gruppi-edit-list {
+    gap: 10px;
   }
 
   body.gruppi-edit-open .gruppi-edit-footer {
     bottom: 0;
-    margin: 0 -16px;
-    padding: 12px 16px calc(8px + env(safe-area-inset-bottom, 0px));
-    background: var(--surface);
-    border-top: 1px solid var(--border);
+    margin: 12px 0 0;
+    padding: 12px 0 calc(4px + env(safe-area-inset-bottom, 0px));
+    background: transparent;
+    border-top: none;
+    position: sticky;
   }
 
   body.gruppi-edit-open .gruppi-edit-footer .btn {

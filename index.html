@@ -673,16 +673,17 @@
                   </p>
                 </div>
                 <div class="gruppi-gestione-lists">
-                  <div class="gruppi-gestione-toolbar">
-                    <p class="gruppi-gestione-form-title gruppi-list-title">Squadre attuali</p>
-                    <button type="button" class="btn btn-primary btn-sm gruppi-modifica-btn-mobile" id="btn-modifica-gruppi-mobile" onclick="openGruppiEdit()">Modifica Gruppi</button>
+                  <div class="gruppi-gestione-cta" id="gruppi-gestione-cta">
+                    <button type="button" class="btn btn-primary btn-full" id="btn-modifica-gruppi-mobile" onclick="openGruppiEdit()">Modifica Gruppi</button>
+                    <p class="liturgy-meta">Assegna più persone e salva una nuova configurazione</p>
                   </div>
-                  <div id="gruppi-gestione-list"></div>
                   <div class="gruppi-unassigned-panel" id="gruppi-unassigned-wrap">
                     <h4 class="config-section-title">Senza gruppo</h4>
                     <p class="liturgy-meta gruppi-unassigned-hint" id="gruppi-unassigned-hint"></p>
                     <div id="gruppi-non-assegnati" class="gruppo-member-chips"></div>
                   </div>
+                  <p class="gruppi-gestione-form-title gruppi-list-title">Squadre attuali</p>
+                  <div id="gruppi-gestione-list"></div>
                 </div>
                 </div>
               </div>
@@ -692,7 +693,7 @@
               <div class="panel-head">
                 <div>
                   <h3>Modifica Gruppi</h3>
-                  <p>Seleziona più persone e assegnalle a una squadra, poi salva</p>
+                  <p>Tocca i nomi, poi tocca una squadra per assegnarli</p>
                 </div>
                 <button type="button" class="messe-sheet-close" onclick="closeGruppiEdit()" aria-label="Chiudi">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -701,18 +702,15 @@
               <div class="panel-body">
                 <div class="gruppi-edit-toolbar" id="gruppi-edit-toolbar" hidden>
                   <p class="gruppi-edit-selection-count" id="gruppi-edit-selection-count">0 selezionati</p>
+                  <p class="gruppi-edit-toolbar-hint" id="gruppi-edit-toolbar-hint">Tocca una squadra qui sotto</p>
                   <div class="gruppi-edit-toolbar-actions">
-                    <select id="gruppi-edit-target" aria-label="Assegna al gruppo">
-                      <option value="">Assegna a…</option>
-                    </select>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="applyGruppiEditSelection()">Assegna</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyGruppiEditSelection('')">Togli</button>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="clearGruppiEditSelection()">Annulla sel.</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-gruppi-edit-unassign" onclick="applyGruppiEditSelection('')">Togli dal gruppo</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="clearGruppiEditSelection()">Annulla</button>
                   </div>
                 </div>
                 <div id="gruppi-edit-list" class="gruppi-edit-list"></div>
                 <div class="gruppi-edit-footer">
-                  <button type="button" class="btn btn-secondary" onclick="closeGruppiEdit()">Annulla</button>
+                  <button type="button" class="btn btn-secondary" onclick="closeGruppiEdit()">Chiudi</button>
                   <button type="button" class="btn btn-primary" id="btn-salva-gruppi-config" onclick="saveGruppiEditConfig()">Salva configurazione</button>
                 </div>
               </div>
