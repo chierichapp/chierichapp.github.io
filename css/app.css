@@ -2314,9 +2314,10 @@ body.anag-sheet-open { overflow: hidden; }
 .messe-legend i.lit-viola { background: #6b46c1; }
 .messe-legend i.lit-rosso { background: var(--danger); }
 .messe-legend i.lit-bianco { background: #a89f8c; border: none; }
+.messe-legend i.eccezione { background: var(--gold); }
+.messe-legend i.festiva { background: var(--sky); }
 .messe-legend i.covered { background: var(--success); }
 .messe-legend i.uncovered { background: var(--warning); }
-.messe-legend i.eccezione { background: var(--gold); }
 
 .messe-section-panel {
   margin-bottom: 24px;
@@ -2489,6 +2490,11 @@ body.anag-sheet-open { overflow: hidden; }
   color: var(--gold);
 }
 
+.messe-agenda-badge.is-festiva {
+  background: var(--sky-muted);
+  color: var(--sky);
+}
+
 .messe-agenda-badge.lit-verde {
   background: rgba(15, 107, 71, 0.12);
   color: #0f6b47;
@@ -2557,6 +2563,7 @@ body.anag-sheet-open { overflow: hidden; }
 
 .messa-type-badge.domenica { background: var(--cream-dark); color: var(--ink); }
 .messa-type-badge.eccezione { background: var(--gold-muted); color: var(--gold); }
+.messa-type-badge.festiva { background: var(--sky-muted); color: var(--sky); }
 .messa-tipo-badge {
   display: inline-block;
   font-size: 0.68rem;
@@ -2568,6 +2575,113 @@ body.anag-sheet-open { overflow: hidden; }
 }
 .messa-tipo-badge.con-turno { background: var(--cream-dark); color: var(--ink); }
 .messa-tipo-badge.libera { background: var(--border); color: var(--muted); }
+.festiva-orario-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: flex-start;
+}
+
+.festiva-preset-block {
+  flex: 1 1 100%;
+  margin-bottom: 4px;
+}
+
+.festiva-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.festiva-preset-chip {
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+
+.festiva-slot-edit {
+  position: relative;
+  padding: 12px 40px 12px 12px;
+  margin-bottom: 10px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.festiva-slot-edit .btn-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+#festiva-slots-editor {
+  margin: 12px 0;
+}
+
+.struttura-messe-kind {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.struttura-festivita-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.struttura-festivita-item {
+  cursor: pointer;
+}
+
+.struttura-festivita-item:hover {
+  border-color: color-mix(in srgb, var(--ink) 25%, var(--border));
+}
+
+.struttura-chip {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.struttura-chip.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.messe-festivo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--sky-muted);
+  border: 1px solid color-mix(in srgb, var(--sky) 28%, var(--border));
+  border-radius: var(--radius-md);
+}
+
+.messe-festivo-banner[hidden] { display: none !important; }
+
+.messe-festivo-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+  flex: 1 1 220px;
+}
 
 .messa-turni-list {
   display: flex;

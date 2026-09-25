@@ -114,7 +114,7 @@
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
         </span>
-        Liturgia
+        Calendario
       </button>
       <button class="nav-item is-group-start" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="nav-item-icon" aria-hidden="true">
@@ -566,15 +566,20 @@
         </div>
 
         <div id="turni-panel-messe" class="turni-tab-panel">
+          <div class="struttura-messe-kind" role="tablist" aria-label="Tipo struttura">
+            <button type="button" class="struttura-chip active" id="chip-struttura-domenicale" onclick="setStrutturaMesseKind('domenicale')">Domenica</button>
+            <button type="button" class="struttura-chip" id="chip-struttura-festivo" onclick="setStrutturaMesseKind('festivo')">Feste importanti</button>
+          </div>
           <div class="turni-layout-grid">
             <div class="panel">
               <div class="panel-head">
-                <h3>Celebrazioni del turno domenicale</h3>
+                <h3 id="turni-struttura-title">Celebrazioni del turno domenicale</h3>
                 <p id="messe-domenicali-summary">Ordinate per giorno — le messe con squadra generano i gruppi</p>
               </div>
               <div class="panel-body">
                 <div id="messe-domenicali-list"></div>
                 <div class="turni-footer-actions">
+                  <button type="button" class="btn btn-ghost-light" id="btn-copia-orario-festivo" hidden onclick="copiaOrarioFestivoDaDomenicale()">Copia da domenicale</button>
                   <button type="button" class="btn btn-ghost-light" onclick="resetGruppiConfig()">Ripristina predefiniti</button>
                 </div>
               </div>
@@ -936,7 +941,7 @@
         <div class="panel messe-section-panel">
           <div class="panel-head">
             <h3>Agenda messe con chierichetti</h3>
-            <p>Celebrazioni domenicali della comunità pastorale, più le messe straordinarie aggiunte manualmente</p>
+            <p>Celebrazioni domenicali, solennità con orario festivo e messe straordinarie</p>
           </div>
           <div class="panel-body">
             <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
@@ -947,8 +952,13 @@
               <span><i class="covered"></i> Coperta</span>
               <span><i class="uncovered"></i> Incompleta</span>
               <span><i class="eccezione"></i> Straordinaria</span>
+              <span><i class="festiva"></i> Festività</span>
             </div>
             <p class="liturgy-meta messe-agenda-summary" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
+            <div class="messe-festivo-banner" id="messe-festivo-banner" hidden>
+              <p><strong>Orario festivo non configurato.</strong> Indica più o meno le celebrazioni tipiche delle solennità (Natale, Assunzione…).</p>
+              <button type="button" class="btn btn-secondary" onclick="goConfiguraOrarioFestivo()">Configura orario festivo</button>
+            </div>
 
             <div class="messe-layout">
               <div>
@@ -968,6 +978,7 @@
                   </div>
                   <div class="messe-toolbar-right">
                     <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
+                    <button type="button" class="btn btn-ghost messe-sync-fest-btn" onclick="syncFestivitaAnnoManual()" title="Aggiungi solennità feriali con orario domenicale">Sync festività</button>
                     <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
                   </div>
                 </div>
@@ -981,7 +992,7 @@
                   <div class="panel-head">
                     <div>
                       <h3>Dettaglio messa</h3>
-                      <p>Liturgia e messe del giorno selezionato</p>
+                      <p>Calendario e messe del giorno selezionato</p>
                     </div>
                     <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -995,8 +1006,8 @@
                 <div class="panel" id="messe-extra-panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Aggiungi messa straordinaria</h3>
-                      <p>Vigilie, festività, mercoledì delle Ceneri…</p>
+                      <h3>Aggiungi eccezione</h3>
+                      <p>Festività (orario domenicale) o messa straordinaria singola</p>
                     </div>
                     <button type="button" class="messe-sheet-close" onclick="closeMesseExtraUi()" aria-label="Chiudi">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -1008,7 +1019,15 @@
                         <label for="messa-extra-data">Data</label>
                         <input type="date" id="messa-extra-data" required>
                       </div>
-                      <div class="form-row">
+                      <div class="form-group">
+                        <label for="messa-extra-nota">Titolo <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
+                        <input type="text" id="messa-extra-nota" placeholder="Es. Natale, Vigilia di Natale…">
+                      </div>
+                      <label class="cal-filter" for="messa-extra-orario-domenicale" style="margin-bottom:14px">
+                        <input type="checkbox" id="messa-extra-orario-domenicale" onchange="toggleMessaExtraOrarioFields()">
+                        <span>Usa orario festivo (struttura domenicale)</span>
+                      </label>
+                      <div class="form-row messa-extra-single-slot">
                         <div class="form-group">
                           <label for="messa-extra-ora">Ora</label>
                           <input type="time" id="messa-extra-ora" value="10:00" required>
@@ -1022,11 +1041,8 @@
                           </select>
                         </div>
                       </div>
-                      <div class="form-group">
-                        <label for="messa-extra-nota">Nota <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
-                        <input type="text" id="messa-extra-nota" placeholder="Es. Vigilia di Natale">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-full">Aggiungi alla agenda</button>
+                      <p class="liturgy-meta messa-extra-fest-hint" style="margin:-6px 0 12px">Le festività usano l’orario festivo configurato in Turni → Struttura messe; puoi personalizzarlo dopo.</p>
+                      <button type="submit" class="btn btn-primary btn-full">Aggiungi all’agenda</button>
                     </form>
                   </div>
                 </div>
@@ -1238,7 +1254,7 @@
       </button>
       <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
-        Liturgia
+        Calendario
       </button>
       <button type="button" class="mobile-more-item" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
