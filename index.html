@@ -5547,8 +5547,11 @@ body.anag-sheet-open { overflow: hidden; }
   .messe-side { gap: 0; }
   #messe .messe-side {
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     display: none;
     flex-direction: column;
     gap: 0;
@@ -5556,16 +5559,13 @@ body.anag-sheet-open { overflow: hidden; }
     padding: 0;
     background: var(--surface);
     overflow: hidden;
+    border-top: 1px solid var(--border);
   }
   body.messe-sheet-open #messe .messe-side {
     display: flex;
   }
   body.messe-sheet-open {
     overflow: hidden;
-  }
-  body.messe-sheet-open .mobile-tabbar {
-    opacity: 0;
-    pointer-events: none;
   }
   #messe .messe-side > .panel {
     border: none;
@@ -5588,7 +5588,7 @@ body.anag-sheet-open { overflow: hidden; }
   body.messe-sheet-add #messe .messe-side > .panel:first-child { display: none !important; }
   #messe .messe-side > .panel .panel-head {
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -5596,16 +5596,16 @@ body.anag-sheet-open { overflow: hidden; }
     border-bottom: 1px solid var(--border);
   }
   #messe .messe-side > .panel:last-child .panel-head {
-    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    padding-top: 12px;
   }
   #messe .messe-side > .panel .panel-body {
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px 20px;
   }
   #messe .messe-side > .panel:last-child .panel-body {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 20px;
   }
   .messe-sheet-close {
     display: inline-flex;
@@ -5825,12 +5825,15 @@ body.anag-sheet-open { overflow: hidden; }
     display: flex;
     flex-direction: column;
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     overflow: hidden;
+    border-top: 1px solid var(--border);
   }
   body.gruppi-sheet-open { overflow: hidden; }
-  body.gruppi-sheet-open .mobile-tabbar,
   body.gruppi-sheet-open .gruppi-fab {
     opacity: 0;
     pointer-events: none;
@@ -5842,7 +5845,7 @@ body.anag-sheet-open { overflow: hidden; }
     justify-content: space-between;
     gap: 10px;
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
   }
   #gruppi-gestione-form-wrap .gruppi-gestione-form-title {
@@ -5871,7 +5874,7 @@ body.anag-sheet-open { overflow: hidden; }
     position: sticky;
     bottom: 0;
     margin: 8px -14px -8px;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px;
     background: linear-gradient(180deg, transparent, var(--surface) 28%);
     border-top: 1px solid var(--border);
   }
@@ -6100,8 +6103,11 @@ body.anag-sheet-open { overflow: hidden; }
   #anagrafica #chierichetto-form-panel:not(.is-collapsed),
   #anagrafica #cerimoniere-form-panel:not(.is-collapsed) {
     position: fixed;
-    inset: 0;
-    z-index: 1300;
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 120;
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -6113,12 +6119,13 @@ body.anag-sheet-open { overflow: hidden; }
     background: var(--surface);
     order: unset;
     scroll-margin: 0;
+    border-top: 1px solid var(--border);
   }
 
   #anagrafica #chierichetto-form-panel:not(.is-collapsed) .panel-head,
   #anagrafica #cerimoniere-form-panel:not(.is-collapsed) .panel-head {
     flex-shrink: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     align-items: flex-start;
@@ -6129,7 +6136,7 @@ body.anag-sheet-open { overflow: hidden; }
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px 20px;
     background: var(--surface);
   }
 
@@ -6139,7 +6146,7 @@ body.anag-sheet-open { overflow: hidden; }
     bottom: 0;
     z-index: 2;
     margin: 8px -14px -8px;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px;
     background: linear-gradient(180deg, transparent, var(--surface) 28%);
     border-top: 1px solid var(--border);
   }
@@ -6147,15 +6154,14 @@ body.anag-sheet-open { overflow: hidden; }
   .anag-form-overlay {
     display: none;
     position: fixed;
-    inset: 0;
-    z-index: 1290;
-    background: rgba(12, 24, 41, 0.4);
+    top: var(--sticky-below-topbar);
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    z-index: 110;
+    background: rgba(12, 24, 41, 0.35);
   }
   body.anag-sheet-open .anag-form-overlay { display: block; }
-  body.anag-sheet-open .mobile-tabbar {
-    opacity: 0;
-    pointer-events: none;
-  }
 
   #anagrafica #btn-anag-add,
   #anagrafica #btn-cer-add { display: none !important; }
