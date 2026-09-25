@@ -28,9 +28,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          mkdir -p site/js site/icons
+          mkdir -p site/js site/css site/icons
           cp index.html site/index.html
+          cp js/app.js site/js/app.js
           cp js/supabase-api.js site/js/supabase-api.js
+          cp css/app.css site/css/app.css
           cp manifest.json site/manifest.json 2>/dev/null || true
           cp sw.js site/sw.js 2>/dev/null || true
           cp -r icons/. site/icons/ 2>/dev/null || true
@@ -48,8 +50,12 @@ jobs:
             echo "::error::CHIERICH_CONFIG non presente dopo inject"
             exit 1
           fi
+          if [ ! -f site/css/app.css ] || [ ! -f site/js/app.js ]; then
+            echo "::error::Mancano css/app.css o js/app.js nell'artifact"
+            exit 1
+          fi
           echo "Inject OK"
-          ls -la site/
+          ls -la site/ site/js/ site/css/
 
       - uses: actions/upload-pages-artifact@v5
         with:
