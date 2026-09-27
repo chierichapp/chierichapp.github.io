@@ -811,6 +811,13 @@ async function checkAuthAndInit() {
         showAuthError(inviteStatus.message || 'Account non attivo o non autorizzato');
         return;
       }
+      if (inviteStatus.user.inviteAccepted === true
+        && inviteStatus.user.accountActivated === true) {
+        saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
+        showAppShell();
+        initApp();
+        return;
+      }
       saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
       showAuthGate();
       setAuthMode('invite');
@@ -823,6 +830,15 @@ async function checkAuthAndInit() {
         showAuthGate();
         setAuthMode('login');
         showAuthError(recoveryStatus.message || 'Account non attivo o non autorizzato');
+        return;
+      }
+      if (recoveryStatus.user.accountActivated === true
+        && recoveryStatus.user.inviteAccepted === true
+        && recoveryStatus.user.passwordChanged === true) {
+        saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
+        try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
+        showAppShell();
+        initApp();
         return;
       }
       saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
@@ -5017,7 +5033,7 @@ function renderRegistroByMessa(slots, rows) {
         ? (nP ? `${nP} presenti` : 'Nessun appello')
         : `${nP} P · ${nA} A`;
       const rateBar = !isLibera && tot
-        ? `<span class="registro-mass-rate" title="${pct}%"><span style="width:${pct}%"></span></span>`
+        ? `<span class="registro-mass-rate-wrap"><span class="registro-mass-rate" title="${pct}%"><span style="width:${pct}%"></span></span><small>${pct}%</small></span>`
         : '';
       return `
         <div class="registro-mass${open ? ' is-open' : ''}${isLibera ? ' is-libera' : ''}${registroMassRateClass(nP, nA)}" data-slot="${esc(slotKey)}">
