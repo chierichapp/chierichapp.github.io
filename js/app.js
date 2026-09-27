@@ -5146,7 +5146,9 @@ function getAppelloDraftKey(dateStr, slot) {
 
 function getSavedAppelloPresentSet(dateStr, slot) {
   const set = new Set();
-  state.chierichetti.forEach(c => {
+  // Include anche il profilo autenticato (Cerimoniere/Don) mostrato nel
+  // riquadro personale «Tu», che può non appartenere a state.chierichetti.
+  getPersoneGruppiPool().forEach(c => {
     if (slot) {
       if (getPresenzaServizioFor(c.uuid, dateStr, slot.ora, slot.sede)) set.add(c.uuid);
     } else if (getPresenzaGiornoFor(c.uuid, dateStr)?.stato === 'presente') {
@@ -5287,7 +5289,7 @@ async function saveAppello(opts = {}) {
       ));
     });
     toAdd.forEach(id => {
-      const chi = state.chierichetti.find(c => c.uuid === id);
+      const chi = findGruppoPersona(id);
       if (!chi) return;
       const record = {
         uuid: 'PRE-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -5312,7 +5314,7 @@ async function saveAppello(opts = {}) {
       }
     });
     toAdd.forEach(id => {
-      const chi = state.chierichetti.find(c => c.uuid === id);
+      const chi = findGruppoPersona(id);
       if (!chi) return;
       const record = {
         uuid: 'PRE-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -5653,7 +5655,9 @@ function getAppelloTabChierichetti(slot) {
     const { list: fallbackList } = getAppelloFilteredList();
     list = filterChierichettiForAppelloTab(fallbackList, activeTab, primaryGruppo);
   }
-  return excludeCurrentUserFromAppelloList(list).slice().sort(sortChierichettiAppello);
+  // L'utente autenticato può prestare servizio e deve poter segnare anche
+  // la propria presenza nell'appello.
+  return list.slice().sort(sortChierichettiAppello);
 }
 
 function renderAppelloCheckboxes(chierichetti, dateStr, slotKey) {

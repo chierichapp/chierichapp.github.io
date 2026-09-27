@@ -544,7 +544,21 @@
       if (error) return { success: false, message: error.message };
     }
     if (add.length) {
-      const rows = add.map((d) => ({
+      // Il vincolo è sullo slot (data/ora/sede/persona), non sul solo uuid.
+      // Eliminiamo prima eventuali righe preesistenti dello stesso slot:
+      // evita il conflitto quando una vecchia riga ha un uuid diverso.
+      const uniqueAdd = [...new Map(add.map(d => [
+        `${d.data}|${d.ora || ''}|${d.sede || ''}|${d.chierichettoUuid || d.nome || ''}`, d
+      ])).values()];
+      for (const d of uniqueAdd) {
+        let q = sb.from('presenze').delete()
+          .eq('data', d.data).eq('ora', d.ora || '').eq('sede', d.sede || '');
+        if (d.chierichettoUuid) q = q.eq('chierichetto_uuid', d.chierichettoUuid);
+        else q = q.eq('nome', d.nome || '');
+        const { error } = await q;
+        if (error) return { success: false, message: error.message };
+      }
+      const rows = uniqueAdd.map((d) => ({
         uuid: d.uuid || newId('PRE-'),
         data: d.data,
         chierichetto_uuid: d.chierichettoUuid || '',
