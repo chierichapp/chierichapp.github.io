@@ -814,6 +814,8 @@ async function checkAuthAndInit() {
       if (inviteStatus.user.inviteAccepted === true
         && inviteStatus.user.accountActivated === true) {
         saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
+        window.ChierichSupabase.clearPasswordRecovery();
+        try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
         showAppShell();
         initApp();
         return;
@@ -836,6 +838,7 @@ async function checkAuthAndInit() {
         && recoveryStatus.user.inviteAccepted === true
         && recoveryStatus.user.passwordChanged === true) {
         saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
+        window.ChierichSupabase.clearPasswordRecovery();
         try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
         showAppShell();
         initApp();

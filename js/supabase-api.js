@@ -104,9 +104,13 @@
       gruppo: row.gruppo || '',
       chierichettoUuid: row.chierichetto_uuid || '',
       attivo: row.attivo !== false,
+      accessoAttivo: row.accesso_attivo !== false,
       admin: !!row.is_admin,
       ruolo,
-      createdAt: row.created_at || ''
+      createdAt: row.created_at || '',
+      passwordChanged: row.password_changed !== false && row.password_changed !== 'false',
+      accountActivated: row.account_activated === true || row.account_activated === 1 || row.account_activated === 'true',
+      inviteAccepted: row.invite_accepted === true || row.invite_accepted === 1 || row.invite_accepted === 'true'
     };
   }
 
