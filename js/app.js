@@ -206,6 +206,7 @@ function setAuthMode(mode, extra = {}) {
   const waitGoogle = mode === 'google-wait';
   const isForgot = mode === 'forgot';
   const isRecovery = mode === 'recovery';
+  const isForcePassword = mode === 'force-password';
   const googleEmail = extra.googleEmail || '';
 
   showAuthError('');
@@ -217,7 +218,7 @@ function setAuthMode(mode, extra = {}) {
       ? 'Accesso non autorizzato'
       : isForgot
         ? 'Recupero password'
-        : isRecovery
+        : (isRecovery || isForcePassword)
           ? 'Nuova password'
           : 'Accesso riservato a cerimonieri e sacerdoti';
 
@@ -231,9 +232,11 @@ function setAuthMode(mode, extra = {}) {
   } else if (isForgot) {
     hint.style.display = '';
     hint.textContent = 'Inserisci l\'email dell\'account: ti invieremo un link per scegliere una nuova password.';
-  } else if (isRecovery) {
+  } else if (isRecovery || isForcePassword) {
     hint.style.display = '';
-    hint.textContent = 'Scegli una nuova password (almeno 6 caratteri), poi potrai accedere.';
+    hint.textContent = isForcePassword
+      ? 'Per motivi di sicurezza devi sostituire la password iniziale prima di usare l’app.'
+      : 'Scegli una nuova password (almeno 6 caratteri), poi potrai accedere.';
   } else {
     hint.style.display = 'none';
   }
@@ -293,13 +296,13 @@ function setAuthMode(mode, extra = {}) {
   } else {
     if (googleBlock) googleBlock.hidden = true;
     form.style.display = '';
-    if (emailWrap) emailWrap.style.display = isRecovery ? 'none' : '';
+    if (emailWrap) emailWrap.style.display = (isRecovery || isForcePassword) ? 'none' : '';
     if (passwordWrap) passwordWrap.style.display = (isForgot ? 'none' : '');
-    if (password2Wrap) password2Wrap.style.display = isRecovery ? '' : 'none';
+    if (password2Wrap) password2Wrap.style.display = (isRecovery || isForcePassword) ? '' : 'none';
     if (forgotLink) forgotLink.style.display = (isSupabase && mode === 'login') ? '' : 'none';
     if (backLogin) backLogin.style.display = (isForgot || isRecovery) ? '' : 'none';
     if (emailInput) {
-      emailInput.required = !isRecovery;
+      emailInput.required = !isRecovery && !isForcePassword;
       emailInput.readOnly = false;
       emailInput.autocomplete = isForgot ? 'email' : 'username';
     }
@@ -314,13 +317,13 @@ function setAuthMode(mode, extra = {}) {
         if (pwdLabel) pwdLabel.textContent = 'Password';
       }
     }
-    if (password2Input) password2Input.required = isRecovery;
+    if (password2Input) password2Input.required = isRecovery || isForcePassword;
     document.getElementById('auth-nome-wrap').style.display = isBootstrap ? '' : 'none';
     document.getElementById('auth-submit-btn').textContent = isBootstrap
       ? 'Crea account'
       : isForgot
         ? 'Invia link'
-        : isRecovery
+        : (isRecovery || isForcePassword)
           ? 'Salva nuova password'
           : 'Accedi';
     const nomeInput = document.getElementById('auth-nome');
@@ -810,6 +813,11 @@ async function checkAuthAndInit() {
       return;
     }
     if (status.authenticated && status.user) {
+      if (status.mustChangePassword) {
+        showAuthGate();
+        setAuthMode('force-password');
+        return;
+      }
       saveSession(status.token || 'supabase', status.user);
       showAppShell();
       initApp();
@@ -904,6 +912,32 @@ async function handleAuthSubmit(e) {
       }
       showAuthInfo(result.message || 'Password aggiornata. Accedi con la nuova password.');
       setAuthMode('login', { keepInfo: true });
+      return;
+    }
+
+    if (authMode === 'force-password') {
+      if (!isSupabase) {
+        showAuthError('Cambio password non disponibile');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthError('La nuova password deve avere almeno 6 caratteri');
+        return;
+      }
+      if (password !== password2) {
+        showAuthError('Le password non coincidono');
+        return;
+      }
+      result = await window.ChierichSupabase.updatePassword(password);
+      if (!result.success) {
+        showAuthError(result.message || 'Aggiornamento non riuscito');
+        return;
+      }
+      document.getElementById('auth-login-form').reset();
+      saveSession(result.token || 'supabase', result.user);
+      showAppShell();
+      initApp();
+      showToast('Password aggiornata');
       return;
     }
 

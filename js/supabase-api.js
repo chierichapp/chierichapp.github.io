@@ -82,7 +82,8 @@
       cerimoniereTurno: false,
       promosso: !!row.promosso,
       attivo: row.attivo !== false,
-      createdAt: row.created_at || ''
+      createdAt: row.created_at || '',
+      passwordChanged: row.password_changed !== false
     };
   }
 
@@ -234,6 +235,7 @@
       authMode: 'supabase',
       authenticated: true,
       user,
+      mustChangePassword: user.passwordChanged === false,
       token: session.access_token,
       cerimonieriCount,
       message: ''
@@ -288,6 +290,8 @@
     }
     const { error } = await sb.auth.updateUser({ password: pwd });
     if (error) return { success: false, message: error.message };
+    const { error: markErr } = await sb.rpc('mark_my_password_changed');
+    if (markErr) return { success: false, message: markErr.message };
     clearPasswordRecovery();
     try {
       if (global.history?.replaceState) {
@@ -639,6 +643,7 @@
         chierichetto_uuid: dati.chierichettoUuid || null,
         attivo: dati.attivo === false ? false : true,
         is_admin: false,
+        password_changed: false,
         ruolo
       });
       if (error) return { success: false, message: error.message };
@@ -713,7 +718,9 @@
       }
     }
 
-    const { error } = await sb.from('cerimonieri').update({ email: cleanEmail }).eq('uuid', uuid);
+    const { error } = await sb.from('cerimonieri')
+      .update({ email: cleanEmail, password_changed: false })
+      .eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
 
     const needsEmailConfirm = !!(sign?.user && !sign?.session && !signErr);
@@ -831,6 +838,10 @@
     if (Object.keys(authPatch).length) {
       const { data: updated, error: authErr } = await sb.auth.updateUser(authPatch);
       if (authErr) return { success: false, message: authErr.message };
+      if (password) {
+        const { error: markErr } = await sb.rpc('mark_my_password_changed');
+        if (markErr) return { success: false, message: markErr.message };
+      }
       if (authPatch.email) {
         const sessionEmail = String(updated?.user?.email || '').toLowerCase();
         needsEmailConfirm = sessionEmail !== email;
