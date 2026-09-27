@@ -11238,9 +11238,15 @@ function formatDate(str) {
 
 function inferToastType(message) {
   const msg = String(message || '');
-  if (/password di almeno \d+ caratteri/i.test(msg)) return 'warning';
-  if (/errore|fallit|non riuscit|non valid|non puoi|scadut|obbligator|coincid|esiste già|serve almeno|seleziona |inserisci |conferma |non è ancora|non disponibile|spazio esaurit|riloggia|riprova/i.test(msg)) {
+  const lower = msg.toLowerCase();
+  if (/password di almeno \d+ caratteri|nessuna modifica|nessuna nuova|già |gia /i.test(lower)) {
+    return 'warning';
+  }
+  if (/errore|fallit|failed|failure|non riuscit|request.*status|non valid|invalid|non puoi|cannot|scadut|expired|obbligator|required|coincid|esiste già|already|serve almeno|seleziona |select |inserisci |enter |conferma |confirm |non disponibile|unavailable|spazio esaurit|quota|riloggia|session.*missing|unauthori[sz]ed|access denied/i.test(lower)) {
     return 'error';
+  }
+  if (/email .*inviat|link .*inviat|invito .*inviat|controlla .*email|account .*attivat|password aggiornat|salvataggio completat/i.test(lower)) {
+    return 'info';
   }
   return 'success';
 }
