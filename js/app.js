@@ -827,7 +827,7 @@ async function checkAuthAndInit() {
       }
       clearSession();
       showAuthGate();
-      setAuthMode('recovery');
+      setAuthMode(recoveryStatus.user?.inviteAccepted === false ? 'invite' : 'recovery');
       return;
     }
     const status = await fetchAuthStatus();
@@ -846,7 +846,7 @@ async function checkAuthAndInit() {
     if (status.pendingActivation || status.mustChangePassword) {
       clearSession();
       showAuthGate();
-      setAuthMode('force-password');
+      setAuthMode(status.user?.inviteAccepted === false ? 'invite' : 'force-password');
       return;
     }
     if (status.authenticated && status.user) {
@@ -1026,7 +1026,7 @@ async function handleAuthSubmit(e) {
     if (result.mustChangePassword) {
       saveSession(result.token || 'supabase', result.user);
       showAuthGate();
-      setAuthMode('force-password');
+      setAuthMode(result.user?.inviteAccepted === false ? 'invite' : 'force-password');
       return;
     }
     saveSession(result.token, result.user);
@@ -6807,7 +6807,7 @@ function openAnagCerMenu(uuid) {
   if (canManage && hasCerimoniereLogin(c)) {
     items.push({
       action: 'resend',
-      label: c.inviteAccepted === false ? 'Reinvia invito accesso' : 'Invia cambio password',
+      label: c.inviteAccepted === true ? 'Invia cambio password' : 'Reinvia invito accesso',
       icon: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>'
     });
   }
@@ -10578,9 +10578,12 @@ function mapLitCalColor(raw) {
 async function resendCerimoniereInvite(uuid) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
   if (!c?.email || !isSupabase) return;
-  const result = c.inviteAccepted === false
-    ? await window.ChierichSupabase.inviaInvitoAccesso(c.email)
+  let result = c.inviteAccepted !== true
+    ? await window.ChierichSupabase.ricreaInvitoAccesso(c.email)
     : await window.ChierichSupabase.reinviaInvito(c.email);
+  // Dopo il primo click l'utente esiste già in Auth: Supabase non consente
+  // un secondo inviteUserByEmail, quindi inviamo un link di recupero che
+  // viene comunque presentato come «Attiva account» finché invite_accepted è false.
   showToast(result.message || (result.success ? 'Email inviata' : 'Invio non riuscito'), result.success ? 'success' : 'error');
 }
 

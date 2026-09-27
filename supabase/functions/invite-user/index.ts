@@ -24,6 +24,15 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const email = String(body.email || '').trim().toLowerCase();
     if (!email) throw new Error('Email obbligatoria');
+    if (body.replaceExisting) {
+      const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) throw listError;
+      const existing = users.users.find((item) => String(item.email || '').toLowerCase() === email);
+      if (existing) {
+        const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
+        if (deleteError) throw deleteError;
+      }
+    }
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: body.redirectTo || `${url}/`
     });

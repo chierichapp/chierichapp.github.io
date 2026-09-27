@@ -89,7 +89,7 @@
       createdAt: row.created_at || '',
       passwordChanged: row.password_changed !== false
       ,accountActivated: row.account_activated !== false
-      ,inviteAccepted: row.invite_accepted !== false
+      ,inviteAccepted: row.invite_accepted === true
     };
   }
 
@@ -237,7 +237,7 @@
       };
     }
 
-    if (user.accountActivated === false) {
+    if (user.accountActivated === false || user.inviteAccepted === false) {
       return {
         authMode: 'supabase',
         authenticated: true,
@@ -279,7 +279,8 @@
         success: true,
         token: data.session.access_token,
         user: status.user,
-        mustChangePassword: !!status.mustChangePassword
+        mustChangePassword: !!status.mustChangePassword,
+        pendingActivation: !!status.pendingActivation
       };
     } catch (err) {
       console.error('Login post-auth failed:', err);
@@ -644,6 +645,15 @@
 
   async function inviaInvitoAccesso(email) {
     return invitaUtente(email);
+  }
+
+  async function ricreaInvitoAccesso(email) {
+    const sb = requireClient();
+    const { data, error } = await sb.functions.invoke('invite-user', {
+      body: { email, replaceExisting: true, redirectTo: global.location.origin + global.location.pathname }
+    });
+    if (error) return { success: false, message: error.message };
+    return data || { success: false, message: 'Nuovo invito non riuscito' };
   }
 
   async function salvaCerimoniere(dati) {
@@ -1034,6 +1044,7 @@
     resetPasswordForEmail,
     reinviaInvito,
     inviaInvitoAccesso,
+    ricreaInvitoAccesso,
     updatePassword,
     ensureAuthListeners,
     isPasswordRecovery,
