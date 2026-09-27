@@ -850,6 +850,12 @@ async function checkAuthAndInit() {
       return;
     }
     if (status.authenticated && status.user) {
+      if (status.user.accountActivated !== true || status.user.inviteAccepted !== true) {
+        clearSession();
+        showAuthGate();
+        setAuthMode(status.user.inviteAccepted !== true ? 'invite' : 'force-password');
+        return;
+      }
       if (status.mustChangePassword) {
         showAuthGate();
         setAuthMode('force-password');

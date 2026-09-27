@@ -88,7 +88,7 @@
       accessoAttivo: row.accesso_attivo !== false,
       createdAt: row.created_at || '',
       passwordChanged: row.password_changed !== false
-      ,accountActivated: row.account_activated !== false
+      ,accountActivated: row.account_activated === true
       ,inviteAccepted: row.invite_accepted === true
     };
   }
