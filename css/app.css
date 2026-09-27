@@ -3310,6 +3310,17 @@ body.anag-sheet-open { overflow: hidden; }
   color: #fff;
 }
 
+.toast.is-warning {
+  background: #fff8e6;
+  border-color: #e3b341;
+  color: #76520b;
+}
+
+.toast.is-warning .toast-icon {
+  background: #e3b341;
+  color: #fff;
+}
+
 .toast.is-leaving {
   animation: toastOut 0.28s var(--ease) forwards;
 }

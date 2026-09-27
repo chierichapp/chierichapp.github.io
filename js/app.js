@@ -7117,10 +7117,7 @@ async function handleCerimoniereFormSubmit(e) {
       showToast('Email obbligatoria per abilitare il login');
       return;
     }
-    if (!dati.password || dati.password.length < 6) {
-      showToast('Password di almeno 6 caratteri per abilitare il login');
-      return;
-    }
+    // Senza password viene inviato un invito Supabase: la sceglierà l'utente.
   }
 
   // Admin che attiva login su record senza credenziali
@@ -7129,10 +7126,7 @@ async function handleCerimoniereFormSubmit(e) {
       showToast('Email obbligatoria per abilitare il login');
       return;
     }
-    if (!password || password.length < 6) {
-      showToast('Password di almeno 6 caratteri per abilitare il login');
-      return;
-    }
+    // Con la sola email l’utente riceve un invito Supabase e sceglie la password.
   }
 
   if (isGAS) delete dati.password;
@@ -11175,6 +11169,7 @@ function formatDate(str) {
 
 function inferToastType(message) {
   const msg = String(message || '');
+  if (/password di almeno \d+ caratteri/i.test(msg)) return 'warning';
   if (/errore|fallit|non riuscit|non valid|non puoi|scadut|obbligator|coincid|esiste già|serve almeno|seleziona |inserisci |conferma |non è ancora|non disponibile|spazio esaurit|riloggia|riprova/i.test(msg)) {
     return 'error';
   }
@@ -11184,7 +11179,7 @@ function inferToastType(message) {
 function showToast(message, type) {
   const container = document.getElementById('toast-container');
   if (!container) return;
-  const kind = type === 'error' || type === 'success' || type === 'info'
+  const kind = type === 'error' || type === 'success' || type === 'info' || type === 'warning'
     ? type
     : inferToastType(message);
 
@@ -11197,7 +11192,7 @@ function showToast(message, type) {
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = kind === 'error'
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>'
-    : kind === 'info'
+    : kind === 'info' || kind === 'warning'
       ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>'
       : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
 

@@ -289,7 +289,7 @@
       return { success: false, message: 'Password di almeno 6 caratteri' };
     }
     const { error } = await sb.auth.updateUser({ password: pwd });
-    if (error) return { success: false, message: error.message };
+    if (error) return { success: false, message: error.message || 'Edge Function non raggiungibile: verifica che invite-user sia pubblicata' };
     const { error: markErr } = await sb.rpc('mark_my_password_changed');
     if (markErr) return { success: false, message: markErr.message };
     clearPasswordRecovery();
@@ -600,6 +600,15 @@
     return (data || []).map(mapCer);
   }
 
+  async function invitaUtente(email) {
+    const sb = requireClient();
+    const { data, error } = await sb.functions.invoke('invite-user', {
+      body: { email, redirectTo: global.location.origin + global.location.pathname }
+    });
+    if (error) return { success: false, message: error.message };
+    return data || { success: false, message: 'Invito non riuscito' };
+  }
+
   async function salvaCerimoniere(dati) {
     const sb = requireClient();
     const me = await getCurrentCerimoniere();
@@ -616,12 +625,22 @@
       if (!email) {
         return { success: false, message: 'Email obbligatoria per abilitare il login' };
       }
-      if (!password || password.length < 6) {
-        return { success: false, message: 'Password di almeno 6 caratteri obbligatoria per il login' };
-      }
     }
 
     if (wantsLogin) {
+      if (!password) {
+        const invited = await invitaUtente(email);
+        if (!invited.success) return invited;
+        const { error } = await sb.from('cerimonieri').insert({
+          uuid, nome: String(dati.nome || '').trim(), email,
+          parrocchia: dati.parrocchia || '', gruppo: dati.gruppo || '',
+          chierichetto_uuid: dati.chierichettoUuid || null,
+          attivo: dati.attivo === false ? false : true,
+          is_admin: false, password_changed: false, ruolo
+        });
+        if (error) return { success: false, message: error.message };
+        return { success: true, uuid, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
+      }
       const { data: sessData } = await sb.auth.getSession();
       const adminSession = sessData?.session;
       if (!adminSession) {
@@ -701,6 +720,14 @@
     const cleanEmail = String(email || '').trim().toLowerCase();
     const pwd = String(password || '');
     if (!cleanEmail) return { success: false, message: 'Email obbligatoria' };
+    if (!password) {
+      const invited = await invitaUtente(cleanEmail);
+      if (!invited.success) return invited;
+      const { error } = await sb.from('cerimonieri')
+        .update({ email: cleanEmail, password_changed: false }).eq('uuid', uuid);
+      if (error) return { success: false, message: error.message };
+      return { success: true, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
+    }
     if (!pwd || pwd.length < 6) {
       return { success: false, message: 'Password di almeno 6 caratteri obbligatoria' };
     }
