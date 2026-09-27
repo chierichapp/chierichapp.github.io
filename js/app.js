@@ -6807,7 +6807,7 @@ function openAnagCerMenu(uuid) {
   if (canManage && hasCerimoniereLogin(c)) {
     items.push({
       action: 'resend',
-      label: c.passwordChanged === false ? 'Reinvia invito accesso' : 'Invia cambio password',
+      label: c.inviteAccepted === false ? 'Reinvia invito accesso' : 'Invia cambio password',
       icon: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>'
     });
   }
@@ -10578,7 +10578,9 @@ function mapLitCalColor(raw) {
 async function resendCerimoniereInvite(uuid) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
   if (!c?.email || !isSupabase) return;
-  const result = await window.ChierichSupabase.reinviaInvito(c.email);
+  const result = c.inviteAccepted === false
+    ? await window.ChierichSupabase.inviaInvitoAccesso(c.email)
+    : await window.ChierichSupabase.reinviaInvito(c.email);
   showToast(result.message || (result.success ? 'Email inviata' : 'Invio non riuscito'), result.success ? 'success' : 'error');
 }
 

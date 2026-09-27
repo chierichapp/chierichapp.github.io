@@ -85,6 +85,7 @@
       cerimoniereTurno: false,
       promosso: !!row.promosso,
       attivo: row.attivo !== false,
+      accessoAttivo: row.accesso_attivo !== false,
       createdAt: row.created_at || '',
       passwordChanged: row.password_changed !== false
       ,accountActivated: row.account_activated !== false
@@ -224,7 +225,7 @@
       };
     }
 
-    if (!user.attivo) {
+    if (user.accessoAttivo === false) {
       return {
         authMode: 'supabase',
         authenticated: false,
@@ -232,7 +233,7 @@
         googleEmail: session.user.email,
         user: null,
         cerimonieriCount,
-        message: !user.attivo ? 'Account disattivato' : 'Account non ancora attivato: apri il link ricevuto via email'
+        message: 'Accesso all’app disattivato dall’amministratore'
       };
     }
 
@@ -641,6 +642,10 @@
     return data || { success: false, message: 'Invito non riuscito' };
   }
 
+  async function inviaInvitoAccesso(email) {
+    return invitaUtente(email);
+  }
+
   async function salvaCerimoniere(dati) {
     const sb = requireClient();
     const me = await getCurrentCerimoniere();
@@ -1028,6 +1033,7 @@
     logout,
     resetPasswordForEmail,
     reinviaInvito,
+    inviaInvitoAccesso,
     updatePassword,
     ensureAuthListeners,
     isPasswordRecovery,
