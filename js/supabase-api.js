@@ -8,6 +8,7 @@
   const cfg = global.CHIERICH_CONFIG || {};
   let client = null;
   let passwordRecoveryPending = false;
+  let passwordInvitePending = false;
   let authListenersReady = false;
 
   function recoveryRedirectTo() {
@@ -18,8 +19,9 @@
     try {
       const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
       const search = new URLSearchParams(String(global.location.search || '').replace(/^\?/, ''));
-      if (['recovery', 'invite'].includes(hash.get('type'))
-        || ['recovery', 'invite'].includes(search.get('type'))) {
+      const type = hash.get('type') || search.get('type');
+      if (type === 'invite') passwordInvitePending = true;
+      if (type === 'recovery' || type === 'invite') {
         passwordRecoveryPending = true;
         return true;
       }
@@ -85,6 +87,8 @@
       attivo: row.attivo !== false,
       createdAt: row.created_at || '',
       passwordChanged: row.password_changed !== false
+      ,accountActivated: row.account_activated !== false
+      ,inviteAccepted: row.invite_accepted !== false
     };
   }
 
@@ -228,7 +232,20 @@
         googleEmail: session.user.email,
         user: null,
         cerimonieriCount,
-        message: 'Account disattivato'
+        message: !user.attivo ? 'Account disattivato' : 'Account non ancora attivato: apri il link ricevuto via email'
+      };
+    }
+
+    if (user.accountActivated === false) {
+      return {
+        authMode: 'supabase',
+        authenticated: true,
+        user,
+        token: session.access_token,
+        cerimonieriCount,
+        pendingActivation: true,
+        mustChangePassword: true,
+        message: 'Account non ancora attivato: imposta la password per continuare'
       };
     }
 
@@ -257,7 +274,12 @@
         return { success: false, message: status.message || 'Non autorizzato' };
       }
       void registraAccessoLog({ metodo: 'password', user: status.user });
-      return { success: true, token: data.session.access_token, user: status.user };
+      return {
+        success: true,
+        token: data.session.access_token,
+        user: status.user,
+        mustChangePassword: !!status.mustChangePassword
+      };
     } catch (err) {
       console.error('Login post-auth failed:', err);
       return {
@@ -601,6 +623,11 @@
     return (data || []).map(mapCer);
   }
 
+  function isPasswordInvite() {
+    detectRecoveryFromUrl();
+    return passwordInvitePending;
+  }
+
   async function reinviaInvito(email) {
     return resetPasswordForEmail(email);
   }
@@ -641,7 +668,7 @@
           parrocchia: dati.parrocchia || '', gruppo: dati.gruppo || '',
           chierichetto_uuid: dati.chierichettoUuid || null,
           attivo: dati.attivo === false ? false : true,
-          is_admin: false, password_changed: false, ruolo
+          is_admin: false, password_changed: false, account_activated: false, invite_accepted: false, ruolo
         });
         if (error) return { success: false, message: error.message };
         return { success: true, uuid, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
@@ -682,6 +709,8 @@
         attivo: dati.attivo === false ? false : true,
         is_admin: false,
         password_changed: false,
+        account_activated: false,
+        invite_accepted: false,
         ruolo
       });
       if (error) return { success: false, message: error.message };
@@ -729,7 +758,7 @@
       const invited = await invitaUtente(cleanEmail);
       if (!invited.success) return invited;
       const { error } = await sb.from('cerimonieri')
-        .update({ email: cleanEmail, password_changed: false }).eq('uuid', uuid);
+        .update({ email: cleanEmail, password_changed: false, account_activated: false, invite_accepted: false }).eq('uuid', uuid);
       if (error) return { success: false, message: error.message };
       return { success: true, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
     }
@@ -1002,6 +1031,7 @@
     updatePassword,
     ensureAuthListeners,
     isPasswordRecovery,
+    isPasswordInvite,
     clearPasswordRecovery,
     getAppData,
     salvaChierichetto,

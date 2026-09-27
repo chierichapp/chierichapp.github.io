@@ -206,6 +206,7 @@ function setAuthMode(mode, extra = {}) {
   const waitGoogle = mode === 'google-wait';
   const isForgot = mode === 'forgot';
   const isRecovery = mode === 'recovery';
+  const isInvite = mode === 'invite';
   const isForcePassword = mode === 'force-password';
   const googleEmail = extra.googleEmail || '';
 
@@ -218,7 +219,7 @@ function setAuthMode(mode, extra = {}) {
       ? 'Accesso non autorizzato'
       : isForgot
         ? 'Recupero password'
-        : (isRecovery || isForcePassword)
+        : (isRecovery || isForcePassword || isInvite)
           ? 'Nuova password'
           : 'Accesso riservato a cerimonieri e sacerdoti';
 
@@ -232,9 +233,11 @@ function setAuthMode(mode, extra = {}) {
   } else if (isForgot) {
     hint.style.display = '';
     hint.textContent = 'Inserisci l\'email dell\'account: ti invieremo un link per scegliere una nuova password.';
-  } else if (isRecovery || isForcePassword) {
+  } else if (isRecovery || isForcePassword || isInvite) {
     hint.style.display = '';
-    hint.textContent = isForcePassword
+    hint.textContent = isInvite
+      ? 'Imposta la password per attivare il tuo accesso a ChierichApp.'
+      : isForcePassword
       ? 'Per motivi di sicurezza devi sostituire la password iniziale prima di usare l’app.'
       : 'Scegli una nuova password (almeno 6 caratteri), poi potrai accedere.';
   } else {
@@ -296,13 +299,13 @@ function setAuthMode(mode, extra = {}) {
   } else {
     if (googleBlock) googleBlock.hidden = true;
     form.style.display = '';
-    if (emailWrap) emailWrap.style.display = (isRecovery || isForcePassword) ? 'none' : '';
+    if (emailWrap) emailWrap.style.display = (isRecovery || isForcePassword || isInvite) ? 'none' : '';
     if (passwordWrap) passwordWrap.style.display = (isForgot ? 'none' : '');
-    if (password2Wrap) password2Wrap.style.display = (isRecovery || isForcePassword) ? '' : 'none';
+    if (password2Wrap) password2Wrap.style.display = (isRecovery || isForcePassword || isInvite) ? '' : 'none';
     if (forgotLink) forgotLink.style.display = (isSupabase && mode === 'login') ? '' : 'none';
     if (backLogin) backLogin.style.display = (isForgot || isRecovery) ? '' : 'none';
     if (emailInput) {
-      emailInput.required = !isRecovery && !isForcePassword;
+      emailInput.required = !isRecovery && !isForcePassword && !isInvite;
       emailInput.readOnly = false;
       emailInput.autocomplete = isForgot ? 'email' : 'username';
     }
@@ -317,14 +320,14 @@ function setAuthMode(mode, extra = {}) {
         if (pwdLabel) pwdLabel.textContent = 'Password';
       }
     }
-    if (password2Input) password2Input.required = isRecovery || isForcePassword;
+    if (password2Input) password2Input.required = isRecovery || isForcePassword || isInvite;
     document.getElementById('auth-nome-wrap').style.display = isBootstrap ? '' : 'none';
     document.getElementById('auth-submit-btn').textContent = isBootstrap
       ? 'Crea account'
       : isForgot
         ? 'Invia link'
-        : (isRecovery || isForcePassword)
-          ? 'Salva nuova password'
+        : (isRecovery || isForcePassword || isInvite)
+          ? (isInvite ? 'Attiva account' : 'Salva nuova password')
           : 'Accedi';
     const nomeInput = document.getElementById('auth-nome');
     if (nomeInput) nomeInput.required = isBootstrap;
@@ -799,17 +802,51 @@ async function checkAuthAndInit() {
     window.ChierichSupabase.ensureAuthListeners();
     // Breve attesa perché detectSessionInUrl / PASSWORD_RECOVERY possano settarsi
     await new Promise(r => setTimeout(r, 80));
+    if (window.ChierichSupabase.isPasswordInvite()) {
+      const inviteStatus = await fetchAuthStatus();
+      if (!inviteStatus.authenticated || !inviteStatus.user) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('login');
+        showAuthError(inviteStatus.message || 'Account non attivo o non autorizzato');
+        return;
+      }
+      clearSession();
+      showAuthGate();
+      setAuthMode('invite');
+      return;
+    }
     if (window.ChierichSupabase.isPasswordRecovery()) {
+      const recoveryStatus = await fetchAuthStatus();
+      if (!recoveryStatus.authenticated || !recoveryStatus.user) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('login');
+        showAuthError(recoveryStatus.message || 'Account non attivo o non autorizzato');
+        return;
+      }
       clearSession();
       showAuthGate();
       setAuthMode('recovery');
       return;
     }
     const status = await fetchAuthStatus();
+    if (window.ChierichSupabase.isPasswordInvite()) {
+      clearSession();
+      showAuthGate();
+      setAuthMode('invite');
+      return;
+    }
     if (window.ChierichSupabase.isPasswordRecovery()) {
       clearSession();
       showAuthGate();
       setAuthMode('recovery');
+      return;
+    }
+    if (status.pendingActivation || status.mustChangePassword) {
+      clearSession();
+      showAuthGate();
+      setAuthMode('force-password');
       return;
     }
     if (status.authenticated && status.user) {
@@ -888,7 +925,7 @@ async function handleAuthSubmit(e) {
       return;
     }
 
-    if (authMode === 'recovery') {
+    if (authMode === 'recovery' || authMode === 'invite') {
       if (!isSupabase) {
         showAuthError('Recupero password non disponibile');
         return;
@@ -984,6 +1021,12 @@ async function handleAuthSubmit(e) {
 
     if (!result.success) {
       showAuthError(result.message || 'Accesso non riuscito');
+      return;
+    }
+    if (result.mustChangePassword) {
+      saveSession(result.token || 'supabase', result.user);
+      showAuthGate();
+      setAuthMode('force-password');
       return;
     }
     saveSession(result.token, result.user);
@@ -6762,7 +6805,11 @@ function openAnagCerMenu(uuid) {
     items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
   }
   if (canManage && hasCerimoniereLogin(c)) {
-    items.push({ action: 'resend', label: 'Reinvia invito accesso', icon: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>' });
+    items.push({
+      action: 'resend',
+      label: c.passwordChanged === false ? 'Reinvia invito accesso' : 'Invia cambio password',
+      icon: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>'
+    });
   }
   if (canManage && !isSelf && !isAdminAcc) {
     items.push(attivo
