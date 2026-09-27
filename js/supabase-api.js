@@ -18,7 +18,8 @@
     try {
       const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
       const search = new URLSearchParams(String(global.location.search || '').replace(/^\?/, ''));
-      if (hash.get('type') === 'recovery' || search.get('type') === 'recovery') {
+      if (['recovery', 'invite'].includes(hash.get('type'))
+        || ['recovery', 'invite'].includes(search.get('type'))) {
         passwordRecoveryPending = true;
         return true;
       }
@@ -600,6 +601,10 @@
     return (data || []).map(mapCer);
   }
 
+  async function reinviaInvito(email) {
+    return resetPasswordForEmail(email);
+  }
+
   async function invitaUtente(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
@@ -993,6 +998,7 @@
     bootstrap,
     logout,
     resetPasswordForEmail,
+    reinviaInvito,
     updatePassword,
     ensureAuthListeners,
     isPasswordRecovery,

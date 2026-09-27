@@ -1,6 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const authHeader = req.headers.get('Authorization') || '';
     const url = Deno.env.get('SUPABASE_URL')!;
@@ -21,8 +28,13 @@ Deno.serve(async (req) => {
       redirectTo: body.redirectTo || `${url}/`
     });
     if (error) throw error;
-    return Response.json({ success: true, userId: data.user.id, message: 'Invito inviato via email' });
+    return new Response(JSON.stringify({ success: true, userId: data.user.id, message: 'Invito inviato via email' }), {
+      headers: { ...cors, 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    return Response.json({ success: false, message: error?.message || 'Invito non riuscito' }, { status: 400 });
+    return new Response(JSON.stringify({ success: false, message: error?.message || 'Invito non riuscito' }), {
+      status: 400,
+      headers: { ...cors, 'Content-Type': 'application/json' }
+    });
   }
 });

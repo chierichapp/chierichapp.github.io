@@ -6734,6 +6734,7 @@ async function runAnagPersonAction(action) {
   if (!uuid) return;
   if (kind === 'cer') {
     if (action === 'edit') editCerimoniere(uuid);
+    else if (action === 'resend') await resendCerimoniereInvite(uuid);
     else if (action === 'ex') await setCerimoniereAttivo(uuid, false);
     else if (action === 'restore') await setCerimoniereAttivo(uuid, true);
     else if (action === 'delete') await deleteCerimoniere(uuid);
@@ -6759,6 +6760,9 @@ function openAnagCerMenu(uuid) {
   const items = [];
   if (canManage || isSelf) {
     items.push({ action: 'edit', label: 'Modifica', icon: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' });
+  }
+  if (canManage && hasCerimoniereLogin(c)) {
+    items.push({ action: 'resend', label: 'Reinvia invito accesso', icon: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>' });
   }
   if (canManage && !isSelf && !isAdminAcc) {
     items.push(attivo
@@ -10522,6 +10526,13 @@ function mapLitCalColor(raw) {
   if (c.includes('bianc') || c.includes('white')) return 'bianco';
   if (c.includes('viol') || c.includes('morell') || c.includes('ner') || c.includes('rosa') || c.includes('purple')) return 'viola';
   return '';
+}
+
+async function resendCerimoniereInvite(uuid) {
+  const c = cerimonieriAccounts.find(x => x.uuid === uuid);
+  if (!c?.email || !isSupabase) return;
+  const result = await window.ChierichSupabase.reinviaInvito(c.email);
+  showToast(result.message || (result.success ? 'Email inviata' : 'Invio non riuscito'), result.success ? 'success' : 'error');
 }
 
 // Nel calendario ambrosiano il periodo dopo Pentecoste in preparazione/
