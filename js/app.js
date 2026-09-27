@@ -303,7 +303,7 @@ function setAuthMode(mode, extra = {}) {
     if (passwordWrap) passwordWrap.style.display = (isForgot ? 'none' : '');
     if (password2Wrap) password2Wrap.style.display = (isRecovery || isForcePassword || isInvite) ? '' : 'none';
     if (forgotLink) forgotLink.style.display = (isSupabase && mode === 'login') ? '' : 'none';
-    if (backLogin) backLogin.style.display = (isForgot || isRecovery) ? '' : 'none';
+    if (backLogin) backLogin.style.display = (isForgot || isRecovery || isInvite) ? '' : 'none';
     if (emailInput) {
       emailInput.required = !isRecovery && !isForcePassword && !isInvite;
       emailInput.readOnly = false;
@@ -811,7 +811,7 @@ async function checkAuthAndInit() {
         showAuthError(inviteStatus.message || 'Account non attivo o non autorizzato');
         return;
       }
-      clearSession();
+      saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
       showAuthGate();
       setAuthMode('invite');
       return;
@@ -825,7 +825,7 @@ async function checkAuthAndInit() {
         showAuthError(recoveryStatus.message || 'Account non attivo o non autorizzato');
         return;
       }
-      clearSession();
+      saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
       showAuthGate();
       setAuthMode(recoveryStatus.user?.inviteAccepted === false ? 'invite' : 'recovery');
       return;
