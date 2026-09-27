@@ -10492,6 +10492,56 @@ function mapLitCalColor(raw) {
   return '';
 }
 
+// Nel calendario ambrosiano il periodo dopo Pentecoste in preparazione/
+// memoria del Martirio di San Giovanni Battista è rosso. Alcune risposte
+// LitCal riportano invece il colore del tempo romano (verde); per questi
+// eventi prevale quindi la classificazione ambrosiana di GCatholic.
+function mapAmbrosianEventColor(raw, eventKey, nome) {
+  const key = String(eventKey || '');
+  const title = String(nome || '');
+  if (/^AfterPentecostMartyrdom/i.test(key)
+    || /\b(?:dopo|precede)\s+il\s+Martirio\b/i.test(title)) {
+    return 'rosso';
+  }
+  return mapLitCalColor(raw);
+}
+
+function unfoldIcs(text) {
+  return String(text || '').replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
+}
+
+function parseGcatholicIcsColors(text) {
+  const colors = {};
+  let date = '';
+  let raw = '';
+  let inEvent = false;
+  for (const line of unfoldIcs(text)) {
+    if (line === 'BEGIN:VEVENT') { inEvent = true; date = ''; raw = ''; continue; }
+    if (line === 'END:VEVENT') {
+      if (date) {
+        const color = mapLitCalColor(raw);
+        if (color) colors[date] = color;
+      }
+      inEvent = false;
+      continue;
+    }
+    if (!inEvent) continue;
+    if (/^DTSTART(?:;[^:]*)?:(\d{8})/.test(line)) {
+      const m = line.match(/^DTSTART(?:;[^:]*)?:(\d{4})(\d{2})(\d{2})/);
+      if (m) date = `${m[1]}-${m[2]}-${m[3]}`;
+    }
+    if (/^(?:SUMMARY|DESCRIPTION|CATEGORIES|COLOR|X-.*COLOR)/i.test(line)) raw += ` ${line}`;
+  }
+  return colors;
+}
+
+async function fetchGcatholicIcsColors(anno) {
+  const url = `https://gcatholic.org/calendar/ics/${encodeURIComponent(anno)}-it-Ambrosian.ics?v=3`;
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error('iCal GCatholic non disponibile (HTTP ' + res.status + ')');
+  return parseGcatholicIcsColors(await res.text());
+}
+
 /** Ordinali italiani → numeri romani (solo prima di «domenica» / «settimana»). */
 const LIT_ORDINAL_ROMAN = {
   prima: 'I', seconda: 'II', terza: 'III', quarta: 'IV', quinta: 'V',
@@ -10542,8 +10592,10 @@ function normalizeCalendarioPack(data) {
   if (!data?.byDate) return data;
   const fix = (ev) => {
     if (!ev || typeof ev !== 'object') return ev;
-    const nome = formatLiturgicalNome(ev.nome, ev.eventKey || ev.event_key);
-    return nome === ev.nome ? ev : { ...ev, nome };
+    const eventKey = ev.eventKey || ev.event_key;
+    const nome = formatLiturgicalNome(ev.nome, eventKey);
+    const colore = mapAmbrosianEventColor(ev.colore, eventKey, nome);
+    return nome === ev.nome && colore === ev.colore ? ev : { ...ev, nome, colore };
   };
   const byDate = {};
   Object.keys(data.byDate).forEach((d) => {
@@ -10589,7 +10641,7 @@ function mapLitCalEvent(ev, dateStr, anno) {
     tipo,
     tipoLabel,
     grado,
-    colore: mapLitCalColor(colorRaw),
+    colore: mapAmbrosianEventColor(colorRaw, eventKey, ev.name),
     url: `https://gcatholic.org/calendar/${anno}/Ambrosian-it#${mmdd}`,
     eventKey: eventKey || undefined
   };
@@ -10602,6 +10654,10 @@ async function fetchAmbrosianCalendarYear(anno) {
   if (!res.ok) throw new Error('Download calendario non riuscito (HTTP ' + res.status + ')');
   const json = await res.json();
   const rows = Array.isArray(json.litcal) ? json.litcal : [];
+  let gcatholicColors = {};
+  try { gcatholicColors = await fetchGcatholicIcsColors(y); } catch (err) {
+    console.warn('[ChierichApp] iCal GCatholic non disponibile, uso LitCal', err);
+  }
   const byDate = {};
   const events = [];
   rows.forEach(ev => {
@@ -10609,6 +10665,7 @@ async function fetchAmbrosianCalendarYear(anno) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
     const mapped = mapLitCalEvent(ev, dateStr, y);
     if (!mapped.nome) return;
+    if (gcatholicColors[dateStr]) mapped.colore = gcatholicColors[dateStr];
     if (!byDate[dateStr]) byDate[dateStr] = [];
     byDate[dateStr].push(mapped);
     events.push(mapped);
