@@ -650,10 +650,12 @@
   async function ricreaInvitoAccesso(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, replaceExisting: true, redirectTo: global.location.origin + global.location.pathname }
+      body: { email, resetExisting: true, redirectTo: global.location.origin + global.location.pathname }
     });
     if (error) return { success: false, message: error.message };
-    return data || { success: false, message: 'Nuovo invito non riuscito' };
+    if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
+    if (data.passwordResetRequired) return resetPasswordForEmail(email);
+    return data;
   }
 
   async function salvaCerimoniere(dati) {

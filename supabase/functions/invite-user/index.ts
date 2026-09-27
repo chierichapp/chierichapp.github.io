@@ -24,6 +24,18 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const email = String(body.email || '').trim().toLowerCase();
     if (!email) throw new Error('Email obbligatoria');
+    if (body.resetExisting) {
+      const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) throw listError;
+      const existing = users.users.find((item) => String(item.email || '').toLowerCase() === email);
+      if (!existing) throw new Error('Utente Auth non trovato');
+      const temporary = `Tmp-${crypto.randomUUID()}-aA1!`;
+      const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, { password: temporary });
+      if (updateError) throw updateError;
+      return new Response(JSON.stringify({ success: true, passwordResetRequired: true }), {
+        headers: { ...cors, 'Content-Type': 'application/json' }
+      });
+    }
     if (body.replaceExisting) {
       const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (listError) throw listError;
