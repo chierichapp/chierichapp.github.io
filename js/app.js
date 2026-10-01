@@ -37,7 +37,7 @@ let registroTab = 'messa';
 let registroPastoralStart = null;
 /** Mese 0–11 entro l'anno pastorale, o null = tutto l'anno (set–giu) */
 let registroMonth = null;
-let registroCelebrationIndex = 0;
+let registroLiturgicalDayIndex = 0;
 let registroOpenSlotKey = '';
 let registroOpenGroupId = '';
 
@@ -4889,7 +4889,7 @@ function changeRegistroMonth(delta) {
     month = 0;
   }
   registroMonth = month;
-  registroCelebrationIndex = 0;
+  registroLiturgicalDayIndex = 0;
   renderRegistro();
 }
 
@@ -4897,28 +4897,42 @@ function goRegistroThisMonth() {
   const t = new Date();
   registroPastoralStart = getPastoralYearStartForDate(t);
   registroMonth = t.getMonth();
-  registroCelebrationIndex = 0;
+  registroLiturgicalDayIndex = 0;
   renderRegistro();
 }
 
-function changeRegistroCelebration(delta) {
+function changeRegistroLiturgicalDay(delta) {
   const slots = getRegistroMonthSlots();
-  const groups = getRegistroCelebrationGroups(slots);
+  const groups = groupMassesByLiturgicalDay(slots);
   if (!groups.length) return;
-  registroCelebrationIndex = Math.max(0, Math.min(groups.length - 1, registroCelebrationIndex + delta));
+  registroLiturgicalDayIndex = Math.max(0, Math.min(groups.length - 1, registroLiturgicalDayIndex + delta));
   renderRegistro();
 }
 
-function getRegistroCelebrationGroups(slots) {
+function getLiturgicalDayKey(messa) {
+  const date = new Date(`${messa.data}T12:00:00`);
+  if (messa.vigilia || messa.dayOffset === -1) date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function groupMassesByLiturgicalDay(masses) {
   const groups = new Map();
-  slots.forEach(slot => {
-    const date = new Date(`${slot.data}T12:00:00`);
-    if (slot.vigilia) date.setDate(date.getDate() + 1);
-    const key = date.toISOString().slice(0, 10);
+  masses.forEach(messa => {
+    const key = getLiturgicalDayKey(messa);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(slot);
+    groups.get(key).push(messa);
   });
   return [...groups.values()];
+}
+
+function formatLiturgicalDayLabel(masses) {
+  if (!masses.length) return 'Nessun giorno liturgico';
+  const dateKey = getLiturgicalDayKey(masses[0]);
+  const events = calState.data?.byDate?.[dateKey] || [];
+  const event = primaryEvent(events) || events[0];
+  if (event?.nome) return event.nome;
+  const date = new Date(`${dateKey}T12:00:00`);
+  return date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function hasServizioPresenzaOnDate(uuid, dateStr) {
@@ -4958,15 +4972,15 @@ function renderRegistro() {
   }
 
   const slots = getRegistroMonthSlots();
-  const celebrationGroups = getRegistroCelebrationGroups(slots);
-  registroCelebrationIndex = celebrationGroups.length ? Math.min(registroCelebrationIndex, celebrationGroups.length - 1) : 0;
-  const activeSlots = celebrationGroups[registroCelebrationIndex] || [];
+  const liturgicalDays = groupMassesByLiturgicalDay(slots);
+  registroLiturgicalDayIndex = liturgicalDays.length ? Math.min(registroLiturgicalDayIndex, liturgicalDays.length - 1) : 0;
+  const activeSlots = liturgicalDays[registroLiturgicalDayIndex] || [];
   const activeKeys = new Set(activeSlots.map(s => s.slotKey));
   const rows = getRegistroRows().filter(r => activeKeys.has(r.slotKey));
-  const celebrationLabel = document.getElementById('registro-celebration-label');
-  if (celebrationLabel) celebrationLabel.textContent = celebrationGroups.length
-    ? `Celebrazione ${registroCelebrationIndex + 1} di ${celebrationGroups.length}`
-    : 'Nessuna celebrazione';
+  const liturgicalDayLabel = document.getElementById('registro-liturgical-day-label');
+  if (liturgicalDayLabel) liturgicalDayLabel.textContent = liturgicalDays.length
+    ? formatLiturgicalDayLabel(activeSlots)
+    : 'Nessun giorno liturgico';
   const nP = rows.filter(r => r.stato === 'presente').length;
   const nA = rows.filter(r => r.stato === 'assente').length;
   const tot = nP + nA;
