@@ -38,6 +38,7 @@ let registroPastoralStart = null;
 /** Mese 0–11 entro l'anno pastorale, o null = tutto l'anno (set–giu) */
 let registroMonth = null;
 let registroLiturgicalDayIndex = 0;
+let registroScope = 'giorno';
 let registroOpenSlotKey = '';
 let registroOpenGroupId = '';
 
@@ -4714,6 +4715,13 @@ function switchRegistroTab(tab) {
     document.getElementById('tab-registro-' + t)?.classList.toggle('active', tab === t);
     document.getElementById('registro-panel-' + t)?.classList.toggle('active', tab === t);
   });
+  const scope = document.getElementById('registro-scope');
+  if (scope) scope.value = tab === 'messa' ? 'giorno' : registroScope;
+}
+
+function setRegistroScope(scope) {
+  registroScope = scope === 'anno' || scope === 'mese' ? scope : 'giorno';
+  renderRegistro();
 }
 
 function toggleRegistroMass(slotKey) {
@@ -4784,7 +4792,7 @@ function getRegistroMonthSlots() {
     .sort((a, b) => a.data.localeCompare(b.data) || a.ora.localeCompare(b.ora));
 }
 
-function getRegistroRows() {
+function getRegistroRows(slotsOverride = null) {
   ensureRegistroPeriod();
   const slots = getRegistroMonthSlots();
   const rows = [];
@@ -4901,8 +4909,18 @@ function goRegistroThisMonth() {
   renderRegistro();
 }
 
+function getRegistroYearSlots() {
+  ensureRegistroPeriod();
+  const { from, to } = getRegistroPastoralBounds(registroPastoralStart);
+  return getAllSlotsForYear(registroPastoralStart)
+    .concat(getAllSlotsForYear(registroPastoralStart + 1))
+    .filter(s => s.data >= from && s.data <= to)
+    .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
+    .sort((a, b) => a.data.localeCompare(b.data) || a.ora.localeCompare(b.ora));
+}
+
 function changeRegistroLiturgicalDay(delta) {
-  const slots = getRegistroMonthSlots();
+  const slots = slotsOverride || getRegistroMonthSlots();
   const groups = groupMassesByLiturgicalDay(slots);
   if (!groups.length) return;
   registroLiturgicalDayIndex = Math.max(0, Math.min(groups.length - 1, registroLiturgicalDayIndex + delta));
@@ -4971,12 +4989,15 @@ function renderRegistro() {
     monthLabel.textContent = `${MONTHS[month]} ${calendarYearForPastoralMonth(registroPastoralStart, month)}`;
   }
 
-  const slots = getRegistroMonthSlots();
+  const slots = registroScope === 'anno' ? getRegistroYearSlots() : getRegistroMonthSlots();
   const liturgicalDays = groupMassesByLiturgicalDay(slots);
   registroLiturgicalDayIndex = liturgicalDays.length ? Math.min(registroLiturgicalDayIndex, liturgicalDays.length - 1) : 0;
   const activeSlots = liturgicalDays[registroLiturgicalDayIndex] || [];
   const activeKeys = new Set(activeSlots.map(s => s.slotKey));
-  const rows = getRegistroRows().filter(r => activeKeys.has(r.slotKey));
+  const allRows = getRegistroRows(slots);
+  const rows = registroTab === 'messa' || registroScope === 'giorno'
+    ? allRows.filter(r => activeKeys.has(r.slotKey))
+    : allRows;
   const liturgicalDayLabel = document.getElementById('registro-liturgical-day-label');
   if (liturgicalDayLabel) liturgicalDayLabel.textContent = liturgicalDays.length
     ? formatLiturgicalDayLabel(activeSlots)
@@ -5011,7 +5032,7 @@ function renderRegistro() {
     }
   }
 
-  renderRegistroByMessa(activeSlots, rows);
+  renderRegistroByMessa(registroTab === 'messa' || registroScope === 'giorno' ? activeSlots : [], rows);
   renderRegistroByGruppo(rows);
   renderRegistroByPersona(rows);
   switchRegistroTab(registroTab);

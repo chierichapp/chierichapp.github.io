@@ -1748,6 +1748,19 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: center;
 }
 
+.registro-scope-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.registro-scope-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 /* Il Registro non usa filtri: la navigazione avviene tramite le tre viste. */
 #registro .registro-search-bar,
 #registro .registro-filters { display: none !important; }
