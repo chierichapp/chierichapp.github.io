@@ -1774,6 +1774,14 @@ body.anag-sheet-open { overflow: hidden; }
 .registro-mass-modal .registro-row { border-bottom: 1px solid var(--border); padding: 10px 0; }
 
 .info-page { display: grid; gap: 16px; }
+.messe-local-tabs { display: flex; gap: 4px; margin-bottom: 16px; padding: 4px; background: var(--cream); border-radius: 10px; width: fit-content; }
+.messe-strutture-slot { margin-top: 16px; }
+.messe-struttura-panel { display: block; }
+#messe .messe-layout[hidden],
+#messe-strutture-slot[hidden],
+#messe-strutture-slot #turni-panel-messe[hidden] { display: none !important; }
+.turni-structure-hint { display: grid; gap: 4px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--cream); color: var(--muted); font-size: 0.82rem; }
+.turni-structure-hint strong { color: var(--ink); }
 .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .info-card .panel-body p { margin-top: 0; line-height: 1.6; }
 .info-card .panel-body p:last-child { margin-bottom: 0; }

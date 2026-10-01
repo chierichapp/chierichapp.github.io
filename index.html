@@ -527,6 +527,11 @@
               <span class="rotazione-status chiusa" id="rotazione-anteprima-badge">Rotazione non attiva</span>
             </div>
             <div class="panel-body">
+              <div class="turni-structure-hint">
+                <strong>Le strutture si gestiscono in Messe.</strong>
+                <span>Qui vengono usate solo le Messe contrassegnate “Con squadra” per assegnare e ruotare i gruppi.</span>
+                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('messe'); setTimeout(() => showMesseLocalPanel('strutture'), 0)">Apri Strutture Messe</button>
+              </div>
               <p class="rotazione-status-text" id="rotazione-anteprima-text">Apri una finestra da Gestione per attivare la rotazione automatica.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
             </div>
@@ -984,6 +989,10 @@
             <p>Le Messe effettivamente celebrate dalla parrocchia, con turni, appelli e presenze</p>
           </div>
           <div class="panel-body">
+            <div class="messe-local-tabs" role="tablist" aria-label="Celebrazioni locali">
+              <button type="button" class="section-tab active" onclick="showMesseLocalPanel('agenda')">Agenda</button>
+              <button type="button" class="section-tab" onclick="showMesseLocalPanel('strutture')">Strutture Messe</button>
+            </div>
             <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
               <span><i class="lit-verde"></i> Verde</span>
               <span><i class="lit-viola"></i> Viola</span>
@@ -1180,6 +1189,7 @@
             <div class="panel-body">
               <p>ChierichApp distingue il calendario liturgico ufficiale dalle celebrazioni realmente organizzate dalla parrocchia.</p>
             </div>
+            <div id="messe-strutture-slot" class="messe-strutture-slot" hidden></div>
           </div>
 
           <div class="info-grid">

@@ -9,7 +9,7 @@ const PAGE_META = {
   dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
   presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
   registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
-  messe:      { title: 'Messe',      subtitle: 'Agenda celebrazioni e indicazioni del don' },
+  messe:      { title: 'Messe',      subtitle: 'Celebrazioni locali e strutture delle Messe' },
   turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
   gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
   anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
@@ -142,6 +142,7 @@ const messeState = {
 
 // ── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  moveStrutturaMesseToMesse();
   document.getElementById('auth-login-form').addEventListener('submit', handleAuthSubmit);
   document.getElementById('cerimoniereForm').addEventListener('submit', handleCerimoniereFormSubmit);
   document.getElementById('accountForm')?.addEventListener('submit', handleAccountFormSubmit);
@@ -150,6 +151,35 @@ document.addEventListener('DOMContentLoaded', () => {
   initMobileMoreGestures();
   checkAuthAndInit();
 });
+
+function moveStrutturaMesseToMesse() {
+  const panel = document.getElementById('turni-panel-messe');
+  const target = document.getElementById('messe-strutture-slot');
+  const tab = document.getElementById('tab-turni-messe');
+  if (!panel || !target) return;
+  target.appendChild(panel);
+  panel.classList.remove('turni-tab-panel');
+  panel.classList.add('messe-struttura-panel');
+  panel.hidden = true;
+  if (tab) tab.hidden = true;
+}
+
+function showMesseLocalPanel(panelName) {
+  const target = document.getElementById('messe-strutture-slot');
+  const structure = document.getElementById('turni-panel-messe');
+  const agenda = document.querySelector('#messe .messe-layout');
+  const showStructure = panelName === 'strutture';
+  if (target) target.hidden = !showStructure;
+  if (structure) structure.hidden = !showStructure;
+  if (agenda) agenda.hidden = showStructure;
+  document.querySelectorAll('#messe .messe-local-tabs .section-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', showStructure ? i === 1 : i === 0);
+  });
+  if (showStructure) {
+    setStrutturaMesseKind(strutturaMesseKind);
+    renderMesseDomenicaliList();
+  }
+}
 
 function prepareSupabaseAuthUi() {
   const sub = document.getElementById('form-cerimoniere-sub');
