@@ -5080,7 +5080,10 @@ function renderRegistroByGruppo(rows) {
 
   const byGroup = new Map();
   rows.forEach(r => {
-    const id = r.gruppoId || '_none';
+    const personaGruppo = r.chi?.gruppo || '';
+    // La vista «Per gruppo» segue il gruppo della persona, non quello della
+    // messa: anche nelle messe libere ogni persona resta nel proprio gruppo.
+    const id = personaGruppo || '_none';
     if (!byGroup.has(id)) {
       byGroup.set(id, {
         id,

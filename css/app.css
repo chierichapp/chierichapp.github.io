@@ -1889,9 +1889,10 @@ body.anag-sheet-open { overflow: hidden; }
 .registro-mass {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--cream);
+  background: var(--surface, #fff);
   margin-bottom: 10px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(12, 24, 41, 0.04);
 }
 
 .registro-mass-btn {
@@ -1910,6 +1911,11 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .registro-mass-btn:hover { background: rgba(12, 24, 41, 0.03); }
+
+.registro-mass:not(.is-libera) .registro-mass-btn { border-left: 4px solid var(--sky); padding-left: 12px; }
+.registro-mass.is-warn .registro-mass-btn { border-left-color: var(--warning, #d97706); }
+.registro-mass.is-bad .registro-mass-btn { border-left-color: var(--danger, #dc2626); }
+.registro-mass.is-libera .registro-mass-btn { border-left: 4px solid var(--border); padding-left: 12px; }
 
 .registro-mass-title {
   font-weight: 600;
@@ -1974,6 +1980,20 @@ body.anag-sheet-open { overflow: hidden; }
   border-radius: 999px;
   background: var(--cream-dark);
   overflow: hidden;
+}
+
+.registro-mass-body .registro-row {
+  min-height: 46px;
+}
+
+.registro-mass-body .registro-row-name {
+  letter-spacing: 0.01em;
+}
+
+.registro-mass-body .badge-presente,
+.registro-mass-body .badge-assente {
+  min-width: 72px;
+  text-align: center;
 }
 
 .registro-mass-btn > div:first-child { min-width: 0; }
