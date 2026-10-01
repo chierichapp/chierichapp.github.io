@@ -133,6 +133,10 @@
         </span>
         Calendario
       </button>
+      <button class="nav-item" data-section="info" onclick="showSection('info')">
+        <span class="nav-item-icon" aria-hidden="true">ⓘ</span>
+        Info sull’app
+      </button>
       <button class="nav-item is-group-start" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1165,6 +1169,54 @@
       </section>
 
       <!-- Accessi (log login — solo admin) -->
+      <!-- Info sull'app -->
+      <section id="info" class="section">
+        <div class="info-page">
+          <div class="panel info-hero">
+            <div class="panel-head">
+              <h3>Come leggere ChierichApp</h3>
+              <p>Una guida breve ai termini e alla struttura dell’app.</p>
+            </div>
+            <div class="panel-body">
+              <p>ChierichApp distingue il calendario liturgico ufficiale dalle celebrazioni realmente organizzate dalla parrocchia.</p>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Calendario liturgico ambrosiano</h3></div>
+              <div class="panel-body"><p>È l’agenda liturgica ufficiale: indica domeniche, feste, memorie, grado e colore liturgico. È una fonte informativa e non definisce automaticamente quali Messe vengono celebrate nelle nostre sedi.</p></div>
+            </article>
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Giorno liturgico</h3></div>
+              <div class="panel-body"><p>È il raggruppamento liturgico di una giornata. La Messa della vigilia appartiene al giorno liturgico successivo.</p><div class="info-example">Domenica 27 settembre<br>↳ vigilia del 26 settembre<br>↳ Messe del 27 settembre</div></div>
+            </article>
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Messa</h3></div>
+              <div class="panel-body"><p>È una singola celebrazione eucaristica concreta, identificata da data, ora e sede. Ogni Messa può avere una squadra, un appello, presenze e assenze.</p></div>
+            </article>
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Celebrazioni locali</h3></div>
+              <div class="panel-body"><p>Sono le Messe effettivamente organizzate dalla parrocchia. Si gestiscono dalla sezione <strong>Messe</strong>, insieme a turni, appelli e indicazioni.</p></div>
+            </article>
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domeniche ordinarie;</li><li>festività e solennità;</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano in <strong>Turni → Strutture celebrazioni</strong>.</p></div>
+            </article>
+            <article class="panel info-card">
+              <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
+              <div class="panel-body"><p>Sono eccezioni aggiunte manualmente, come Natale, una Messa speciale o una celebrazione non prevista dalla struttura ordinaria.</p></div>
+            </article>
+          </div>
+
+          <div class="panel info-flow">
+            <div class="panel-head"><h3>Come si collegano le funzioni</h3></div>
+            <div class="panel-body"><div class="info-flow-line">Calendario ambrosiano → Giorno liturgico → Messe locali → Turni → Appelli → Registro presenze</div><p>Il calendario dice che cosa si celebra; la configurazione locale dice quali Messe vengono celebrate; il Registro conserva l’andamento delle presenze.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Accessi (log login — solo admin) -->
       <section id="accessi" class="section">
         <div class="panel accessi-panel">
           <div class="panel-head">
@@ -1295,6 +1347,10 @@
       <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
         Calendario
+      </button>
+      <button type="button" class="mobile-more-item" data-section="info" onclick="showSection('info')">
+        <span class="mobile-more-ico" aria-hidden="true">ⓘ</span>
+        Info sull’app
       </button>
       <button type="button" class="mobile-more-item" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>

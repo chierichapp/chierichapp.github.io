@@ -15,6 +15,7 @@ const PAGE_META = {
   anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
   calendario: { title: 'Calendario', subtitle: 'Calendario ambrosiano del giorno' },
+  info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
 
