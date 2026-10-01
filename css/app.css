@@ -1748,6 +1748,10 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: center;
 }
 
+/* Il Registro non usa filtri: la navigazione avviene tramite le tre viste. */
+#registro .registro-search-bar,
+#registro .registro-filters { display: none !important; }
+
 .registro-search-bar {
   display: flex;
   align-items: stretch;

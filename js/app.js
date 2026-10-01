@@ -4767,30 +4767,18 @@ function getRegistroMonthSlots() {
   const { from, to } = getRegistroPastoralBounds(registroPastoralStart);
   const today = getTodayStr();
   const end = today < to ? today : to;
-  const sedeF = document.getElementById('registro-filter-sede')?.value || '';
 
   const slots = getAllSlotsForYear(registroPastoralStart)
     .concat(getAllSlotsForYear(registroPastoralStart + 1));
 
   return slots
     .filter(s => s.data >= from && s.data <= end)
-    .filter(s => {
-      if (registroMonth == null) return true;
-      const y = calendarYearForPastoralMonth(registroPastoralStart, registroMonth);
-      const prefix = `${y}-${String(registroMonth + 1).padStart(2, '0')}`;
-      return s.data.startsWith(prefix);
-    })
-    .filter(s => !sedeF || s.sede === sedeF)
     .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
     .sort((a, b) => b.data.localeCompare(a.data) || b.ora.localeCompare(a.ora));
 }
 
 function getRegistroRows() {
   ensureRegistroPeriod();
-  const statoF = document.getElementById('registro-filter-stato')?.value || '';
-  const gruppoF = document.getElementById('registro-filter-gruppo')?.value || '';
-  const q = (document.getElementById('registro-search')?.value || '').trim().toLowerCase();
-
   const slots = getRegistroMonthSlots();
   const rows = [];
 
@@ -4845,12 +4833,7 @@ function getRegistroRows() {
     });
   });
 
-  return rows.filter(r => {
-    if (statoF && r.stato !== statoF) return false;
-    if (gruppoF && r.gruppoId !== gruppoF) return false;
-    if (q && !(r.chi.nome || '').toLowerCase().includes(q)) return false;
-    return true;
-  });
+  return rows;
 }
 
 function changeRegistroPastoralYear(delta) {
@@ -4900,6 +4883,8 @@ function populateRegistroGruppoFilter() {
 
 function renderRegistro() {
   ensureRegistroPeriod();
+  // Il Registro mostra l'intero anno pastorale: il filtro mese è stato rimosso.
+  registroMonth = null;
   populateRegistroMonthFilter();
   populateRegistroGruppoFilter();
   const label = document.getElementById('registro-month-label');
@@ -4983,11 +4968,9 @@ function renderRegistroByMessa(slots, rows) {
   const q = (document.getElementById('registro-search')?.value || '').trim().toLowerCase();
   const hasPersonFilters = !!(statoF || gruppoF || q);
 
-  let visibleSlots = slots;
-  if (hasPersonFilters) {
-    const keysWithRows = new Set(rows.map(r => r.slotKey));
-    visibleSlots = slots.filter(s => keysWithRows.has(s.slotKey));
-  }
+  // Senza filtri, la vista mostra tutte le messe del periodo; ogni riga
+  // indica poi presenze, assenze o appello ancora da compilare.
+  const visibleSlots = slots;
 
   if (!visibleSlots.length) {
     const future = isPastoralYearNotStarted(registroPastoralStart);
@@ -4999,7 +4982,7 @@ function renderRegistroByMessa(slots, rows) {
       : '';
     container.innerHTML = future
       ? `<p class="empty-state">Questo anno pastorale apre il ${openLabel}.<br><button type="button" class="btn btn-secondary" style="margin-top:12px" onclick="goRegistroThisPastoralYear()">Apri ${esc(currentLabel)}</button></p>`
-      : '<p class="empty-state">Nessuna messa in questo periodo con i filtri scelti</p>';
+      : '<p class="empty-state">Nessuna messa passata in questo periodo</p>';
     return;
   }
 
