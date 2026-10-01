@@ -873,6 +873,12 @@
             <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroPastoralYear(1)" aria-label="Anno pastorale successivo">›</button>
             <button type="button" class="btn btn-ghost" onclick="goRegistroThisPastoralYear()">Quest'anno</button>
           </div>
+          <div class="registro-month-nav registro-calendar-nav">
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroMonth(-1)" aria-label="Mese precedente">‹</button>
+            <h4 id="registro-calendar-month-label">—</h4>
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroMonth(1)" aria-label="Mese successivo">›</button>
+            <button type="button" class="btn btn-ghost" onclick="goRegistroThisMonth()">Questo mese</button>
+          </div>
           <div class="registro-search-bar" hidden>
             <input type="search" id="registro-search" placeholder="Cerca…" oninput="renderRegistro()" aria-label="Cerca nel registro">
             <button type="button" class="anag-filters-toggle" id="btn-registro-filters" onclick="toggleRegistroFilters()" aria-expanded="false" aria-controls="registro-filters" title="Filtri" aria-label="Filtri">

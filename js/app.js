@@ -4773,6 +4773,12 @@ function getRegistroMonthSlots() {
 
   return slots
     .filter(s => s.data >= from && s.data <= end)
+    .filter(s => {
+      if (registroMonth == null) return true;
+      const y = calendarYearForPastoralMonth(registroPastoralStart, registroMonth);
+      const prefix = `${y}-${String(registroMonth + 1).padStart(2, '0')}`;
+      return s.data.startsWith(prefix);
+    })
     .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
     .sort((a, b) => b.data.localeCompare(a.data) || b.ora.localeCompare(a.ora));
 }
@@ -4838,6 +4844,8 @@ function getRegistroRows() {
 
 function changeRegistroPastoralYear(delta) {
   ensureRegistroPeriod();
+  // Mantiene la navigazione mensile attiva anche quando si cambia anno.
+  if (registroMonth == null) registroMonth = new Date().getMonth();
   const next = registroPastoralStart + delta;
   const max = getMaxPastoralYearStart();
   if (next > max) {
@@ -4855,8 +4863,38 @@ function changeRegistroPastoralYear(delta) {
 function goRegistroThisPastoralYear() {
   const t = new Date();
   registroPastoralStart = getPastoralYearStartForDate(t);
-  const m = t.getMonth();
-  registroMonth = (m >= 7 || m <= 5) ? m : null;
+  registroMonth = null;
+  renderRegistro();
+}
+
+function changeRegistroMonth(delta) {
+  ensureRegistroPeriod();
+  const current = registroMonth == null ? new Date().getMonth() : registroMonth;
+  let month = current + delta;
+  if (month < 0) {
+    registroPastoralStart -= 1;
+    month = 11;
+  } else if (month > 11) {
+    registroPastoralStart += 1;
+    month = 0;
+  }
+  const max = getMaxPastoralYearStart();
+  if (registroPastoralStart > max) {
+    registroPastoralStart = max;
+    month = 11;
+  }
+  if (registroPastoralStart < REGISTRO_MIN_PASTORAL_START) {
+    registroPastoralStart = REGISTRO_MIN_PASTORAL_START;
+    month = 0;
+  }
+  registroMonth = month;
+  renderRegistro();
+}
+
+function goRegistroThisMonth() {
+  const t = new Date();
+  registroPastoralStart = getPastoralYearStartForDate(t);
+  registroMonth = t.getMonth();
   renderRegistro();
 }
 
@@ -4883,14 +4921,17 @@ function populateRegistroGruppoFilter() {
 
 function renderRegistro() {
   ensureRegistroPeriod();
-  // Il Registro mostra l'intero anno pastorale: il filtro mese è stato rimosso.
-  registroMonth = null;
   populateRegistroMonthFilter();
   populateRegistroGruppoFilter();
   const label = document.getElementById('registro-month-label');
   if (label) {
     label.textContent = formatPastoralYearLabel(registroPastoralStart);
     label.title = formatPastoralYearRangeLabel(registroPastoralStart);
+  }
+  const monthLabel = document.getElementById('registro-calendar-month-label');
+  if (monthLabel) {
+    const month = registroMonth == null ? new Date().getMonth() : registroMonth;
+    monthLabel.textContent = `${MONTHS[month]} ${calendarYearForPastoralMonth(registroPastoralStart, month)}`;
   }
 
   const slots = getRegistroMonthSlots();

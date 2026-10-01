@@ -5897,15 +5897,13 @@ body.anag-sheet-open { overflow: hidden; }
   }
 
   #registro .registro-toolbar {
-    position: sticky;
-    top: calc(var(--sticky-below-topbar) + var(--sticky-tabs-h));
-    z-index: 44;
+    position: static;
+    z-index: auto;
     background: var(--cream);
-    margin-left: -14px;
-    margin-right: -14px;
-    padding: 8px 14px 10px;
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
+    margin: 0 0 12px;
+    padding: 0;
+    border-bottom: 0;
+    box-shadow: none;
   }
 
   #registro .registro-stats {
