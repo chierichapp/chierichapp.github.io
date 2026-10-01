@@ -3780,16 +3780,16 @@ function syncStrutturaMesseFormLabels() {
   const copyBtn = document.getElementById('btn-copia-orario-festivo');
   if (title) {
     title.textContent = festivo
-      ? 'Celebrazioni tipiche delle feste'
-      : 'Celebrazioni del turno domenicale';
+      ? 'Struttura delle festività'
+      : 'Struttura delle domeniche ordinarie';
   }
   if (formTitle && !editingMessaDomenicaleId) {
-    formTitle.textContent = festivo ? 'Nuova celebrazione festiva' : 'Nuova celebrazione';
+    formTitle.textContent = festivo ? 'Nuova Messa festiva' : 'Nuova Messa';
   }
   if (hint && !editingMessaDomenicaleId) {
     hint.textContent = festivo
       ? 'Indica le messe che di solito ci sono nelle solennità importanti'
-      : 'Aggiungi o modifica una messa del turno settimanale';
+      : 'Aggiungi o modifica una Messa della struttura locale';
   }
   if (daySel) {
     daySel.options[0].textContent = festivo ? 'Vigilia (giorno prima)' : 'Sabato (vigilia)';
@@ -7804,17 +7804,17 @@ function setTurniFormMode(editing) {
   const cancel = document.getElementById('btn-cancel-messa-domenicale');
   if (title) {
     title.textContent = editing
-      ? 'Modifica celebrazione'
-      : (festivo ? 'Nuova celebrazione festiva' : 'Nuova celebrazione');
+      ? 'Modifica Messa'
+      : (festivo ? 'Nuova Messa festiva' : 'Nuova Messa');
   }
   if (hint) {
     hint.textContent = editing
       ? 'Aggiorna giorno, ora, sede o tipo messa'
       : (festivo
         ? 'Indica le messe che di solito ci sono nelle solennità importanti'
-        : 'Aggiungi una messa al turno settimanale');
+        : 'Aggiungi una Messa alla struttura locale');
   }
-  if (btn) btn.textContent = editing ? 'Salva modifiche' : 'Aggiungi celebrazione';
+  if (btn) btn.textContent = editing ? 'Salva modifiche' : 'Aggiungi Messa';
   if (cancel) cancel.style.display = editing ? 'inline-flex' : 'none';
   syncMessaDomenicaleFormDay();
 }

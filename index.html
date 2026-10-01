@@ -512,7 +512,7 @@
           <button type="button" class="section-tab active" id="tab-turni-anteprima" onclick="switchTurniTab('anteprima')"><span class="tab-label-full">Anteprima turnistica</span><span class="tab-label-short">Anteprima</span></button>
           <button type="button" class="section-tab" id="tab-turni-gestione" onclick="switchTurniTab('gestione')"><span class="tab-label-full">Gestione finestra</span><span class="tab-label-short">Gestione</span></button>
           <button type="button" class="section-tab" id="tab-turni-cronologia" onclick="switchTurniTab('cronologia')"><span class="tab-label-full">Cronologia finestre</span><span class="tab-label-short">Cronologia</span></button>
-          <button type="button" class="section-tab" id="tab-turni-messe" onclick="switchTurniTab('messe')"><span class="tab-label-full">Struttura messe</span><span class="tab-label-short">Messe</span></button>
+          <button type="button" class="section-tab" id="tab-turni-messe" onclick="switchTurniTab('messe')"><span class="tab-label-full">Strutture celebrazioni</span><span class="tab-label-short">Strutture</span></button>
         </div>
 
         <div id="turni-panel-anteprima" class="turni-tab-panel active">
@@ -590,8 +590,8 @@
           <div class="turni-layout-grid">
             <div class="panel">
               <div class="panel-head">
-                <h3 id="turni-struttura-title">Celebrazioni del turno domenicale</h3>
-                <p id="messe-domenicali-summary">Ordinate per giorno — le messe con squadra generano i gruppi</p>
+                <h3 id="turni-struttura-title">Struttura delle celebrazioni</h3>
+                <p id="messe-domenicali-summary">Modelli locali per domeniche ordinarie e festività</p>
               </div>
               <div class="panel-body">
                 <div id="messe-domenicali-list"></div>
@@ -604,8 +604,8 @@
 
             <div class="panel turni-form-panel">
               <div class="panel-head">
-                <h3 id="turni-form-title">Nuova celebrazione</h3>
-                <p id="turni-form-hint">Aggiungi o modifica una messa del turno settimanale</p>
+                <h3 id="turni-form-title">Nuova Messa</h3>
+                <p id="turni-form-hint">Aggiungi o modifica una Messa della struttura locale</p>
               </div>
               <div class="panel-body">
                 <form id="messaDomenicaleForm">
@@ -972,12 +972,12 @@
         </div>
       </section>
 
-      <!-- Agenda messe pastorali -->
+      <!-- Celebrazioni locali -->
       <section id="messe" class="section">
         <div class="panel messe-section-panel">
           <div class="panel-head">
-            <h3>Agenda messe con chierichetti</h3>
-            <p>Celebrazioni domenicali, solennità con orario festivo e messe straordinarie</p>
+            <h3>Celebrazioni locali</h3>
+            <p>Le Messe effettivamente celebrate dalla parrocchia, con turni, appelli e presenze</p>
           </div>
           <div class="panel-body">
             <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
@@ -1027,8 +1027,8 @@
                 <div class="panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Dettaglio messa</h3>
-                      <p>Calendario e messe del giorno selezionato</p>
+                      <h3>Dettaglio giorno liturgico</h3>
+                      <p>Calendario ambrosiano e Messe locali del giorno selezionato</p>
                     </div>
                     <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -1042,8 +1042,8 @@
                 <div class="panel" id="messe-extra-panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Aggiungi eccezione</h3>
-                      <p>Festività (orario domenicale) o messa straordinaria singola</p>
+                      <h3>Celebrazione straordinaria</h3>
+                      <p>Aggiungi una festività locale o una Messa non prevista dalla struttura</p>
                     </div>
                     <button type="button" class="messe-sheet-close" onclick="closeMesseExtraUi()" aria-label="Chiudi">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -1088,8 +1088,12 @@
         </div>
       </section>
 
-      <!-- Calendario liturgico completo -->
+      <!-- Calendario liturgico ambrosiano -->
       <section id="calendario" class="section">
+        <div class="panel-head calendario-page-intro">
+          <h3>Calendario liturgico ambrosiano</h3>
+          <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici. Le celebrazioni locali si gestiscono nella sezione Celebrazioni locali.</p>
+        </div>
         <div class="cal-section-head">
           <div class="cal-legend" aria-label="Legenda gradi liturgici">
             <span><i class="solemnity"></i> S — Solennità</span>
