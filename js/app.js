@@ -10810,21 +10810,58 @@ function renderMessaDetail(dateStr) {
 
 function renderFestivaPresetChips(extra) {
   if (!extra?.uuid) return '';
-  const current = extra.preset || detectFestivityPreset(extra.data);
-  const order = ['solennita', 'christmasVigil', 'christmasDay', 'holyThurs', 'goodFri', 'easterVigil'];
-  const suggested = detectFestivityPreset(extra.data);
-  const chips = order.map(id => {
-    const meta = getFestivityPresetMeta(id);
-    const active = current === id;
-    const mark = suggested === id && !active ? ' · consigliato' : '';
-    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}" title="${esc(meta.hint)}" onclick="applyFestivityPresetToExtra(${jsStr(extra.uuid)}, ${jsStr(id)})">${esc(meta.label)}${mark}</button>`;
+  const current = extra.strutturaKind || getLiturgicalContext(extra.data).strutturaKind || '';
+  const order = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'];
+  const chips = order.map(kind => {
+    const meta = getStrutturaMeta(kind);
+    const active = current === kind;
+    const configured = hasStrutturaConfig(kind);
+    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima in Messe → Strutture' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
   }).join('');
   return `
     <div class="festiva-preset-block">
-      <p class="liturgy-meta" style="margin-bottom:8px">Preset orario</p>
-      <div class="festiva-preset-chips" role="group" aria-label="Preset orario festività">${chips}</div>
+      <p class="liturgy-meta" style="margin-bottom:8px">Cambia struttura applicata</p>
+      <div class="festiva-preset-chips" role="group" aria-label="Struttura Messe locali">${chips}</div>
     </div>
   `;
+}
+
+function applyStrutturaToFestivaExtra(uuid, kind) {
+  if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
+  if (!STRUTTURA_KINDS[kind] || !hasStrutturaConfig(kind)) {
+    showToast('Configura prima questa struttura in Messe → Strutture');
+    return;
+  }
+  if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
+  let extra = state.messeExtra.find(m => m.uuid === uuid);
+  // Giorno derivato da struttura (SYN-…): crea il record locale e poi applica
+  if (!extra && String(uuid || '').startsWith('SYN-')) {
+    const dateStr = String(uuid).slice(4);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+    if (getMessaExtraForDate(dateStr)) {
+      extra = getMessaExtraForDate(dateStr);
+    } else {
+      extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
+      state.messeExtra.push(extra);
+    }
+  }
+  if (!extra) {
+    showToast('Impossibile aggiornare questa celebrazione');
+    return;
+  }
+  extra.strutturaKind = kind;
+  extra.tipo = 'festiva';
+  extra.usaOrarioDomenicale = true;
+  extra.orarioPersonalizzato = false;
+  delete extra.inheritedFrom;
+  delete extra.preset;
+  extra.slots = renumberFestivaSlots(cloneStrutturaSlots(kind));
+  saveFestivitaModelloFromExtra(extra);
+  saveData();
+  void persistConfig();
+  showToast(`Struttura «${getStrutturaMeta(kind).label}» applicata`);
+  if (extra.data) renderMessaDetail(extra.data);
+  renderMesseAgenda();
 }
 
 function renderFestivaOrarioActions(extra) {

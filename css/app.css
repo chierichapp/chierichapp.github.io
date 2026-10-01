@@ -2797,6 +2797,11 @@ body.anag-sheet-open { overflow: hidden; }
   box-shadow: var(--shadow-sm);
 }
 
+.struttura-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .messe-festivo-banner {
   display: flex;
   flex-wrap: wrap;
