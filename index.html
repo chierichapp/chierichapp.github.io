@@ -70,6 +70,23 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="registro-mass-modal" role="dialog" aria-modal="true" aria-labelledby="registro-mass-modal-title" onclick="if(event.target===this)closeRegistroMassDetail()">
+  <div class="modal registro-mass-modal">
+    <div class="registro-modal-head">
+      <div>
+        <h3 id="registro-mass-modal-title">Dettaglio Messa</h3>
+        <p id="registro-mass-modal-sub"></p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-icon" onclick="closeRegistroMassDetail()" aria-label="Chiudi">×</button>
+    </div>
+    <div id="registro-mass-modal-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="registro-mass-modal-appello">Apri appello</button>
+      <button type="button" class="btn btn-secondary" onclick="closeRegistroMassDetail()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <div class="app app-shell hidden" id="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">

@@ -1761,6 +1761,14 @@ body.anag-sheet-open { overflow: hidden; }
   font-weight: 600;
 }
 
+.registro-mass-modal { max-width: 560px; }
+.registro-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.registro-modal-head h3 { margin: 0; }
+.registro-modal-head p { margin: 5px 0 0; color: var(--muted); font-size: 0.82rem; }
+.registro-mass-modal .registro-row { border-bottom: 1px solid var(--border); padding: 10px 0; }
+#registro-mass-modal { align-items: center; padding: 16px; }
+#registro-mass-modal .modal { border-radius: var(--radius-lg); max-height: 88vh; overflow-y: auto; }
+
 /* Il Registro non usa filtri: la navigazione avviene tramite le tre viste. */
 #registro .registro-search-bar,
 #registro .registro-filters { display: none !important; }

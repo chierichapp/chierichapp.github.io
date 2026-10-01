@@ -41,6 +41,7 @@ let registroLiturgicalDayIndex = 0;
 let registroScope = 'giorno';
 let registroOpenSlotKey = '';
 let registroOpenGroupId = '';
+let registroMassDetails = new Map();
 
 /** Mesi dell'anno pastorale: agosto (apertura) + settembre … giugno */
 const REGISTRO_PASTORAL_MONTHS = [7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5];
@@ -4725,6 +4726,8 @@ function setRegistroScope(scope) {
 }
 
 function toggleRegistroMass(slotKey) {
+  openRegistroMassDetail(slotKey);
+  return;
   registroOpenSlotKey = registroOpenSlotKey === slotKey ? '' : slotKey;
   document.querySelectorAll('.registro-mass').forEach(el => {
     const open = el.dataset.slot === registroOpenSlotKey;
@@ -4909,6 +4912,23 @@ function goRegistroThisMonth() {
   renderRegistro();
 }
 
+function openRegistroMassDetail(slotKey) {
+  const detail = registroMassDetails.get(slotKey);
+  const modal = document.getElementById('registro-mass-modal');
+  if (!detail || !modal) return;
+  document.getElementById('registro-mass-modal-title').textContent = `${(detail.slot.ora || '').slice(0, 5)} · ${detail.slot.sedeLabel}`;
+  document.getElementById('registro-mass-modal-sub').textContent = `${new Date(detail.slot.data + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} · ${detail.nP} presenti · ${detail.nA} assenti${detail.nP + detail.nA ? ` · ${detail.pct}%` : ''}`;
+  document.getElementById('registro-mass-modal-body').innerHTML = detail.people.length
+    ? detail.people.map(renderRegistroPersonRow).join('')
+    : '<p class="registro-empty-mass">Nessun appello registrato per questa Messa.</p>';
+  document.getElementById('registro-mass-modal-appello').onclick = () => openAppello(detail.slot.data, detail.slot.slotKey);
+  modal.classList.remove('hidden');
+}
+
+function closeRegistroMassDetail() {
+  document.getElementById('registro-mass-modal')?.classList.add('hidden');
+}
+
 function getRegistroYearSlots() {
   ensureRegistroPeriod();
   const { from, to } = getRegistroPastoralBounds(registroPastoralStart);
@@ -5064,6 +5084,7 @@ function renderRegistroByMessa(slots, rows) {
   if (!container) return;
 
   const bySlot = new Map();
+  registroMassDetails = new Map();
   rows.forEach(r => {
     const key = r.slotKey || `${r.data}|${r.sede}|${r.ora}`;
     if (!bySlot.has(key)) bySlot.set(key, []);
@@ -5118,6 +5139,7 @@ function renderRegistroByMessa(slots, rows) {
         if (a.stato !== b.stato) return a.stato === 'assente' ? -1 : 1;
         return (a.chi.nome || '').localeCompare(b.chi.nome || '', 'it');
       });
+      registroMassDetails.set(slotKey, { slot, people, nP, nA, pct });
       const open = registroOpenSlotKey === slotKey;
       const gruppoBadge = isLibera
         ? '<span class="badge badge-libera">Libera</span>'
