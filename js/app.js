@@ -37,6 +37,7 @@ let registroTab = 'messa';
 let registroPastoralStart = null;
 /** Mese 0–11 entro l'anno pastorale, o null = tutto l'anno (set–giu) */
 let registroMonth = null;
+let registroCelebrationIndex = 0;
 let registroOpenSlotKey = '';
 let registroOpenGroupId = '';
 
@@ -4780,7 +4781,7 @@ function getRegistroMonthSlots() {
       return s.data.startsWith(prefix);
     })
     .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
-    .sort((a, b) => b.data.localeCompare(a.data) || b.ora.localeCompare(a.ora));
+    .sort((a, b) => a.data.localeCompare(b.data) || a.ora.localeCompare(b.ora));
 }
 
 function getRegistroRows() {
@@ -4888,6 +4889,7 @@ function changeRegistroMonth(delta) {
     month = 0;
   }
   registroMonth = month;
+  registroCelebrationIndex = 0;
   renderRegistro();
 }
 
@@ -4895,7 +4897,28 @@ function goRegistroThisMonth() {
   const t = new Date();
   registroPastoralStart = getPastoralYearStartForDate(t);
   registroMonth = t.getMonth();
+  registroCelebrationIndex = 0;
   renderRegistro();
+}
+
+function changeRegistroCelebration(delta) {
+  const slots = getRegistroMonthSlots();
+  const groups = getRegistroCelebrationGroups(slots);
+  if (!groups.length) return;
+  registroCelebrationIndex = Math.max(0, Math.min(groups.length - 1, registroCelebrationIndex + delta));
+  renderRegistro();
+}
+
+function getRegistroCelebrationGroups(slots) {
+  const groups = new Map();
+  slots.forEach(slot => {
+    const date = new Date(`${slot.data}T12:00:00`);
+    if (slot.vigilia) date.setDate(date.getDate() + 1);
+    const key = date.toISOString().slice(0, 10);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(slot);
+  });
+  return [...groups.values()];
 }
 
 function hasServizioPresenzaOnDate(uuid, dateStr) {
@@ -4935,7 +4958,15 @@ function renderRegistro() {
   }
 
   const slots = getRegistroMonthSlots();
-  const rows = getRegistroRows();
+  const celebrationGroups = getRegistroCelebrationGroups(slots);
+  registroCelebrationIndex = celebrationGroups.length ? Math.min(registroCelebrationIndex, celebrationGroups.length - 1) : 0;
+  const activeSlots = celebrationGroups[registroCelebrationIndex] || [];
+  const activeKeys = new Set(activeSlots.map(s => s.slotKey));
+  const rows = getRegistroRows().filter(r => activeKeys.has(r.slotKey));
+  const celebrationLabel = document.getElementById('registro-celebration-label');
+  if (celebrationLabel) celebrationLabel.textContent = celebrationGroups.length
+    ? `Celebrazione ${registroCelebrationIndex + 1} di ${celebrationGroups.length}`
+    : 'Nessuna celebrazione';
   const nP = rows.filter(r => r.stato === 'presente').length;
   const nA = rows.filter(r => r.stato === 'assente').length;
   const tot = nP + nA;
@@ -4966,7 +4997,7 @@ function renderRegistro() {
     }
   }
 
-  renderRegistroByMessa(slots, rows);
+  renderRegistroByMessa(activeSlots, rows);
   renderRegistroByGruppo(rows);
   renderRegistroByPersona(rows);
   switchRegistroTab(registroTab);
@@ -5033,7 +5064,7 @@ function renderRegistroByMessa(slots, rows) {
     byDate.get(slot.data).push(slot);
   });
 
-  const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
+  const dates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
 
   container.innerHTML = dates.map(dateStr => {
     const daySlots = byDate.get(dateStr);
