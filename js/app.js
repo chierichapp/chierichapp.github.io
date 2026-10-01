@@ -37,8 +37,11 @@ let registroTab = 'messa';
 let registroPastoralStart = null;
 /** Mese 0–11 entro l'anno pastorale, o null = tutto l'anno (set–giu) */
 let registroMonth = null;
+let registroLiturgicalDayIndex = 0;
+let registroScope = 'giorno';
 let registroOpenSlotKey = '';
 let registroOpenGroupId = '';
+let registroMassDetails = new Map();
 
 /** Mesi dell'anno pastorale: agosto (apertura) + settembre … giugno */
 const REGISTRO_PASTORAL_MONTHS = [7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5];
@@ -4713,9 +4716,42 @@ function switchRegistroTab(tab) {
     document.getElementById('tab-registro-' + t)?.classList.toggle('active', tab === t);
     document.getElementById('registro-panel-' + t)?.classList.toggle('active', tab === t);
   });
+  syncRegistroScopeControls();
+}
+
+function setRegistroScope(scope) {
+  registroScope = scope === 'anno' || scope === 'mese' ? scope : 'giorno';
+  registroLiturgicalDayIndex = 0;
+  syncRegistroScopeControls();
+  renderRegistro();
+}
+
+function syncRegistroScopeControls() {
+  document.querySelectorAll('input[name="registro-scope"]').forEach(input => {
+    input.checked = input.value === registroScope;
+  });
+  const navigators = {
+    anno: '.registro-month-nav:not(.registro-calendar-nav):not(.registro-liturgical-day-nav)',
+    mese: '.registro-calendar-nav',
+    giorno: '.registro-liturgical-day-nav'
+  };
+  const enabled = {
+    giorno: new Set(['anno', 'mese', 'giorno']),
+    mese: new Set(['anno', 'mese']),
+    anno: new Set(['anno'])
+  }[registroScope];
+  Object.entries(navigators).forEach(([level, selector]) => {
+    const nav = document.querySelector(`#registro .registro-toolbar ${selector}`);
+    if (!nav) return;
+    const isEnabled = enabled.has(level);
+    nav.classList.toggle('is-disabled', !isEnabled);
+    nav.querySelectorAll('button').forEach(button => { button.disabled = !isEnabled; });
+  });
 }
 
 function toggleRegistroMass(slotKey) {
+  openRegistroMassDetail(slotKey);
+  return;
   registroOpenSlotKey = registroOpenSlotKey === slotKey ? '' : slotKey;
   document.querySelectorAll('.registro-mass').forEach(el => {
     const open = el.dataset.slot === registroOpenSlotKey;
@@ -4767,7 +4803,6 @@ function getRegistroMonthSlots() {
   const { from, to } = getRegistroPastoralBounds(registroPastoralStart);
   const today = getTodayStr();
   const end = today < to ? today : to;
-  const sedeF = document.getElementById('registro-filter-sede')?.value || '';
 
   const slots = getAllSlotsForYear(registroPastoralStart)
     .concat(getAllSlotsForYear(registroPastoralStart + 1));
@@ -4780,17 +4815,12 @@ function getRegistroMonthSlots() {
       const prefix = `${y}-${String(registroMonth + 1).padStart(2, '0')}`;
       return s.data.startsWith(prefix);
     })
-    .filter(s => !sedeF || s.sede === sedeF)
     .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
-    .sort((a, b) => b.data.localeCompare(a.data) || b.ora.localeCompare(a.ora));
+    .sort((a, b) => a.data.localeCompare(b.data) || a.ora.localeCompare(b.ora));
 }
 
-function getRegistroRows() {
+function getRegistroRows(slotsOverride = null) {
   ensureRegistroPeriod();
-  const statoF = document.getElementById('registro-filter-stato')?.value || '';
-  const gruppoF = document.getElementById('registro-filter-gruppo')?.value || '';
-  const q = (document.getElementById('registro-search')?.value || '').trim().toLowerCase();
-
   const slots = getRegistroMonthSlots();
   const rows = [];
 
@@ -4845,16 +4875,13 @@ function getRegistroRows() {
     });
   });
 
-  return rows.filter(r => {
-    if (statoF && r.stato !== statoF) return false;
-    if (gruppoF && r.gruppoId !== gruppoF) return false;
-    if (q && !(r.chi.nome || '').toLowerCase().includes(q)) return false;
-    return true;
-  });
+  return rows;
 }
 
 function changeRegistroPastoralYear(delta) {
   ensureRegistroPeriod();
+  // Mantiene la navigazione mensile attiva anche quando si cambia anno.
+  if (registroMonth == null) registroMonth = new Date().getMonth();
   const next = registroPastoralStart + delta;
   const max = getMaxPastoralYearStart();
   if (next > max) {
@@ -4872,9 +4899,103 @@ function changeRegistroPastoralYear(delta) {
 function goRegistroThisPastoralYear() {
   const t = new Date();
   registroPastoralStart = getPastoralYearStartForDate(t);
-  const m = t.getMonth();
-  registroMonth = (m >= 7 || m <= 5) ? m : null;
+  registroMonth = null;
   renderRegistro();
+}
+
+function changeRegistroMonth(delta) {
+  ensureRegistroPeriod();
+  const current = registroMonth == null ? new Date().getMonth() : registroMonth;
+  let month = current + delta;
+  if (month < 0) {
+    registroPastoralStart -= 1;
+    month = 11;
+  } else if (month > 11) {
+    registroPastoralStart += 1;
+    month = 0;
+  }
+  const max = getMaxPastoralYearStart();
+  if (registroPastoralStart > max) {
+    registroPastoralStart = max;
+    month = 11;
+  }
+  if (registroPastoralStart < REGISTRO_MIN_PASTORAL_START) {
+    registroPastoralStart = REGISTRO_MIN_PASTORAL_START;
+    month = 0;
+  }
+  registroMonth = month;
+  registroLiturgicalDayIndex = 0;
+  renderRegistro();
+}
+
+function goRegistroThisMonth() {
+  const t = new Date();
+  registroPastoralStart = getPastoralYearStartForDate(t);
+  registroMonth = t.getMonth();
+  registroLiturgicalDayIndex = 0;
+  renderRegistro();
+}
+
+function openRegistroMassDetail(slotKey) {
+  const detail = registroMassDetails.get(slotKey);
+  const modal = document.getElementById('registro-mass-modal');
+  if (!detail || !modal) return;
+  document.getElementById('registro-mass-modal-title').textContent = `${(detail.slot.ora || '').slice(0, 5)} · ${detail.slot.sedeLabel}`;
+  document.getElementById('registro-mass-modal-sub').textContent = `${new Date(detail.slot.data + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} · ${detail.nP} presenti · ${detail.nA} assenti${detail.nP + detail.nA ? ` · ${detail.pct}%` : ''}`;
+  document.getElementById('registro-mass-modal-body').innerHTML = detail.people.length
+    ? detail.people.map(renderRegistroPersonRow).join('')
+    : '<p class="registro-empty-mass">Nessun appello registrato per questa Messa.</p>';
+  document.getElementById('registro-mass-modal-appello').onclick = () => openAppello(detail.slot.data, detail.slot.slotKey);
+  modal.classList.remove('hidden');
+}
+
+function closeRegistroMassDetail() {
+  document.getElementById('registro-mass-modal')?.classList.add('hidden');
+}
+
+function getRegistroYearSlots() {
+  ensureRegistroPeriod();
+  const { from, to } = getRegistroPastoralBounds(registroPastoralStart);
+  return getAllSlotsForYear(registroPastoralStart)
+    .concat(getAllSlotsForYear(registroPastoralStart + 1))
+    .filter(s => s.data >= from && s.data <= to)
+    .map(s => ({ ...s, slotKey: s.key || messaSlotKey(s) }))
+    .sort((a, b) => a.data.localeCompare(b.data) || a.ora.localeCompare(b.ora));
+}
+
+function changeRegistroLiturgicalDay(delta) {
+  // La navigazione del giorno liturgico segue sempre il mese selezionato.
+  const slots = getRegistroMonthSlots();
+  const groups = groupMassesByLiturgicalDay(slots);
+  if (!groups.length) return;
+  registroLiturgicalDayIndex = Math.max(0, Math.min(groups.length - 1, registroLiturgicalDayIndex + delta));
+  renderRegistro();
+}
+
+function getLiturgicalDayKey(messa) {
+  const date = new Date(`${messa.data}T12:00:00`);
+  if (messa.vigilia || messa.dayOffset === -1) date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function groupMassesByLiturgicalDay(masses) {
+  const groups = new Map();
+  masses.forEach(messa => {
+    const key = getLiturgicalDayKey(messa);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(messa);
+  });
+  return [...groups.values()];
+}
+
+function formatLiturgicalDayLabel(masses) {
+  if (!masses.length) return 'Nessun giorno liturgico';
+  const dateKey = getLiturgicalDayKey(masses[0]);
+  const events = calState.data?.byDate?.[dateKey] || [];
+  const event = primaryEvent(events) || events[0];
+  if (event?.nome) return event.nome;
+  const date = new Date(`${dateKey}T12:00:00`);
+  return date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function hasServizioPresenzaOnDate(uuid, dateStr) {
@@ -4907,9 +5028,26 @@ function renderRegistro() {
     label.textContent = formatPastoralYearLabel(registroPastoralStart);
     label.title = formatPastoralYearRangeLabel(registroPastoralStart);
   }
+  const monthLabel = document.getElementById('registro-calendar-month-label');
+  if (monthLabel) {
+    const month = registroMonth == null ? new Date().getMonth() : registroMonth;
+    monthLabel.textContent = `${MONTHS[month]} ${calendarYearForPastoralMonth(registroPastoralStart, month)}`;
+  }
 
-  const slots = getRegistroMonthSlots();
-  const rows = getRegistroRows();
+  const slots = registroScope === 'anno' ? getRegistroYearSlots() : getRegistroMonthSlots();
+  const liturgicalDays = groupMassesByLiturgicalDay(slots);
+  registroLiturgicalDayIndex = liturgicalDays.length ? Math.min(registroLiturgicalDayIndex, liturgicalDays.length - 1) : 0;
+  const activeSlots = liturgicalDays[registroLiturgicalDayIndex] || [];
+  const displaySlots = registroScope === 'giorno' ? activeSlots : slots;
+  const activeKeys = new Set(activeSlots.map(s => s.slotKey));
+  const allRows = getRegistroRows(slots);
+  const rows = registroScope === 'giorno'
+    ? allRows.filter(r => activeKeys.has(r.slotKey))
+    : allRows;
+  const liturgicalDayLabel = document.getElementById('registro-liturgical-day-label');
+  if (liturgicalDayLabel) liturgicalDayLabel.textContent = liturgicalDays.length
+    ? formatLiturgicalDayLabel(activeSlots)
+    : 'Nessun giorno liturgico';
   const nP = rows.filter(r => r.stato === 'presente').length;
   const nA = rows.filter(r => r.stato === 'assente').length;
   const tot = nP + nA;
@@ -4940,7 +5078,7 @@ function renderRegistro() {
     }
   }
 
-  renderRegistroByMessa(slots, rows);
+  renderRegistroByMessa(displaySlots, rows);
   renderRegistroByGruppo(rows);
   renderRegistroByPersona(rows);
   switchRegistroTab(registroTab);
@@ -4972,6 +5110,7 @@ function renderRegistroByMessa(slots, rows) {
   if (!container) return;
 
   const bySlot = new Map();
+  registroMassDetails = new Map();
   rows.forEach(r => {
     const key = r.slotKey || `${r.data}|${r.sede}|${r.ora}`;
     if (!bySlot.has(key)) bySlot.set(key, []);
@@ -4983,11 +5122,9 @@ function renderRegistroByMessa(slots, rows) {
   const q = (document.getElementById('registro-search')?.value || '').trim().toLowerCase();
   const hasPersonFilters = !!(statoF || gruppoF || q);
 
-  let visibleSlots = slots;
-  if (hasPersonFilters) {
-    const keysWithRows = new Set(rows.map(r => r.slotKey));
-    visibleSlots = slots.filter(s => keysWithRows.has(s.slotKey));
-  }
+  // Senza filtri, la vista mostra tutte le messe del periodo; ogni riga
+  // indica poi presenze, assenze o appello ancora da compilare.
+  const visibleSlots = slots;
 
   if (!visibleSlots.length) {
     const future = isPastoralYearNotStarted(registroPastoralStart);
@@ -4999,7 +5136,7 @@ function renderRegistroByMessa(slots, rows) {
       : '';
     container.innerHTML = future
       ? `<p class="empty-state">Questo anno pastorale apre il ${openLabel}.<br><button type="button" class="btn btn-secondary" style="margin-top:12px" onclick="goRegistroThisPastoralYear()">Apri ${esc(currentLabel)}</button></p>`
-      : '<p class="empty-state">Nessuna messa in questo periodo con i filtri scelti</p>';
+      : '<p class="empty-state">Nessuna messa passata in questo periodo</p>';
     return;
   }
 
@@ -5009,7 +5146,7 @@ function renderRegistroByMessa(slots, rows) {
     byDate.get(slot.data).push(slot);
   });
 
-  const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
+  const dates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
 
   container.innerHTML = dates.map(dateStr => {
     const daySlots = byDate.get(dateStr);
@@ -5028,6 +5165,7 @@ function renderRegistroByMessa(slots, rows) {
         if (a.stato !== b.stato) return a.stato === 'assente' ? -1 : 1;
         return (a.chi.nome || '').localeCompare(b.chi.nome || '', 'it');
       });
+      registroMassDetails.set(slotKey, { slot, people, nP, nA, pct });
       const open = registroOpenSlotKey === slotKey;
       const gruppoBadge = isLibera
         ? '<span class="badge badge-libera">Libera</span>'

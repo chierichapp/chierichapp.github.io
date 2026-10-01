@@ -70,6 +70,23 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="registro-mass-modal" role="dialog" aria-modal="true" aria-labelledby="registro-mass-modal-title" onclick="if(event.target===this)closeRegistroMassDetail()">
+  <div class="modal registro-mass-modal">
+    <div class="registro-modal-head">
+      <div>
+        <h3 id="registro-mass-modal-title">Dettaglio Messa</h3>
+        <p id="registro-mass-modal-sub"></p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-icon" onclick="closeRegistroMassDetail()" aria-label="Chiudi">×</button>
+    </div>
+    <div id="registro-mass-modal-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="registro-mass-modal-appello">Apri appello</button>
+      <button type="button" class="btn btn-secondary" onclick="closeRegistroMassDetail()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 <div class="app app-shell hidden" id="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -873,13 +890,32 @@
             <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroPastoralYear(1)" aria-label="Anno pastorale successivo">›</button>
             <button type="button" class="btn btn-ghost" onclick="goRegistroThisPastoralYear()">Quest'anno</button>
           </div>
-          <div class="registro-search-bar">
+          <div class="registro-month-nav registro-calendar-nav">
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroMonth(-1)" aria-label="Mese precedente">‹</button>
+            <h4 id="registro-calendar-month-label">—</h4>
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroMonth(1)" aria-label="Mese successivo">›</button>
+            <button type="button" class="btn btn-ghost" onclick="goRegistroThisMonth()">Questo mese</button>
+          </div>
+          <div class="registro-month-nav registro-liturgical-day-nav">
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroLiturgicalDay(-1)" aria-label="Giorno liturgico precedente">‹</button>
+            <h4 id="registro-liturgical-day-label">Nessun giorno liturgico</h4>
+            <button type="button" class="btn btn-secondary btn-icon" onclick="changeRegistroLiturgicalDay(1)" aria-label="Giorno liturgico successivo">›</button>
+          </div>
+          <div class="registro-scope-control">
+            <span class="registro-scope-label">Intervallo</span>
+            <div class="registro-scope-radios" role="radiogroup" aria-label="Intervallo analisi">
+              <label><input type="radio" name="registro-scope" value="giorno" checked onchange="setRegistroScope(this.value)"> Giorno</label>
+              <label><input type="radio" name="registro-scope" value="mese" onchange="setRegistroScope(this.value)"> Mese</label>
+              <label><input type="radio" name="registro-scope" value="anno" onchange="setRegistroScope(this.value)"> Anno</label>
+            </div>
+          </div>
+          <div class="registro-search-bar" hidden>
             <input type="search" id="registro-search" placeholder="Cerca…" oninput="renderRegistro()" aria-label="Cerca nel registro">
             <button type="button" class="anag-filters-toggle" id="btn-registro-filters" onclick="toggleRegistroFilters()" aria-expanded="false" aria-controls="registro-filters" title="Filtri" aria-label="Filtri">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></svg>
             </button>
           </div>
-          <div class="registro-filters" id="registro-filters">
+          <div class="registro-filters" id="registro-filters" hidden>
             <select id="registro-filter-mese" onchange="onRegistroMonthFilterChange();syncRegistroFiltersToggle()" aria-label="Filtra mese">
               <option value="">Tutto l'anno</option>
             </select>
