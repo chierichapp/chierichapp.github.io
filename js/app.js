@@ -10026,6 +10026,7 @@ function saveFestivitaModelloFromExtra(extra) {
   const entry = {
     eventKey,
     preset: extra.preset || detectFestivityPreset(extra.data),
+    strutturaKind: extra.strutturaKind || null,
     slots: Array.isArray(extra.slots) ? cloneFestivaSlotsForModello(extra.slots) : null,
     nota: extra.nota || null,
     updatedFrom: extra.data,
@@ -10045,6 +10046,9 @@ function applyFestivitaModelloToExtra(extra, modello) {
   extra.tipo = 'festiva';
   extra.usaOrarioDomenicale = true;
   extra.eventKey = modello.eventKey || extra.eventKey;
+  if (modello.strutturaKind && STRUTTURA_KINDS[modello.strutturaKind]) {
+    extra.strutturaKind = modello.strutturaKind;
+  }
   extra.inheritedFrom = modello.updatedFrom || null;
   if (Array.isArray(modello.slots)) {
     extra.slots = renumberFestivaSlots(modello.slots.map(s => ({
@@ -10449,8 +10453,10 @@ function buildMessaAgendaItem(dateStr) {
   if (litColor) classes.push(`lit-${litColor}`);
 
   const metaParts = [];
-  const strutturaLabel = massInfo?.context?.label
-    || (massInfo?.extra?.strutturaKind ? getStrutturaMeta(massInfo.extra.strutturaKind).label : null);
+  const overrideKind = massInfo?.extra?.strutturaKind;
+  const strutturaLabel = (overrideKind ? getStrutturaMeta(overrideKind).label : null)
+    || massInfo?.context?.label
+    || null;
   if (isDomenica) metaParts.push(strutturaLabel || 'Domenica');
   else if (isFestiva) metaParts.push(strutturaLabel || 'Festività');
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
@@ -10855,13 +10861,18 @@ function applyStrutturaToFestivaExtra(uuid, kind) {
   extra.orarioPersonalizzato = false;
   delete extra.inheritedFrom;
   delete extra.preset;
-  extra.slots = renumberFestivaSlots(cloneStrutturaSlots(kind));
+  // Nessuno snapshot: l’orario segue la struttura scelta (badge «Da struttura»)
+  delete extra.slots;
   saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
   showToast(`Struttura «${getStrutturaMeta(kind).label}» applicata`);
-  if (extra.data) renderMessaDetail(extra.data);
-  renderMesseAgenda();
+  if (extra.data) {
+    renderMessaDetail(extra.data);
+    renderMesseAgenda();
+  } else {
+    renderMesseAgenda();
+  }
 }
 
 function renderFestivaOrarioActions(extra) {
