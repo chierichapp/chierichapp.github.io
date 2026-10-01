@@ -8,6 +8,7 @@
   const cfg = global.CHIERICH_CONFIG || {};
   let client = null;
   let passwordRecoveryPending = false;
+  let passwordInvitePending = false;
   let authListenersReady = false;
 
   function recoveryRedirectTo() {
@@ -18,7 +19,9 @@
     try {
       const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
       const search = new URLSearchParams(String(global.location.search || '').replace(/^\?/, ''));
-      if (hash.get('type') === 'recovery' || search.get('type') === 'recovery') {
+      const type = hash.get('type') || search.get('type');
+      if (type === 'invite') passwordInvitePending = true;
+      if (type === 'recovery' || type === 'invite') {
         passwordRecoveryPending = true;
         return true;
       }
@@ -82,7 +85,11 @@
       cerimoniereTurno: false,
       promosso: !!row.promosso,
       attivo: row.attivo !== false,
-      createdAt: row.created_at || ''
+      accessoAttivo: row.accesso_attivo !== false,
+      createdAt: row.created_at || '',
+      passwordChanged: row.password_changed !== false
+      ,accountActivated: row.account_activated === true
+      ,inviteAccepted: row.invite_accepted === true
     };
   }
 
@@ -97,9 +104,13 @@
       gruppo: row.gruppo || '',
       chierichettoUuid: row.chierichetto_uuid || '',
       attivo: row.attivo !== false,
+      accessoAttivo: row.accesso_attivo !== false,
       admin: !!row.is_admin,
       ruolo,
-      createdAt: row.created_at || ''
+      createdAt: row.created_at || '',
+      passwordChanged: row.password_changed !== false && row.password_changed !== 'false',
+      accountActivated: row.account_activated === true || row.account_activated === 1 || row.account_activated === 'true',
+      inviteAccepted: row.invite_accepted === true || row.invite_accepted === 1 || row.invite_accepted === 'true'
     };
   }
 
@@ -218,7 +229,7 @@
       };
     }
 
-    if (!user.attivo) {
+    if (user.accessoAttivo === false) {
       return {
         authMode: 'supabase',
         authenticated: false,
@@ -226,7 +237,20 @@
         googleEmail: session.user.email,
         user: null,
         cerimonieriCount,
-        message: 'Account disattivato'
+        message: 'Accesso all’app disattivato dall’amministratore'
+      };
+    }
+
+    if (user.accountActivated === false || user.inviteAccepted === false) {
+      return {
+        authMode: 'supabase',
+        authenticated: true,
+        user,
+        token: session.access_token,
+        cerimonieriCount,
+        pendingActivation: true,
+        mustChangePassword: true,
+        message: 'Account non ancora attivato: imposta la password per continuare'
       };
     }
 
@@ -234,6 +258,7 @@
       authMode: 'supabase',
       authenticated: true,
       user,
+      mustChangePassword: user.passwordChanged === false,
       token: session.access_token,
       cerimonieriCount,
       message: ''
@@ -254,7 +279,13 @@
         return { success: false, message: status.message || 'Non autorizzato' };
       }
       void registraAccessoLog({ metodo: 'password', user: status.user });
-      return { success: true, token: data.session.access_token, user: status.user };
+      return {
+        success: true,
+        token: data.session.access_token,
+        user: status.user,
+        mustChangePassword: !!status.mustChangePassword,
+        pendingActivation: !!status.pendingActivation
+      };
     } catch (err) {
       console.error('Login post-auth failed:', err);
       return {
@@ -287,7 +318,9 @@
       return { success: false, message: 'Password di almeno 6 caratteri' };
     }
     const { error } = await sb.auth.updateUser({ password: pwd });
-    if (error) return { success: false, message: error.message };
+    if (error) return { success: false, message: error.message || 'Edge Function non raggiungibile: verifica che invite-user sia pubblicata' };
+    const { error: markErr } = await sb.rpc('mark_my_password_changed');
+    if (markErr) return { success: false, message: markErr.message };
     clearPasswordRecovery();
     try {
       if (global.history?.replaceState) {
@@ -540,7 +573,21 @@
       if (error) return { success: false, message: error.message };
     }
     if (add.length) {
-      const rows = add.map((d) => ({
+      // Il vincolo è sullo slot (data/ora/sede/persona), non sul solo uuid.
+      // Eliminiamo prima eventuali righe preesistenti dello stesso slot:
+      // evita il conflitto quando una vecchia riga ha un uuid diverso.
+      const uniqueAdd = [...new Map(add.map(d => [
+        `${d.data}|${d.ora || ''}|${d.sede || ''}|${d.chierichettoUuid || d.nome || ''}`, d
+      ])).values()];
+      for (const d of uniqueAdd) {
+        let q = sb.from('presenze').delete()
+          .eq('data', d.data).eq('ora', d.ora || '').eq('sede', d.sede || '');
+        if (d.chierichettoUuid) q = q.eq('chierichetto_uuid', d.chierichettoUuid);
+        else q = q.eq('nome', d.nome || '');
+        const { error } = await q;
+        if (error) return { success: false, message: error.message };
+      }
+      const rows = uniqueAdd.map((d) => ({
         uuid: d.uuid || newId('PRE-'),
         data: d.data,
         chierichetto_uuid: d.chierichettoUuid || '',
@@ -582,6 +629,39 @@
     return (data || []).map(mapCer);
   }
 
+  function isPasswordInvite() {
+    detectRecoveryFromUrl();
+    return passwordInvitePending;
+  }
+
+  async function reinviaInvito(email) {
+    return resetPasswordForEmail(email);
+  }
+
+  async function invitaUtente(email) {
+    const sb = requireClient();
+    const { data, error } = await sb.functions.invoke('invite-user', {
+      body: { email, redirectTo: global.location.origin + global.location.pathname }
+    });
+    if (error) return { success: false, message: error.message };
+    return data || { success: false, message: 'Invito non riuscito' };
+  }
+
+  async function inviaInvitoAccesso(email) {
+    return invitaUtente(email);
+  }
+
+  async function ricreaInvitoAccesso(email) {
+    const sb = requireClient();
+    const { data, error } = await sb.functions.invoke('invite-user', {
+      body: { email, resetExisting: true, redirectTo: global.location.origin + global.location.pathname }
+    });
+    if (error) return { success: false, message: error.message };
+    if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
+    if (data.passwordResetRequired) return resetPasswordForEmail(email);
+    return data;
+  }
+
   async function salvaCerimoniere(dati) {
     const sb = requireClient();
     const me = await getCurrentCerimoniere();
@@ -598,12 +678,22 @@
       if (!email) {
         return { success: false, message: 'Email obbligatoria per abilitare il login' };
       }
-      if (!password || password.length < 6) {
-        return { success: false, message: 'Password di almeno 6 caratteri obbligatoria per il login' };
-      }
     }
 
     if (wantsLogin) {
+      if (!password) {
+        const invited = await invitaUtente(email);
+        if (!invited.success) return invited;
+        const { error } = await sb.from('cerimonieri').insert({
+          uuid, nome: String(dati.nome || '').trim(), email,
+          parrocchia: dati.parrocchia || '', gruppo: dati.gruppo || '',
+          chierichetto_uuid: dati.chierichettoUuid || null,
+          attivo: dati.attivo === false ? false : true,
+          is_admin: false, password_changed: false, account_activated: false, invite_accepted: false, ruolo
+        });
+        if (error) return { success: false, message: error.message };
+        return { success: true, uuid, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
+      }
       const { data: sessData } = await sb.auth.getSession();
       const adminSession = sessData?.session;
       if (!adminSession) {
@@ -639,6 +729,9 @@
         chierichetto_uuid: dati.chierichettoUuid || null,
         attivo: dati.attivo === false ? false : true,
         is_admin: false,
+        password_changed: false,
+        account_activated: false,
+        invite_accepted: false,
         ruolo
       });
       if (error) return { success: false, message: error.message };
@@ -682,6 +775,14 @@
     const cleanEmail = String(email || '').trim().toLowerCase();
     const pwd = String(password || '');
     if (!cleanEmail) return { success: false, message: 'Email obbligatoria' };
+    if (!password) {
+      const invited = await invitaUtente(cleanEmail);
+      if (!invited.success) return invited;
+      const { error } = await sb.from('cerimonieri')
+        .update({ email: cleanEmail, password_changed: false, account_activated: false, invite_accepted: false }).eq('uuid', uuid);
+      if (error) return { success: false, message: error.message };
+      return { success: true, needsEmailConfirm: true, message: 'Invito inviato via email. L’utente potrà impostare la password dal link ricevuto.' };
+    }
     if (!pwd || pwd.length < 6) {
       return { success: false, message: 'Password di almeno 6 caratteri obbligatoria' };
     }
@@ -713,7 +814,9 @@
       }
     }
 
-    const { error } = await sb.from('cerimonieri').update({ email: cleanEmail }).eq('uuid', uuid);
+    const { error } = await sb.from('cerimonieri')
+      .update({ email: cleanEmail, password_changed: false })
+      .eq('uuid', uuid);
     if (error) return { success: false, message: error.message };
 
     const needsEmailConfirm = !!(sign?.user && !sign?.session && !signErr);
@@ -831,6 +934,10 @@
     if (Object.keys(authPatch).length) {
       const { data: updated, error: authErr } = await sb.auth.updateUser(authPatch);
       if (authErr) return { success: false, message: authErr.message };
+      if (password) {
+        const { error: markErr } = await sb.rpc('mark_my_password_changed');
+        if (markErr) return { success: false, message: markErr.message };
+      }
       if (authPatch.email) {
         const sessionEmail = String(updated?.user?.email || '').toLowerCase();
         needsEmailConfirm = sessionEmail !== email;
@@ -941,9 +1048,13 @@
     bootstrap,
     logout,
     resetPasswordForEmail,
+    reinviaInvito,
+    inviaInvitoAccesso,
+    ricreaInvitoAccesso,
     updatePassword,
     ensureAuthListeners,
     isPasswordRecovery,
+    isPasswordInvite,
     clearPasswordRecovery,
     getAppData,
     salvaChierichetto,
