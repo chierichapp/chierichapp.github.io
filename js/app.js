@@ -4716,20 +4716,37 @@ function switchRegistroTab(tab) {
     document.getElementById('tab-registro-' + t)?.classList.toggle('active', tab === t);
     document.getElementById('registro-panel-' + t)?.classList.toggle('active', tab === t);
   });
-  const effectiveScope = registroScope;
-  document.querySelectorAll('.registro-scope-flag').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.scope === effectiveScope);
-    btn.setAttribute('aria-pressed', String(btn.dataset.scope === effectiveScope));
-  });
+  syncRegistroScopeControls();
 }
 
 function setRegistroScope(scope) {
   registroScope = scope === 'anno' || scope === 'mese' ? scope : 'giorno';
-  document.querySelectorAll('.registro-scope-flag').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.scope === registroScope);
-    btn.setAttribute('aria-pressed', String(btn.dataset.scope === registroScope));
-  });
+  registroLiturgicalDayIndex = 0;
+  syncRegistroScopeControls();
   renderRegistro();
+}
+
+function syncRegistroScopeControls() {
+  document.querySelectorAll('input[name="registro-scope"]').forEach(input => {
+    input.checked = input.value === registroScope;
+  });
+  const navigators = {
+    anno: '.registro-month-nav:not(.registro-calendar-nav):not(.registro-liturgical-day-nav)',
+    mese: '.registro-calendar-nav',
+    giorno: '.registro-liturgical-day-nav'
+  };
+  const enabled = {
+    giorno: new Set(['anno', 'mese', 'giorno']),
+    mese: new Set(['anno', 'mese']),
+    anno: new Set(['anno'])
+  }[registroScope];
+  Object.entries(navigators).forEach(([level, selector]) => {
+    const nav = document.querySelector(`#registro .registro-toolbar ${selector}`);
+    if (!nav) return;
+    const isEnabled = enabled.has(level);
+    nav.classList.toggle('is-disabled', !isEnabled);
+    nav.querySelectorAll('button').forEach(button => { button.disabled = !isEnabled; });
+  });
 }
 
 function toggleRegistroMass(slotKey) {

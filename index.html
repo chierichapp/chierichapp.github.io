@@ -903,10 +903,10 @@
           </div>
           <div class="registro-scope-control">
             <span class="registro-scope-label">Intervallo</span>
-            <div class="registro-scope-flags" role="group" aria-label="Intervallo analisi">
-              <button type="button" class="registro-scope-flag active" data-scope="giorno" onclick="setRegistroScope('giorno')">Giorno</button>
-              <button type="button" class="registro-scope-flag" data-scope="mese" onclick="setRegistroScope('mese')">Mese</button>
-              <button type="button" class="registro-scope-flag" data-scope="anno" onclick="setRegistroScope('anno')">Anno</button>
+            <div class="registro-scope-radios" role="radiogroup" aria-label="Intervallo analisi">
+              <label><input type="radio" name="registro-scope" value="giorno" checked onchange="setRegistroScope(this.value)"> Giorno</label>
+              <label><input type="radio" name="registro-scope" value="mese" onchange="setRegistroScope(this.value)"> Mese</label>
+              <label><input type="radio" name="registro-scope" value="anno" onchange="setRegistroScope(this.value)"> Anno</label>
             </div>
           </div>
           <div class="registro-search-bar" hidden>
