@@ -121,13 +121,13 @@
         </span>
         Registro
       </button>
-      <button class="nav-item is-group-start" data-section="messe" onclick="showSection('messe')">
+      <button class="nav-item is-group-start" data-section="messe" onclick="openCalendarioHub('locale')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg>
         </span>
         Messe
       </button>
-      <button class="nav-item" data-section="calendario" onclick="showSection('calendario')">
+      <button class="nav-item" data-section="calendario" onclick="openCalendarioHub('ambrosiano')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
         </span>
@@ -235,7 +235,7 @@
               <span class="quick-action-hint">Segna i presenti in sacrestia</span>
             </span>
           </button>
-          <button type="button" class="quick-action" onclick="showSection('messe')">
+          <button type="button" class="quick-action" onclick="openCalendarioHub('locale')">
             <span class="quick-action-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
             </span>
@@ -528,9 +528,9 @@
             </div>
             <div class="panel-body">
               <div class="turni-structure-hint">
-                <strong>Le strutture si gestiscono in Messe.</strong>
+                <strong>Le strutture si gestiscono in Calendario → Strutture.</strong>
                 <span>Qui vengono usate solo le Messe contrassegnate “Con squadra” per assegnare e ruotare i gruppi.</span>
-                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('messe'); setTimeout(() => showMesseLocalPanel('strutture'), 0)">Apri Strutture Messe</button>
+                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="openCalendarioHub('strutture')">Apri Strutture</button>
               </div>
               <p class="rotazione-status-text" id="rotazione-anteprima-text">Apri una finestra da Gestione per attivare la rotazione automatica.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
@@ -593,8 +593,11 @@
 
         <div id="turni-panel-messe" class="turni-tab-panel">
           <div class="struttura-messe-kind" role="tablist" aria-label="Tipo struttura">
-            <button type="button" class="struttura-chip active" id="chip-struttura-domenicale" onclick="setStrutturaMesseKind('domenicale')">Domenica</button>
-            <button type="button" class="struttura-chip" id="chip-struttura-festivo" onclick="setStrutturaMesseKind('festivo')">Feste importanti</button>
+            <button type="button" class="struttura-chip active" data-struttura="domenicale" id="chip-struttura-domenicale" onclick="setStrutturaMesseKind('domenicale')">Domenicale</button>
+            <button type="button" class="struttura-chip" data-struttura="natalizio" id="chip-struttura-natalizio" onclick="setStrutturaMesseKind('natalizio')">Natalizio</button>
+            <button type="button" class="struttura-chip" data-struttura="pasquale" id="chip-struttura-pasquale" onclick="setStrutturaMesseKind('pasquale')">Pasquale</button>
+            <button type="button" class="struttura-chip" data-struttura="defunti" id="chip-struttura-defunti" onclick="setStrutturaMesseKind('defunti')">Defunti</button>
+            <button type="button" class="struttura-chip" data-struttura="festivo" id="chip-struttura-festivo" onclick="setStrutturaMesseKind('festivo')">Festivo</button>
           </div>
           <div class="turni-layout-grid">
             <div class="panel">
@@ -982,199 +985,211 @@
       </section>
 
       <!-- Celebrazioni locali -->
-      <section id="messe" class="section">
-        <div class="panel messe-section-panel">
-          <div class="panel-head">
-            <h3>Celebrazioni locali</h3>
-            <p>Le Messe effettivamente celebrate dalla parrocchia, con turni, appelli e presenze</p>
-          </div>
-          <div class="panel-body">
-            <div class="messe-local-tabs" role="tablist" aria-label="Celebrazioni locali">
-              <button type="button" class="section-tab active" onclick="showMesseLocalPanel('agenda')">Agenda</button>
-              <button type="button" class="section-tab" onclick="showMesseLocalPanel('strutture')">Strutture Messe</button>
-            </div>
-            <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
-              <span><i class="lit-verde"></i> Verde</span>
-              <span><i class="lit-viola"></i> Viola</span>
-              <span><i class="lit-rosso"></i> Rosso</span>
-              <span><i class="lit-bianco"></i> Bianco</span>
-              <span><i class="covered"></i> Coperta</span>
-              <span><i class="uncovered"></i> Incompleta</span>
-              <span><i class="eccezione"></i> Straordinaria</span>
-              <span><i class="festiva"></i> Festività</span>
-            </div>
-            <p class="liturgy-meta messe-agenda-summary" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
-            <div class="messe-festivo-banner" id="messe-festivo-banner" hidden>
-              <p><strong>Orario festivo non configurato.</strong> Indica più o meno le celebrazioni tipiche delle solennità (Natale, Assunzione…).</p>
-              <button type="button" class="btn btn-secondary" onclick="goConfiguraOrarioFestivo()">Configura orario festivo</button>
-            </div>
+      <!-- Alias deep-link: #messe → Calendario Locale -->
+      <section id="messe" class="section" hidden aria-hidden="true"></section>
 
-            <div class="messe-layout">
-              <div>
-                <div class="messe-toolbar">
-                  <div class="messe-toolbar-left">
-                    <label for="anno-messe">Anno</label>
-                    <select id="anno-messe" onchange="onMesseYearChange()">
-                      <option value="2025">2025</option>
-                      <option value="2026" selected>2026</option>
-                      <option value="2027">2027</option>
-                    </select>
-                    <label class="cal-filter" for="messe-show-past">
-                      <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
-                      <span class="messe-past-label-full">Mostra messe passate</span>
-                      <span class="messe-past-label-short">Passate</span>
-                    </label>
-                  </div>
-                  <div class="messe-toolbar-right">
-                    <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
-                    <button type="button" class="btn btn-ghost messe-sync-fest-btn" onclick="syncFestivitaAnnoManual()" title="Aggiungi solennità feriali con orario domenicale">Sync festività</button>
-                    <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
-                  </div>
-                </div>
-                <div id="messe-agenda" class="messe-agenda">
-                  <div class="cal-loading">Caricamento agenda…</div>
-                </div>
-              </div>
-
-              <div class="messe-side" id="messe-side">
-                <div class="panel">
-                  <div class="panel-head">
-                    <div>
-                      <h3>Dettaglio giorno liturgico</h3>
-                      <p>Calendario ambrosiano e Messe locali del giorno selezionato</p>
-                    </div>
-                    <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                  <div class="panel-body day-detail" id="messa-detail">
-                    <p class="day-detail-empty empty-state-inline">Seleziona una messa dall'agenda</p>
-                  </div>
-                </div>
-
-                <div class="panel" id="messe-extra-panel">
-                  <div class="panel-head">
-                    <div>
-                      <h3>Celebrazione straordinaria</h3>
-                      <p>Aggiungi una festività locale o una Messa non prevista dalla struttura</p>
-                    </div>
-                    <button type="button" class="messe-sheet-close" onclick="closeMesseExtraUi()" aria-label="Chiudi">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                  <div class="panel-body">
-                    <form id="messaExtraForm">
-                      <div class="form-group">
-                        <label for="messa-extra-data">Data</label>
-                        <input type="date" id="messa-extra-data" required>
-                      </div>
-                      <div class="form-group">
-                        <label for="messa-extra-nota">Titolo <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
-                        <input type="text" id="messa-extra-nota" placeholder="Es. Natale, Vigilia di Natale…">
-                      </div>
-                      <label class="cal-filter" for="messa-extra-orario-domenicale" style="margin-bottom:14px">
-                        <input type="checkbox" id="messa-extra-orario-domenicale" onchange="toggleMessaExtraOrarioFields()">
-                        <span>Usa orario festivo (struttura domenicale)</span>
-                      </label>
-                      <div class="form-row messa-extra-single-slot">
-                        <div class="form-group">
-                          <label for="messa-extra-ora">Ora</label>
-                          <input type="time" id="messa-extra-ora" value="10:00" required>
-                        </div>
-                        <div class="form-group">
-                          <label for="messa-extra-sede">Sede</label>
-                          <select id="messa-extra-sede" required>
-                            <option value="santuario">Santuario</option>
-                            <option value="vanzago">Vanzago</option>
-                            <option value="mantegazza">Mantegazza</option>
-                          </select>
-                        </div>
-                      </div>
-                      <p class="liturgy-meta messa-extra-fest-hint" style="margin:-6px 0 12px">Le festività usano l’orario festivo configurato in Turni → Struttura messe; puoi personalizzarlo dopo.</p>
-                      <button type="submit" class="btn btn-primary btn-full">Aggiungi all’agenda</button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Calendario liturgico ambrosiano -->
+      <!-- Calendario: Ambrosiano | Locale | Strutture -->
       <section id="calendario" class="section">
-        <div class="panel-head calendario-page-intro">
-          <h3>Calendario liturgico ambrosiano</h3>
-          <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici. Le celebrazioni locali si gestiscono nella sezione Celebrazioni locali.</p>
-        </div>
-        <div class="cal-section-head">
-          <div class="cal-legend" aria-label="Legenda gradi liturgici">
-            <span><i class="solemnity"></i> S — Solennità</span>
-            <span><i class="feast"></i> F — Festa</span>
-            <span><i class="memorial"></i> M — Memoria</span>
-            <span><i class="feriale"></i> m — Memoria facoltativa</span>
-          </div>
-
-          <div class="calendar-toolbar" id="cal-toolbar">
-            <div class="calendar-toolbar-left">
-              <label for="anno-calendario">Anno</label>
-              <select id="anno-calendario" onchange="onCalYearChange()">
-                <option value="2025">2025</option>
-                <option value="2026" selected>2026</option>
-                <option value="2027">2027</option>
-              </select>
-              <button type="button" class="btn btn-secondary" id="btn-cal-refresh" onclick="loadCalendario(true)" aria-label="Aggiorna calendario">
-                <span class="cal-refresh-label">Aggiorna calendario</span>
-                <span class="cal-refresh-icon" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
-                </span>
-              </button>
-            </div>
-            <label class="cal-filter" for="cal-filter-important">
-              <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
-              <span class="cal-filter-label-full">Evidenzia solo solennità, feste e memorie</span>
-              <span class="cal-filter-label-short">Solo S · F · M</span>
-            </label>
-          </div>
+        <div class="calendario-hub-tabs" role="tablist" aria-label="Viste calendario">
+          <button type="button" class="section-tab active" data-cal-hub="ambrosiano" onclick="setCalendarioHubTab('ambrosiano')">Ambrosiano</button>
+          <button type="button" class="section-tab" data-cal-hub="locale" onclick="setCalendarioHubTab('locale')">Locale</button>
+          <button type="button" class="section-tab" data-cal-hub="strutture" onclick="setCalendarioHubTab('strutture')">Strutture</button>
         </div>
 
-        <div class="cal-layout">
-          <div class="cal-month-shell">
-            <div class="month-nav">
-              <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(-1)" aria-label="Mese precedente">‹</button>
-              <h4 id="cal-month-label">—</h4>
-              <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(1)" aria-label="Mese successivo">›</button>
-              <button type="button" class="btn btn-ghost" onclick="goCalToday()">Oggi</button>
+        <div id="cal-hub-ambrosiano" class="cal-hub-panel">
+          <div class="panel-head calendario-page-intro">
+            <h3>Calendario liturgico ambrosiano</h3>
+            <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici.</p>
+          </div>
+          <div class="cal-section-head">
+            <div class="cal-legend" aria-label="Legenda gradi liturgici">
+              <span><i class="solemnity"></i> S — Solennità</span>
+              <span><i class="feast"></i> F — Festa</span>
+              <span><i class="memorial"></i> M — Memoria</span>
+              <span><i class="feriale"></i> m — Memoria facoltativa</span>
             </div>
-            <div id="calendario-container">
-              <div class="cal-loading">Caricamento calendario liturgico…</div>
+
+            <div class="calendar-toolbar" id="cal-toolbar">
+              <div class="calendar-toolbar-left">
+                <label for="anno-calendario">Anno</label>
+                <select id="anno-calendario" onchange="onCalYearChange()">
+                  <option value="2025">2025</option>
+                  <option value="2026" selected>2026</option>
+                  <option value="2027">2027</option>
+                </select>
+                <button type="button" class="btn btn-secondary" id="btn-cal-refresh" onclick="loadCalendario(true)" aria-label="Aggiorna calendario">
+                  <span class="cal-refresh-label">Aggiorna calendario</span>
+                  <span class="cal-refresh-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+                  </span>
+                </button>
+              </div>
+              <label class="cal-filter" for="cal-filter-important">
+                <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
+                <span class="cal-filter-label-full">Evidenzia solo solennità, feste e memorie</span>
+                <span class="cal-filter-label-short">Solo S · F · M</span>
+              </label>
             </div>
           </div>
 
-          <div class="cal-side-panel">
-            <div class="panel cal-day-panel">
-              <div class="panel-head">
-                <h3>Dettaglio giorno</h3>
-                <p>Celebrazioni del giorno selezionato</p>
+          <div class="cal-layout">
+            <div class="cal-month-shell">
+              <div class="month-nav">
+                <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(-1)" aria-label="Mese precedente">‹</button>
+                <h4 id="cal-month-label">—</h4>
+                <button type="button" class="btn btn-secondary btn-icon" onclick="changeCalMonth(1)" aria-label="Mese successivo">›</button>
+                <button type="button" class="btn btn-ghost" onclick="goCalToday()">Oggi</button>
               </div>
-              <div class="panel-body day-detail" id="day-detail">
-                <p class="day-detail-empty empty-state-inline">Seleziona un giorno nel calendario</p>
+              <div id="calendario-container">
+                <div class="cal-loading">Caricamento calendario liturgico…</div>
               </div>
             </div>
 
-            <div class="panel">
-              <div class="panel-head">
-                <h3>Prossime celebrazioni</h3>
-                <p>Solennità, feste e memorie in arrivo</p>
+            <div class="cal-side-panel">
+              <div class="panel cal-day-panel">
+                <div class="panel-head">
+                  <h3>Dettaglio giorno</h3>
+                  <p>Celebrazioni del giorno selezionato</p>
+                </div>
+                <div class="panel-body day-detail" id="day-detail">
+                  <p class="day-detail-empty empty-state-inline">Seleziona un giorno nel calendario</p>
+                </div>
               </div>
-              <div class="panel-body">
-                <div class="celebration-list" id="prossime-celebrazioni"></div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Prossime celebrazioni</h3>
+                  <p>Solennità, feste e memorie in arrivo</p>
+                </div>
+                <div class="panel-body">
+                  <div class="celebration-list" id="prossime-celebrazioni"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="cal-source" id="cal-source"></p>
+        </div>
+
+        <div id="cal-hub-locale" class="cal-hub-panel" hidden>
+          <div class="panel messe-section-panel">
+            <div class="panel-head">
+              <h3>Calendario locale</h3>
+              <p>Giorni liturgici con messe derivate dalle strutture, override e straordinarie</p>
+            </div>
+            <div class="panel-body">
+              <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
+                <span><i class="lit-verde"></i> Verde</span>
+                <span><i class="lit-viola"></i> Viola</span>
+                <span><i class="lit-rosso"></i> Rosso</span>
+                <span><i class="lit-bianco"></i> Bianco</span>
+                <span><i class="covered"></i> Coperta</span>
+                <span><i class="uncovered"></i> Incompleta</span>
+                <span><i class="eccezione"></i> Straordinaria</span>
+                <span><i class="festiva"></i> Festività</span>
+              </div>
+              <p class="liturgy-meta messe-agenda-summary" id="messe-agenda-summary">Caricamento struttura domenicale…</p>
+              <div class="messe-festivo-banner" id="messe-festivo-banner" hidden>
+                <p><strong>Struttura festiva non configurata.</strong> Indica le celebrazioni tipiche delle solennità in Strutture → Festivo generico.</p>
+                <button type="button" class="btn btn-secondary" onclick="goConfiguraOrarioFestivo()">Configura strutture</button>
+              </div>
+
+              <div class="messe-layout">
+                <div>
+                  <div class="messe-toolbar">
+                    <div class="messe-toolbar-left">
+                      <label for="anno-messe">Anno</label>
+                      <select id="anno-messe" onchange="onMesseYearChange()">
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                      </select>
+                      <label class="cal-filter" for="messe-show-past">
+                        <input type="checkbox" id="messe-show-past" onchange="toggleMessePast()">
+                        <span class="messe-past-label-full">Mostra messe passate</span>
+                        <span class="messe-past-label-short">Passate</span>
+                      </label>
+                    </div>
+                    <div class="messe-toolbar-right">
+                      <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
+                      <button type="button" class="btn btn-ghost messe-sync-fest-btn" onclick="syncFestivitaAnnoManual()" title="Sincronizza festività dalle strutture">Sync festività</button>
+                      <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
+                    </div>
+                  </div>
+                  <div id="messe-straordinarie-locale" class="messe-straordinarie-locale"></div>
+                  <div id="messe-agenda" class="messe-agenda">
+                    <div class="cal-loading">Caricamento agenda…</div>
+                  </div>
+                </div>
+
+                <div class="messe-side" id="messe-side">
+                  <div class="panel">
+                    <div class="panel-head">
+                      <div>
+                        <h3>Dettaglio giorno liturgico</h3>
+                        <p>Calendario ambrosiano e Messe locali del giorno selezionato</p>
+                      </div>
+                      <button type="button" class="messe-sheet-close" onclick="closeMesseSheet()" aria-label="Chiudi">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                    <div class="panel-body day-detail" id="messa-detail">
+                      <p class="day-detail-empty empty-state-inline">Seleziona una messa dall'agenda</p>
+                    </div>
+                  </div>
+
+                  <div class="panel" id="messe-extra-panel">
+                    <div class="panel-head">
+                      <div>
+                        <h3>Celebrazione straordinaria</h3>
+                        <p>Aggiungi una festività locale o una Messa non prevista dalla struttura</p>
+                      </div>
+                      <button type="button" class="messe-sheet-close" onclick="closeMesseExtraUi()" aria-label="Chiudi">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                    <div class="panel-body">
+                      <form id="messaExtraForm">
+                        <div class="form-group">
+                          <label for="messa-extra-data">Data</label>
+                          <input type="date" id="messa-extra-data" required>
+                        </div>
+                        <div class="form-group">
+                          <label for="messa-extra-nota">Titolo <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>
+                          <input type="text" id="messa-extra-nota" placeholder="Es. Natale, Vigilia di Natale…">
+                        </div>
+                        <label class="cal-filter" for="messa-extra-orario-domenicale" style="margin-bottom:14px">
+                          <input type="checkbox" id="messa-extra-orario-domenicale" onchange="toggleMessaExtraOrarioFields()">
+                          <span>Usa orario da struttura</span>
+                        </label>
+                        <div class="form-row messa-extra-single-slot">
+                          <div class="form-group">
+                            <label for="messa-extra-ora">Ora</label>
+                            <input type="time" id="messa-extra-ora" value="10:00" required>
+                          </div>
+                          <div class="form-group">
+                            <label for="messa-extra-sede">Sede</label>
+                            <select id="messa-extra-sede" required>
+                              <option value="santuario">Santuario</option>
+                              <option value="vanzago">Vanzago</option>
+                              <option value="mantegazza">Mantegazza</option>
+                            </select>
+                          </div>
+                        </div>
+                        <p class="liturgy-meta messa-extra-fest-hint" style="margin:-6px 0 12px">Le festività usano la struttura del tempo liturgico; puoi personalizzarle dopo.</p>
+                        <button type="submit" class="btn btn-primary btn-full">Aggiungi all’agenda</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <p class="cal-source" id="cal-source"></p>
+        <div id="cal-hub-strutture" class="cal-hub-panel" hidden>
+          <div id="messe-strutture-slot" class="messe-strutture-slot"></div>
+        </div>
       </section>
 
       <!-- Accessi (log login — solo admin) -->
@@ -1189,7 +1204,6 @@
             <div class="panel-body">
               <p>ChierichApp distingue il calendario liturgico ufficiale dalle celebrazioni realmente organizzate dalla parrocchia.</p>
             </div>
-            <div id="messe-strutture-slot" class="messe-strutture-slot" hidden></div>
           </div>
 
           <div class="info-grid">
@@ -1211,7 +1225,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domeniche ordinarie;</li><li>festività e solennità;</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano in <strong>Turni → Strutture celebrazioni</strong>.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano in <strong>Calendario → Strutture</strong>.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
@@ -1221,7 +1235,7 @@
 
           <div class="panel info-flow">
             <div class="panel-head"><h3>Come si collegano le funzioni</h3></div>
-            <div class="panel-body"><div class="info-flow-line">Calendario ambrosiano → Giorno liturgico → Messe locali → Turni → Appelli → Registro presenze</div><p>Il calendario dice che cosa si celebra; la configurazione locale dice quali Messe vengono celebrate; il Registro conserva l’andamento delle presenze.</p></div>
+            <div class="panel-body"><div class="info-flow-line">Calendario ambrosiano → Strutture → Calendario locale → Turni → Appelli → Registro</div><p>Il calendario ambrosiano classifica il giorno; le strutture forniscono gli orari; il calendario locale mostra le messe risolte; il Registro conserva le presenze.</p></div>
           </div>
         </div>
       </section>
@@ -1317,7 +1331,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
       Appello
     </button>
-    <button type="button" class="mobile-tab" data-section="messe" onclick="showSection('messe')">
+    <button type="button" class="mobile-tab" data-section="messe" onclick="openCalendarioHub('locale')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M10 22v-5h4v5"/></svg>
       Messe
     </button>
@@ -1350,11 +1364,11 @@
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg></span>
         Registro
       </button>
-      <button type="button" class="mobile-more-item" data-section="messe" onclick="showSection('messe')">
+      <button type="button" class="mobile-more-item" data-section="messe" onclick="openCalendarioHub('locale')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg></span>
         Messe
       </button>
-      <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
+      <button type="button" class="mobile-more-item" data-section="calendario" onclick="openCalendarioHub('ambrosiano')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
         Calendario
       </button>
