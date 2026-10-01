@@ -4716,12 +4716,19 @@ function switchRegistroTab(tab) {
     document.getElementById('tab-registro-' + t)?.classList.toggle('active', tab === t);
     document.getElementById('registro-panel-' + t)?.classList.toggle('active', tab === t);
   });
-  const scope = document.getElementById('registro-scope');
-  if (scope) scope.value = tab === 'messa' ? 'giorno' : registroScope;
+  const effectiveScope = registroScope;
+  document.querySelectorAll('.registro-scope-flag').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.scope === effectiveScope);
+    btn.setAttribute('aria-pressed', String(btn.dataset.scope === effectiveScope));
+  });
 }
 
 function setRegistroScope(scope) {
   registroScope = scope === 'anno' || scope === 'mese' ? scope : 'giorno';
+  document.querySelectorAll('.registro-scope-flag').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.scope === registroScope);
+    btn.setAttribute('aria-pressed', String(btn.dataset.scope === registroScope));
+  });
   renderRegistro();
 }
 
@@ -4940,7 +4947,8 @@ function getRegistroYearSlots() {
 }
 
 function changeRegistroLiturgicalDay(delta) {
-  const slots = slotsOverride || getRegistroMonthSlots();
+  // La navigazione del giorno liturgico segue sempre il mese selezionato.
+  const slots = getRegistroMonthSlots();
   const groups = groupMassesByLiturgicalDay(slots);
   if (!groups.length) return;
   registroLiturgicalDayIndex = Math.max(0, Math.min(groups.length - 1, registroLiturgicalDayIndex + delta));
@@ -5013,9 +5021,10 @@ function renderRegistro() {
   const liturgicalDays = groupMassesByLiturgicalDay(slots);
   registroLiturgicalDayIndex = liturgicalDays.length ? Math.min(registroLiturgicalDayIndex, liturgicalDays.length - 1) : 0;
   const activeSlots = liturgicalDays[registroLiturgicalDayIndex] || [];
+  const displaySlots = registroScope === 'giorno' ? activeSlots : slots;
   const activeKeys = new Set(activeSlots.map(s => s.slotKey));
   const allRows = getRegistroRows(slots);
-  const rows = registroTab === 'messa' || registroScope === 'giorno'
+  const rows = registroScope === 'giorno'
     ? allRows.filter(r => activeKeys.has(r.slotKey))
     : allRows;
   const liturgicalDayLabel = document.getElementById('registro-liturgical-day-label');
@@ -5052,7 +5061,7 @@ function renderRegistro() {
     }
   }
 
-  renderRegistroByMessa(registroTab === 'messa' || registroScope === 'giorno' ? activeSlots : [], rows);
+  renderRegistroByMessa(displaySlots, rows);
   renderRegistroByGruppo(rows);
   renderRegistroByPersona(rows);
   switchRegistroTab(registroTab);

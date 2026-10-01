@@ -1761,6 +1761,28 @@ body.anag-sheet-open { overflow: hidden; }
   font-weight: 600;
 }
 
+.registro-scope-flags {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.registro-scope-flag {
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.registro-scope-flag:last-child { border-right: 0; }
+.registro-scope-flag.active { background: var(--sky-muted); color: var(--sky); font-weight: 700; }
+
 .registro-mass-modal { max-width: 560px; }
 .registro-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .registro-modal-head h3 { margin: 0; }

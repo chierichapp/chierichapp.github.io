@@ -903,11 +903,11 @@
           </div>
           <div class="registro-scope-control">
             <span class="registro-scope-label">Intervallo</span>
-            <select id="registro-scope" onchange="setRegistroScope(this.value)" aria-label="Intervallo analisi">
-              <option value="giorno">Giorno liturgico</option>
-              <option value="mese">Mese</option>
-              <option value="anno">Anno pastorale</option>
-            </select>
+            <div class="registro-scope-flags" role="group" aria-label="Intervallo analisi">
+              <button type="button" class="registro-scope-flag active" data-scope="giorno" onclick="setRegistroScope('giorno')">Giorno</button>
+              <button type="button" class="registro-scope-flag" data-scope="mese" onclick="setRegistroScope('mese')">Mese</button>
+              <button type="button" class="registro-scope-flag" data-scope="anno" onclick="setRegistroScope('anno')">Anno</button>
+            </div>
           </div>
           <div class="registro-search-bar" hidden>
             <input type="search" id="registro-search" placeholder="Cerca…" oninput="renderRegistro()" aria-label="Cerca nel registro">
