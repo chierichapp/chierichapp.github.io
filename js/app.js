@@ -9,12 +9,12 @@ const PAGE_META = {
   dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
   presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
   registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
-  messe:      { title: 'Messe',      subtitle: 'Calendario locale e straordinarie' },
+  messe:      { title: 'Messe',      subtitle: 'Agenda locale e strutture delle Messe' },
   turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
   gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
   anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
-  calendario: { title: 'Calendario', subtitle: 'Ambrosiano, locale e strutture messe' },
+  calendario: { title: 'Calendario', subtitle: 'Calendario liturgico ambrosiano' },
   info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -122,7 +122,7 @@ const DEFAULT_GRUPPI_CONFIG = {
 let editingMessaDomenicaleId = null;
 /** Chiave in STRUTTURA_KINDS */
 let strutturaMesseKind = 'domenicale';
-/** Tab hub calendario: ambrosiano | locale | strutture */
+/** Tab hub calendario (legacy, non più usato in UI) */
 let calendarioHubTab = 'ambrosiano';
 let turniTab = 'anteprima';
 let gruppiTab = 'squadre';
@@ -208,65 +208,65 @@ function moveStrutturaMesseToMesse() {
   target.appendChild(panel);
   panel.classList.remove('turni-tab-panel');
   panel.classList.add('messe-struttura-panel');
-  panel.hidden = false;
-  panel.style.display = 'block';
+  panel.hidden = true;
+  panel.style.removeProperty('display');
   if (tab) tab.hidden = true;
 }
 
-/** @deprecated usa setCalendarioHubTab / openCalendarioHub */
 function showMesseLocalPanel(panelName) {
-  if (panelName === 'strutture') openCalendarioHub('strutture');
-  else openCalendarioHub('locale');
-}
-
-function openCalendarioHub(tab) {
-  const allowed = { ambrosiano: 1, locale: 1, strutture: 1 };
-  calendarioHubTab = allowed[tab] ? tab : 'ambrosiano';
-  void showSection('calendario');
-}
-
-function setCalendarioHubTab(tab) {
-  const allowed = { ambrosiano: 1, locale: 1, strutture: 1 };
-  calendarioHubTab = allowed[tab] ? tab : 'ambrosiano';
-  document.querySelectorAll('.calendario-hub-tabs .section-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.calHub === calendarioHubTab);
+  const target = document.getElementById('messe-strutture-slot');
+  const structure = document.getElementById('turni-panel-messe');
+  const agenda = document.querySelector('#messe .messe-layout');
+  const showStructure = panelName === 'strutture';
+  if (target) {
+    target.hidden = !showStructure;
+    if (showStructure) target.style.removeProperty('display');
+    else target.style.display = 'none';
+  }
+  if (structure) {
+    structure.hidden = !showStructure;
+    if (showStructure) structure.style.removeProperty('display');
+    else structure.style.display = 'none';
+  }
+  if (agenda) {
+    agenda.hidden = showStructure;
+    if (showStructure) agenda.style.display = 'none';
+    else agenda.style.removeProperty('display');
+  }
+  document.querySelectorAll('#messe .messe-legend, #messe .messe-agenda-summary, #messe .messe-festivo-banner').forEach(el => {
+    if (showStructure) {
+      el.setAttribute('data-hidden-by-strutture', '1');
+      el.style.display = 'none';
+    } else {
+      el.removeAttribute('data-hidden-by-strutture');
+      el.style.removeProperty('display');
+    }
   });
-  document.getElementById('cal-hub-ambrosiano')?.toggleAttribute('hidden', calendarioHubTab !== 'ambrosiano');
-  document.getElementById('cal-hub-locale')?.toggleAttribute('hidden', calendarioHubTab !== 'locale');
-  document.getElementById('cal-hub-strutture')?.toggleAttribute('hidden', calendarioHubTab !== 'strutture');
-
-  const meta = PAGE_META.calendario;
-  const titles = {
-    ambrosiano: { title: 'Calendario', subtitle: 'Calendario liturgico ambrosiano' },
-    locale: { title: 'Messe', subtitle: 'Calendario locale e straordinarie' },
-    strutture: { title: 'Strutture', subtitle: 'Modelli di orario per tempi liturgici' }
-  };
-  const t = titles[calendarioHubTab] || titles.ambrosiano;
-  const titleEl = document.getElementById('page-title');
-  const subEl = document.getElementById('page-subtitle');
-  if (titleEl) titleEl.textContent = t.title;
-  if (subEl) subEl.textContent = t.subtitle || meta?.subtitle || '';
-
-  // Nav: Messe evidenziata su Locale, Calendario su Ambrosiano/Strutture
-  const navKey = calendarioHubTab === 'locale' ? 'messe' : 'calendario';
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.section === navKey);
+  document.querySelectorAll('#messe .messe-local-tabs .section-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', showStructure ? i === 1 : i === 0);
   });
-  updateMobileNav(navKey);
-
-  if (calendarioHubTab === 'locale') {
-    void loadMesseAgenda();
-  } else if (calendarioHubTab === 'strutture') {
+  if (showStructure) {
     setStrutturaMesseKind(strutturaMesseKind);
     renderMesseDomenicaliList();
     void ensureStrutturaFestivitaLoaded();
-  } else if (calendarioHubTab === 'ambrosiano') {
-    if (!calState.data || calState.data.anno !== getCalAnno()) loadCalendario();
-    else {
-      renderCalMonth();
-      ensureCalDaySelected();
-    }
+  } else {
+    void loadMesseAgenda();
   }
+}
+
+/** @deprecated mantiene compatibilità link vecchi → Messe */
+function openCalendarioHub(tab) {
+  if (tab === 'strutture') {
+    void showSection('messe').then(() => showMesseLocalPanel('strutture'));
+  } else if (tab === 'locale') {
+    void showSection('messe').then(() => showMesseLocalPanel('agenda'));
+  } else {
+    void showSection('calendario');
+  }
+}
+
+function setCalendarioHubTab() {
+  /* no-op: hub tripartito rimosso */
 }
 
 function prepareSupabaseAuthUi() {
@@ -1743,12 +1743,6 @@ async function showSection(sectionId) {
     return;
   }
 
-  // Deep-link / alias: #messe → Calendario Locale
-  if (sectionId === 'messe') {
-    sectionId = 'calendario';
-    calendarioHubTab = 'locale';
-  }
-
   const next = document.getElementById(sectionId);
   if (!next) return;
 
@@ -1780,7 +1774,7 @@ async function showSection(sectionId) {
     const overlay = document.getElementById('anag-form-overlay');
     if (overlay) overlay.hidden = true;
   }
-  if (sectionId !== 'calendario' || calendarioHubTab !== 'locale') closeMesseSheet();
+  if (sectionId !== 'messe') closeMesseSheet();
   if (sectionId !== 'gruppi') {
     closeGruppiFormSheet();
     closeGruppiEdit(true);
@@ -1800,13 +1794,20 @@ async function showSection(sectionId) {
   }
   else if (sectionId === 'turni') renderTurni();
   else if (sectionId === 'gruppi') void renderGruppi();
+  else if (sectionId === 'messe') {
+    showMesseLocalPanel('agenda');
+  }
   else if (sectionId === 'presenze') renderAppello();
   else if (sectionId === 'registro') {
     renderRegistro();
     syncRegistroFiltersToggle();
   }
   else if (sectionId === 'calendario') {
-    setCalendarioHubTab(calendarioHubTab || 'ambrosiano');
+    if (!calState.data || calState.data.anno !== getCalAnno()) loadCalendario();
+    else {
+      renderCalMonth();
+      ensureCalDaySelected();
+    }
   }
   else if (sectionId === 'accessi') {
     void renderAccessiLog(true);
@@ -3203,80 +3204,86 @@ function emailExists(email, excludeUuid) {
 }
 
 function ensureGruppiConfig() {
-  if (!state.gruppiConfig) {
-    state.gruppiConfig = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG));
-  }
+  if (ensureGruppiConfig._busy) return;
+  ensureGruppiConfig._busy = true;
+  try {
+    if (!state.gruppiConfig) {
+      state.gruppiConfig = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG));
+    }
 
-  if (Array.isArray(state.gruppiConfig.turni) && !state.gruppiConfig.turniSlot && !state.gruppiConfig.messeDomenicali) {
-    const old = state.gruppiConfig.turni;
-    state.gruppiConfig.gruppi = old.map(t => ({
-      id: t.id,
-      nome: t.nome,
-      ordine: (t.turnoNum || 1) - 1
-    }));
-    state.gruppiConfig.turniSlot = old.map(t => ({
-      id: 'slot-' + t.id,
-      turnoNum: t.turnoNum,
-      dayOffset: t.dayOffset,
-      ora: t.ora,
-      sede: t.sede,
-      vigilia: !!t.vigilia
-    }));
-    delete state.gruppiConfig.turni;
-  }
-
-  if (!Array.isArray(state.gruppiConfig.gruppi)) {
-    state.gruppiConfig.gruppi = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG.gruppi));
-  }
-  if (!Array.isArray(state.gruppiConfig.messeDomenicali)) {
-    const messe = [];
-    const turni = state.gruppiConfig.turniSlot || DEFAULT_MESSE_DOMENICALI.filter(m => m.conTurno);
-    const libere = state.gruppiConfig.messeSenzaChierichetti || DEFAULT_MESSE_DOMENICALI.filter(m => !m.conTurno);
-    turni.forEach(t => {
-      messe.push({
+    if (Array.isArray(state.gruppiConfig.turni) && !state.gruppiConfig.turniSlot && !state.gruppiConfig.messeDomenicali) {
+      const old = state.gruppiConfig.turni;
+      state.gruppiConfig.gruppi = old.map(t => ({
         id: t.id,
+        nome: t.nome,
+        ordine: (t.turnoNum || 1) - 1
+      }));
+      state.gruppiConfig.turniSlot = old.map(t => ({
+        id: 'slot-' + t.id,
+        turnoNum: t.turnoNum,
         dayOffset: t.dayOffset,
         ora: t.ora,
         sede: t.sede,
-        vigilia: !!t.vigilia,
-        conTurno: true,
-        turnoNum: t.turnoNum
+        vigilia: !!t.vigilia
+      }));
+      delete state.gruppiConfig.turni;
+    }
+
+    if (!Array.isArray(state.gruppiConfig.gruppi)) {
+      state.gruppiConfig.gruppi = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG.gruppi));
+    }
+    if (!Array.isArray(state.gruppiConfig.messeDomenicali)) {
+      const messe = [];
+      const turni = state.gruppiConfig.turniSlot || DEFAULT_MESSE_DOMENICALI.filter(m => m.conTurno);
+      const libere = state.gruppiConfig.messeSenzaChierichetti || DEFAULT_MESSE_DOMENICALI.filter(m => !m.conTurno);
+      turni.forEach(t => {
+        messe.push({
+          id: t.id,
+          dayOffset: t.dayOffset,
+          ora: t.ora,
+          sede: t.sede,
+          vigilia: !!t.vigilia,
+          conTurno: true,
+          turnoNum: t.turnoNum
+        });
       });
-    });
-    libere.forEach(m => {
-      messe.push({
-        id: m.id,
-        dayOffset: m.dayOffset,
-        ora: m.ora,
-        sede: m.sede,
-        vigilia: !!m.vigilia,
-        conTurno: false
+      libere.forEach(m => {
+        messe.push({
+          id: m.id,
+          dayOffset: m.dayOffset,
+          ora: m.ora,
+          sede: m.sede,
+          vigilia: !!m.vigilia,
+          conTurno: false
+        });
       });
-    });
-    state.gruppiConfig.messeDomenicali = messe.length
-      ? messe
-      : JSON.parse(JSON.stringify(DEFAULT_MESSE_DOMENICALI));
-    delete state.gruppiConfig.turniSlot;
-    delete state.gruppiConfig.messeSenzaChierichetti;
+      state.gruppiConfig.messeDomenicali = messe.length
+        ? messe
+        : JSON.parse(JSON.stringify(DEFAULT_MESSE_DOMENICALI));
+      delete state.gruppiConfig.turniSlot;
+      delete state.gruppiConfig.messeSenzaChierichetti;
+    }
+    normalizeRotazioneConfig();
+    if (!Array.isArray(state.gruppiConfig.cronologia)) {
+      state.gruppiConfig.cronologia = [];
+    }
+    if (!Array.isArray(state.gruppiConfig.messeFestive)) {
+      state.gruppiConfig.messeFestive = [];
+    }
+    if (!Array.isArray(state.gruppiConfig.festivitaEscluse)) {
+      state.gruppiConfig.festivitaEscluse = [];
+    }
+    if (!Array.isArray(state.gruppiConfig.festivitaModelli)) {
+      state.gruppiConfig.festivitaModelli = [];
+    }
+    migrateStruttureMesseConfig();
+    renumberMesseDomenicali();
+    renumberAllStruttureMesse();
+    repairGruppiConfig();
+    syncGruppiToTurniSlots();
+  } finally {
+    ensureGruppiConfig._busy = false;
   }
-  normalizeRotazioneConfig();
-  if (!Array.isArray(state.gruppiConfig.cronologia)) {
-    state.gruppiConfig.cronologia = [];
-  }
-  if (!Array.isArray(state.gruppiConfig.messeFestive)) {
-    state.gruppiConfig.messeFestive = [];
-  }
-  if (!Array.isArray(state.gruppiConfig.festivitaEscluse)) {
-    state.gruppiConfig.festivitaEscluse = [];
-  }
-  if (!Array.isArray(state.gruppiConfig.festivitaModelli)) {
-    state.gruppiConfig.festivitaModelli = [];
-  }
-  migrateStruttureMesseConfig();
-  renumberMesseDomenicali();
-  renumberAllStruttureMesse();
-  repairGruppiConfig();
-  syncGruppiToTurniSlots();
 }
 
 /** Migra messeDomenicali/messeFestive → 5 strutture tempi liturgici */
@@ -3329,16 +3336,20 @@ function hasStrutturaConfig(kind) {
 }
 
 function renumberStrutturaSlots(kind) {
-  const list = getStrutturaSlotsMutable(kind);
+  const cfg = state.gruppiConfig;
+  if (!cfg) return;
+  const key = getStrutturaConfigKey(kind);
+  if (!Array.isArray(cfg[key])) cfg[key] = [];
+  const list = cfg[key];
   let n = 1;
   list.forEach(m => {
     if (m.conTurno) m.turnoNum = n++;
     else delete m.turnoNum;
   });
   if (kind === 'domenicale') {
-    state.gruppiConfig.messeDomenicali = list;
+    cfg.messeDomenicali = list;
   } else if (kind === 'festivo') {
-    state.gruppiConfig.messeFestive = list;
+    cfg.messeFestive = list;
   }
 }
 
@@ -3905,8 +3916,8 @@ function openFestivitaFromStruttura(dateStr) {
   const year = String(dateStr).slice(0, 4);
   const yearSel = document.getElementById('anno-messe');
   if (yearSel && yearSel.value !== year) yearSel.value = year;
-  calendarioHubTab = 'locale';
-  void showSection('calendario').then(() => {
+  void showSection('messe').then(() => {
+    showMesseLocalPanel('agenda');
     void loadMesseAgenda().then(() => selectMessaDay(dateStr, true));
   });
 }
@@ -9252,7 +9263,7 @@ function afterGruppiConfigChange() {
 
   const active = document.querySelector('.section.active');
   if (active?.id === 'dashboard') renderDashboard();
-  else if (active?.id === 'messe' || (active?.id === 'calendario' && calendarioHubTab === 'locale')) {
+  else if (active?.id === 'messe') {
     loadMesseAgenda();
   }
   else if (active?.id === 'turni') renderTurni();
@@ -9291,7 +9302,7 @@ function editGruppoSquadra(id) {
 }
 
 function deleteGruppoSquadra() {
-  showToast('I gruppi si generano dalle messe con squadra — configura in Calendario → Strutture');
+  showToast('I gruppi si generano dalle messe con squadra — configura in Messe → Strutture');
 }
 
 function editMessaDomenicale(id) {
@@ -10486,14 +10497,9 @@ function buildMessaAgendaItem(dateStr) {
 
 function renderMesseAgenda() {
   const container = document.getElementById('messe-agenda');
-  const straordinarieEl = document.getElementById('messe-straordinarie-locale');
   const anno = parseInt(getMesseAnno(), 10);
   const today = getTodayStr();
   let dates = getMesseDatesForYear(anno);
-
-  if (straordinarieEl) {
-    straordinarieEl.innerHTML = renderLocaleStraordinarieBlock(String(anno));
-  }
 
   if (!messeState.showPast) {
     dates = dates.filter(d => d >= today);
@@ -10525,38 +10531,6 @@ function renderMesseAgenda() {
   });
 
   container.innerHTML = html;
-}
-
-function renderLocaleStraordinarieBlock(anno) {
-  const list = (state.messeExtra || [])
-    .filter(m => m.data?.startsWith(anno) && (m.tipo === 'straordinaria' || (m.source === 'manual' && m.tipo !== 'festiva')))
-    .sort((a, b) => String(a.data).localeCompare(String(b.data)));
-  if (!list.length) return '';
-  return `
-    <div class="locale-straordinarie-block">
-      <h4 class="messe-agenda-month-title">Straordinarie ${esc(anno)}</h4>
-      <p class="liturgy-meta" style="margin:-4px 0 10px">Aggiunte a mano, non derivate da struttura</p>
-      <div class="messe-agenda-list">
-        ${list.map(ex => {
-          const d = new Date(ex.data + 'T12:00:00');
-          const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
-          return `
-            <article class="messe-agenda-item" data-date="${esc(ex.data)}" onclick="selectMessaDay(${jsStr(ex.data)})">
-              <div class="messe-agenda-date">
-                <span class="messe-agenda-day">${d.getDate()}</span>
-                <span class="messe-agenda-weekday">${esc(weekday)}</span>
-              </div>
-              <div class="messe-agenda-main">
-                <p class="messa-agenda-title">${esc(ex.nota || 'Straordinaria')}</p>
-                <p class="messe-agenda-meta">
-                  <span class="messe-agenda-badges"><span class="messe-agenda-badge is-extra">Straordinaria</span></span>
-                </p>
-              </div>
-            </article>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
 }
 
 function goMesseToday() {
@@ -10593,9 +10567,8 @@ function isMesseMobile() {
 function syncMesseFab() {
   const fab = document.getElementById('messe-fab');
   if (!fab) return;
-  const onLocale = document.getElementById('calendario')?.classList.contains('active')
-    && calendarioHubTab === 'locale';
-  const show = !!(onLocale && isMesseMobile() && !document.body.classList.contains('messe-sheet-open'));
+  const onMesse = document.getElementById('messe')?.classList.contains('active');
+  const show = !!(onMesse && isMesseMobile() && !document.body.classList.contains('messe-sheet-open'));
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
 }
@@ -11198,9 +11171,11 @@ async function syncFestivitaAnnoManual() {
   if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
   const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
   if (!hasAny) {
-    showToast('Configura almeno una struttura in Calendario → Strutture');
-    openCalendarioHub('strutture');
-    setStrutturaMesseKind('festivo');
+    showToast('Configura almeno una struttura in Messe → Strutture');
+    void showSection('messe').then(() => {
+      showMesseLocalPanel('strutture');
+      setStrutturaMesseKind('festivo');
+    });
     return;
   }
   const anno = getMesseAnno();
@@ -11234,8 +11209,10 @@ function updateMesseFestivoBanner(needsConfig) {
 }
 
 function goConfiguraOrarioFestivo() {
-  openCalendarioHub('strutture');
-  setStrutturaMesseKind('festivo');
+  void showSection('messe').then(() => {
+    showMesseLocalPanel('strutture');
+    setStrutturaMesseKind('festivo');
+  });
 }
 
 // ── Calendario (Ambrosiano) ──────────────────────────────────

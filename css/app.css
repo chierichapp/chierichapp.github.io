@@ -1777,6 +1777,8 @@ body.anag-sheet-open { overflow: hidden; }
 .messe-local-tabs { display: flex; gap: 4px; margin-bottom: 16px; padding: 4px; background: var(--cream); border-radius: 10px; width: fit-content; }
 .messe-strutture-slot { margin-top: 0; }
 .messe-struttura-panel { display: block; }
+#messe .messe-layout[hidden],
+#messe-strutture-slot[hidden],
 #messe-strutture-slot #turni-panel-messe[hidden] { display: none !important; }
 .turni-structure-hint { display: grid; gap: 4px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--cream); color: var(--muted); font-size: 0.82rem; }
 .turni-structure-hint strong { color: var(--ink); }
@@ -2625,12 +2627,6 @@ body.anag-sheet-open { overflow: hidden; }
 
 .cal-hub-panel[hidden] {
   display: none !important;
-}
-
-.locale-straordinarie-block {
-  margin: 0 0 18px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
 }
 
 .messe-agenda-badge.lit-verde {
@@ -5987,7 +5983,7 @@ body.anag-sheet-open { overflow: hidden; }
     margin-top: 4px;
   }
 
-  #cal-hub-locale .messe-toolbar {
+  #messe .messe-toolbar {
     position: static;
     top: auto;
     z-index: auto;
@@ -5998,7 +5994,7 @@ body.anag-sheet-open { overflow: hidden; }
     box-shadow: none;
   }
 
-  #cal-hub-locale .messe-agenda-month-title {
+  #messe .messe-agenda-month-title {
     position: static;
     top: auto;
     z-index: auto;
@@ -6272,14 +6268,14 @@ body.anag-sheet-open { overflow: hidden; }
   .prossima-messa-actions .btn { width: 100%; }
 
   /* Locale (ex Messe) full-bleed on phone */
-  #calendario.section.active:has(#cal-hub-locale:not([hidden])) {
+  #messe.section.active {
     margin-left: -14px;
     margin-right: -14px;
     width: calc(100% + 28px);
     max-width: none;
     box-sizing: border-box;
   }
-  #cal-hub-locale > .panel {
+  #messe > .panel {
     margin-bottom: 0;
     border: none;
     border-radius: 0;
@@ -6287,20 +6283,20 @@ body.anag-sheet-open { overflow: hidden; }
     background: transparent;
     overflow: visible;
   }
-  #cal-hub-locale .messe-section-panel {
+  #messe .messe-section-panel {
     margin-bottom: 0;
     overflow: visible;
   }
-  #cal-hub-locale > .panel > .panel-head { display: none; }
-  #cal-hub-locale > .panel > .panel-body {
+  #messe > .panel > .panel-head { display: none; }
+  #messe > .panel > .panel-body {
     padding: 0 0 100px;
     overflow: visible;
   }
-  #cal-hub-locale .messe-legend { display: none; }
-  #cal-hub-locale .messe-agenda-summary { display: none; }
-  #cal-hub-locale .messe-past-label-full { display: none; }
-  #cal-hub-locale .messe-past-label-short { display: inline; }
-  #cal-hub-locale .cal-filter {
+  #messe .messe-legend { display: none; }
+  #messe .messe-agenda-summary { display: none; }
+  #messe .messe-past-label-full { display: none; }
+  #messe .messe-past-label-short { display: inline; }
+  #messe .cal-filter {
     min-height: 40px;
     display: inline-flex;
     align-items: center;
@@ -6308,7 +6304,7 @@ body.anag-sheet-open { overflow: hidden; }
     font-size: 0.78rem;
     white-space: nowrap;
   }
-  #cal-hub-locale .messe-toolbar {
+  #messe .messe-toolbar {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
@@ -6316,24 +6312,24 @@ body.anag-sheet-open { overflow: hidden; }
     margin: 0;
     padding: 8px 14px 10px;
   }
-  #cal-hub-locale .messe-toolbar-left {
+  #messe .messe-toolbar-left {
     flex: 1;
     min-width: 0;
     flex-wrap: nowrap;
     gap: 8px;
   }
-  #cal-hub-locale .messe-toolbar-left label[for="anno-messe"] {
+  #messe .messe-toolbar-left label[for="anno-messe"] {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  #cal-hub-locale .messe-toolbar-left select {
+  #messe .messe-toolbar-left select {
     min-height: 40px;
     min-width: 72px;
   }
-  #cal-hub-locale .messe-toolbar .btn-ghost {
+  #messe .messe-toolbar .btn-ghost {
     min-height: 40px;
     padding: 0 10px;
     flex-shrink: 0;
@@ -6421,7 +6417,7 @@ body.anag-sheet-open { overflow: hidden; }
   }
   .messe-agenda-actions { display: none; }
   .messe-side { gap: 0; }
-  #cal-hub-locale .messe-side {
+  #messe .messe-side {
     position: fixed;
     top: var(--sticky-below-topbar);
     left: 0;
@@ -6437,13 +6433,13 @@ body.anag-sheet-open { overflow: hidden; }
     overflow: hidden;
     border-top: 1px solid var(--border);
   }
-  body.messe-sheet-open #cal-hub-locale .messe-side {
+  body.messe-sheet-open #messe .messe-side {
     display: flex;
   }
   body.messe-sheet-open {
     overflow: hidden;
   }
-  #cal-hub-locale .messe-side > .panel {
+  #messe .messe-side > .panel {
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -6453,7 +6449,7 @@ body.anag-sheet-open { overflow: hidden; }
     flex-direction: column;
     overflow: hidden;
   }
-  #cal-hub-locale .messe-side > .panel:last-child {
+  #messe .messe-side > .panel:last-child {
     flex: 1 1 auto;
     border-top: none;
     max-height: none;
@@ -6461,8 +6457,8 @@ body.anag-sheet-open { overflow: hidden; }
     -webkit-overflow-scrolling: touch;
   }
   body.messe-sheet-detail #messe-extra-panel { display: none !important; }
-  body.messe-sheet-add #cal-hub-locale .messe-side > .panel:first-child { display: none !important; }
-  #cal-hub-locale .messe-side > .panel .panel-head {
+  body.messe-sheet-add #messe .messe-side > .panel:first-child { display: none !important; }
+  #messe .messe-side > .panel .panel-head {
     flex-shrink: 0;
     padding: 12px 14px;
     display: flex;
@@ -6471,16 +6467,16 @@ body.anag-sheet-open { overflow: hidden; }
     gap: 10px;
     border-bottom: 1px solid var(--border);
   }
-  #cal-hub-locale .messe-side > .panel:last-child .panel-head {
+  #messe .messe-side > .panel:last-child .panel-head {
     padding-top: 12px;
   }
-  #cal-hub-locale .messe-side > .panel .panel-body {
+  #messe .messe-side > .panel .panel-body {
     flex: 1 1 auto;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 12px 14px 24px;
   }
-  #cal-hub-locale .messe-side > .panel:last-child .panel-body {
+  #messe .messe-side > .panel:last-child .panel-body {
     padding-bottom: 24px;
   }
   #messa-detail .day-detail-date {
@@ -8820,20 +8816,20 @@ body.anag-sheet-open { overflow: hidden; }
     display: block;
   }
 
-  #cal-hub-locale > .panel {
+  #messe > .panel {
     border: none;
     background: transparent;
     box-shadow: none;
     overflow: visible;
   }
-  #cal-hub-locale > .panel > .panel-head {
+  #messe > .panel > .panel-head {
     display: none;
   }
-  #cal-hub-locale > .panel > .panel-body {
+  #messe > .panel > .panel-body {
     padding: 0;
   }
 
-  #cal-hub-locale .messe-toolbar {
+  #messe .messe-toolbar {
     position: sticky;
     top: var(--sticky-below-topbar);
     z-index: 40;
@@ -8852,12 +8848,12 @@ body.anag-sheet-open { overflow: hidden; }
     flex-wrap: wrap;
   }
 
-  #cal-hub-locale .messe-agenda-summary {
+  #messe .messe-agenda-summary {
     margin: 0 0 12px;
     font-size: 0.84rem;
   }
 
-  #cal-hub-locale .messe-legend {
+  #messe .messe-legend {
     display: none;
   }
 
