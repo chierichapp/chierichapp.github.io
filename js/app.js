@@ -10757,7 +10757,7 @@ function renderMesseMonth() {
   );
   const firstOffset = getMondayFirstOffset(new Date(year, month, 1));
   const days = new Date(year, month + 1, 0).getDate();
-  let html = `<div class="messe-calendar-nav">
+  let html = '<div class="messe-calendar-shell"><div class="messe-calendar-nav">
     <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(-1)" aria-label="Mese precedente">‹</button>
     <h4>${MONTHS[month]} ${year}</h4>
     <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(1)" aria-label="Mese successivo">›</button>
@@ -10767,8 +10767,18 @@ function renderMesseMonth() {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const hasMass = dates.includes(dateStr);
     const info = hasMass ? getMessaInfo(dateStr) : null;
-    const title = hasMass ? getMessaAgendaTitle(dateStr, info, getLiturgicalDayEvent(dateStr)) : '';
+    const liturgicalDay = getLiturgicalDayEvent(dateStr);
+    const title = hasMass ? getMessaAgendaTitle(dateStr, info, liturgicalDay) : '';
     const classes = ['calendar-day', 'messe-calendar-day'];
+    if (liturgicalDay) {
+      if (liturgicalDay.tipo === 'solennita') classes.push('solemnity');
+      else if (liturgicalDay.tipo === 'festa') classes.push('festa');
+      else if (liturgicalDay.tipo === 'memoria') classes.push('memoria');
+      if (liturgicalDay.colore === 'verde') classes.push('col-verde');
+      else if (liturgicalDay.colore === 'viola') classes.push('col-viola');
+      else if (liturgicalDay.colore === 'rosso') classes.push('col-rosso');
+      else if (liturgicalDay.colore === 'bianco') classes.push('col-bianco');
+    }
     if (hasMass) classes.push('has-messa');
     if (dateStr === today) classes.push('today');
     if (dateStr === messeState.selectedDate) classes.push('selected');
@@ -10778,6 +10788,7 @@ function renderMesseMonth() {
   }
   html += '</div>';
   if (!dates.length) html += '<p class="empty-state">Nessuna Messa in questo mese.</p>';
+  html += '</div>';
   container.innerHTML = html;
 }
 
