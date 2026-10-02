@@ -2900,6 +2900,61 @@ body.anag-sheet-open { overflow: hidden; }
   margin-top: 4px;
 }
 
+.struttura-modello-intro {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.struttura-modello-intro.is-domenicale {
+  background: color-mix(in srgb, var(--accent, #2a5a4a) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #2a5a4a) 18%, transparent);
+}
+
+.struttura-modello-intro-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.struttura-correzioni-baseline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent, #2a5a4a) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #2a5a4a) 18%, transparent);
+}
+
+.struttura-correzioni-baseline-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.struttura-correzioni-baseline .config-item-title {
+  margin: 0 0 2px;
+}
+
+.struttura-correzioni-baseline .config-item-meta {
+  margin: 0;
+}
+
+.struttura-correzioni-month {
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .struttura-applica-toolbar {
   display: flex;
   flex-wrap: wrap;

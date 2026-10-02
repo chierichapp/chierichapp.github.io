@@ -91,35 +91,35 @@ const STRUTTURA_KINDS = {
     configKey: 'strutturaDomenicaleOrdinaria',
     label: 'Domenicale ordinario',
     shortLabel: 'Domenica',
-    hint: 'Domeniche e vigilie fuori dai tempi speciali'
+    hint: 'Si applica a ogni domenica ordinaria (e alla vigilia del sabato)'
   },
   natalizio: {
     id: 'natalizio',
     configKey: 'strutturaTempoNatalizio',
     label: 'Tempo natalizio',
     shortLabel: 'Natale',
-    hint: 'Giorni del tempo di Natale (orario festivo; le feste speciali usano i preset)'
+    hint: 'Preset di Natale e ferie del tempo; le domeniche restano sul modello domenicale'
   },
   pasquale: {
     id: 'pasquale',
     configKey: 'strutturaTempoPasquale',
     label: 'Tempo pasquale',
     shortLabel: 'Pasqua',
-    hint: 'Domeniche e ferie del tempo pasquale (orario festivo; Triduo via preset)'
+    hint: 'Triduo e Pasqua; le altre domeniche restano sul modello domenicale'
   },
   defunti: {
     id: 'defunti',
     configKey: 'strutturaTempoDefunti',
     label: 'Defunti / Tutti i Santi',
     shortLabel: 'Defunti',
-    hint: 'Finestra Tutti i Santi e Defunti (vigilia + orario festivo)'
+    hint: '1–2 novembre e ferie della finestra'
   },
   festivo: {
     id: 'festivo',
     configKey: 'strutturaFestivoGenerico',
     label: 'Festivo generico',
     shortLabel: 'Festivo',
-    hint: 'Solennità a giorno singolo senza vigilia (8.30 / 10 / 11.15)'
+    hint: 'Solennità e feste a giorno singolo (anche domeniche-solennità)'
   }
 };
 
@@ -133,19 +133,19 @@ const STRUTTURA_GIORNI_SPECIALI = {
     { presetId: 'newYearDay', label: '1° gennaio', eventKey: 'MaryMotherOfGod', dateHint: 'Ottava di Natale' },
     { presetId: 'epiphanyVigil', label: 'Vigilia Epifania', eventKey: 'Epiphany_vigil', dateHint: '5 gennaio' },
     { presetId: 'epiphanyDay', label: 'Epifania', eventKey: 'Epiphany', dateHint: '6 gennaio' },
-    { presetId: 'seasonFallback', label: 'Altri giorni del tempo', eventKey: null, dateHint: 'Fallback natalizio', usesSeasonTemplate: true, seasonKind: 'natalizio' }
+    { presetId: 'seasonFallback', label: 'Ferie del tempo', eventKey: null, dateHint: 'Giorni feriali natalizi', usesSeasonTemplate: true, seasonKind: 'natalizio' }
   ],
   pasquale: [
     { presetId: 'holyThurs', label: 'Giovedì Santo', eventKey: 'HolyThurs', dateHint: 'Triduo' },
     { presetId: 'goodFri', label: 'Venerdì Santo', eventKey: 'GoodFri', dateHint: 'Triduo' },
     { presetId: 'easterVigil', label: 'Veglia Pasquale', eventKey: 'EasterVigil', dateHint: 'Sabato Santo' },
     { presetId: 'easterDay', label: 'Pasqua', eventKey: 'Easter', dateHint: 'Domenica di Risurrezione' },
-    { presetId: 'seasonFallback', label: 'Altri giorni del tempo', eventKey: null, dateHint: 'Fallback pasquale', usesSeasonTemplate: true, seasonKind: 'pasquale' }
+    { presetId: 'seasonFallback', label: 'Ferie del tempo', eventKey: null, dateHint: 'Giorni feriali pasquali', usesSeasonTemplate: true, seasonKind: 'pasquale' }
   ],
   defunti: [
     { presetId: 'allSaints', label: 'Tutti i Santi', eventKey: 'AllSaints', dateHint: '1 novembre' },
     { presetId: 'allSouls', label: 'Commemorazione dei Defunti', eventKey: 'AllSouls', dateHint: '2 novembre' },
-    { presetId: 'seasonFallback', label: 'Altri giorni della finestra', eventKey: null, dateHint: 'Fallback defunti', usesSeasonTemplate: true, seasonKind: 'defunti' }
+    { presetId: 'seasonFallback', label: 'Altri giorni della finestra', eventKey: null, dateHint: 'Ferie nella finestra', usesSeasonTemplate: true, seasonKind: 'defunti' }
   ],
   festivo: [
     { presetId: 'solennita', label: 'Orario festivo', eventKey: null, dateHint: 'Giorno singolo senza vigilia', usesSeasonTemplate: true, seasonKind: 'festivo' },
@@ -4141,8 +4141,8 @@ function updateMesseDomenicaliSummary() {
       el.textContent = `${modelli.length} modelli · messe delle parrocchie locali`;
     } else if (strutturaMesseKind === 'domenicale') {
       el.textContent = list.length
-        ? `Modello domenicale · ${list.length} messe · ${nTurni} con squadra · ${nLibere} libere`
-        : 'Modello domenicale: messe tipiche di ogni domenica';
+        ? `Default per ${countDomenicheOrdinarieAnno()} domeniche · ${list.length} messe · ${nTurni} con squadra`
+        : 'Modello di default per ogni domenica ordinaria';
     } else if (!list.length) {
       el.textContent = meta.hint || 'Nessun modello in questa categoria';
     } else {
@@ -4184,7 +4184,7 @@ function syncStrutturaMesseFormLabels() {
   }
   if (hint && !editingMessaDomenicaleId) {
     hint.textContent = isDom
-      ? 'Aggiungi o modifica una messa del modello domenicale'
+      ? 'Queste messe si ripetono ogni domenica ordinaria'
       : 'Le messe si modificano dentro ciascun modello';
   }
   if (daySel) {
@@ -4540,46 +4540,72 @@ async function renderStrutturaCorrezioniPanel() {
     (ex.data && String(ex.data).startsWith(anno)) || ex.eventKey
   );
   const preview = previewStrutturaApplicaAnno(anno);
-  const celebrabili = preview.days.filter(d =>
+  const speciali = preview.days.filter(d =>
     d.existing || d.materialize || (d.preset && d.preset !== 'solennita') || (!isSundayDate(d.data) && d.kind === 'festivo')
   );
+  const nDom = countDomenicheOrdinarieAnno(anno);
+  const hasDom = hasStrutturaConfig('domenicale');
+  const nDomSlots = hasDom ? getStrutturaSlots('domenicale').length : 0;
 
-  let html = '<p class="liturgy-meta" style="margin:0 0 14px">Togli dall\'agenda i giorni liturgici che <strong>non</strong> celebrate. I modelli restano invariati.</p>';
+  let html = `
+    <div class="struttura-modello-intro">
+      <p class="struttura-modello-intro-title">Pipeline</p>
+      <p class="liturgy-meta" style="margin:0">1) Modello domenicale su ogni domenica ordinaria · 2) Modelli speciali sui giorni festa · 3) Qui togli i giorni che <strong>non</strong> celebrate.</p>
+    </div>
+    <div class="struttura-correzioni-baseline">
+      <div class="struttura-correzioni-baseline-main">
+        <p class="config-item-title">Domeniche ordinarie ${esc(anno)}</p>
+        <p class="config-item-meta">${hasDom
+          ? `${nDom} domeniche · modello domenicale (${nDomSlots} messe)`
+          : 'Modello domenicale non configurato'}</p>
+      </div>
+      ${canManage ? `
+        <div class="config-item-actions">
+          <button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind('domenicale')">Apri modello</button>
+        </div>` : ''}
+    </div>
+  `;
 
-  if (celebrabili.length) {
-    html += '<h4 class="turni-messe-group-title">In agenda ' + esc(anno) + '</h4><div class="config-list">';
-    html += celebrabili.slice(0, 100).map(d => {
-      const extra = getMessaExtraForDate(d.data);
-      const excludeTarget = extra?.uuid || d.data;
-      const presetBit = d.preset && d.preset !== 'solennita'
-        ? ' · ' + esc(getFestivityPresetMeta(d.preset).label)
-        : '';
-      return (
-        '<div class="config-item">' +
-          '<div class="config-item-main">' +
-            '<p class="config-item-title">' + esc(formatFestivitaDateShort(d.data)) + ' · ' + esc(d.label) + '</p>' +
-            '<p class="config-item-meta">' + esc(getStrutturaMeta(d.kind || 'festivo').label) + presetBit + '</p>' +
-          '</div>' +
-          (canManage
-            ? '<div class="config-item-actions">' +
-                '<button type="button" class="btn btn-ghost" onclick="setStrutturaLiturgicaTab(\'calendario\'); selectCalDay(' + jsStr(d.data) + ')">Calendario</button>' +
-                '<button type="button" class="btn btn-danger" onclick="escludiFestivita(' + jsStr(excludeTarget) + ')">Non celebriamo</button>' +
-              '</div>'
-            : '') +
-        '</div>'
-      );
-    }).join('');
-    html += '</div>';
-    if (celebrabili.length > 100) {
-      html += '<p class="liturgy-meta">…e altri ' + (celebrabili.length - 100) + ' giorni</p>';
-    }
+  html += '<h4 class="turni-messe-group-title">Giorni dai modelli ' + esc(anno) + '</h4>';
+  if (!speciali.length) {
+    html += '<p class="empty-state">Nessun giorno speciale in agenda. Salva i modelli: si applicano subito.</p>';
   } else {
-    html += '<p class="empty-state">Nessun giorno speciale in agenda per il ' + esc(anno) + '. Salva i modelli: si applicano subito.</p>';
+    const byMonth = {};
+    speciali.forEach(d => {
+      const key = String(d.data).slice(0, 7);
+      if (!byMonth[key]) byMonth[key] = [];
+      byMonth[key].push(d);
+    });
+    Object.keys(byMonth).sort().forEach(monthKey => {
+      const label = new Date(monthKey + '-15T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+      html += '<p class="struttura-correzioni-month">' + esc(label) + '</p><div class="config-list">';
+      html += byMonth[monthKey].map(d => {
+        const extra = getMessaExtraForDate(d.data);
+        const excludeTarget = extra?.uuid || d.data;
+        const presetBit = d.preset && d.preset !== 'solennita'
+          ? ' · ' + getFestivityPresetMeta(d.preset).label
+          : '';
+        return (
+          '<div class="config-item">' +
+            '<div class="config-item-main">' +
+              '<p class="config-item-title">' + esc(formatFestivitaDateShort(d.data)) + ' · ' + esc(d.label) + '</p>' +
+              '<p class="config-item-meta">' + esc(getStrutturaMeta(d.kind || 'festivo').label) + esc(presetBit) + '</p>' +
+            '</div>' +
+            (canManage
+              ? '<div class="config-item-actions">' +
+                  '<button type="button" class="btn btn-danger" onclick="escludiFestivita(' + jsStr(excludeTarget) + ')">Non celebriamo</button>' +
+                '</div>'
+              : '') +
+          '</div>'
+        );
+      }).join('');
+      html += '</div>';
+    });
   }
 
   html += '<h4 class="turni-messe-group-title" style="margin-top:22px">Non celebrate</h4>';
   if (!escluse.length) {
-    html += '<p class="empty-state" style="margin:0">Nessuna esclusione.</p>';
+    html += '<p class="empty-state" style="margin:0">Nessuna esclusione — l’agenda segue i modelli.</p>';
   } else {
     html += '<div class="config-list">' + escluse.map(ex => (
       '<div class="config-item">' +
@@ -4589,7 +4615,7 @@ async function renderStrutturaCorrezioniPanel() {
         '</div>' +
         (canManage
           ? '<div class="config-item-actions">' +
-              '<button type="button" class="btn btn-secondary" onclick="ripristinaFestivitaEsclusa(' + jsStr(ex.eventKey || ex.data) + ')">Ripristina in agenda</button>' +
+              '<button type="button" class="btn btn-secondary" onclick="ripristinaFestivitaEsclusa(' + jsStr(ex.eventKey || ex.data) + ')">Ripristina</button>' +
             '</div>'
           : '') +
       '</div>'
@@ -8552,6 +8578,15 @@ function renderGruppiVetrinaList() {
   container.innerHTML = gruppi.map(g => buildGruppoVetrinaCardHtml(g)).join('');
 }
 
+function countDomenicheOrdinarieAnno(anno) {
+  anno = String(anno || getStrutturaFestivitaAnno());
+  return getSundaysInYear(parseInt(anno, 10)).filter(dateStr => {
+    if (isFestivitaEsclusa(dateStr)) return false;
+    const ctx = getLiturgicalContext(dateStr);
+    return ctx.strutturaKind === 'domenicale';
+  }).length;
+}
+
 function renderMesseDomenicaliList() {
   const container = document.getElementById('messe-domenicali-list');
   if (!container) return;
@@ -8560,11 +8595,55 @@ function renderMesseDomenicaliList() {
   const prossimaDom = getProssimeDomeniche(1)[0];
   const meta = getStrutturaMeta(strutturaMesseKind);
   const modelliHtml = renderStrutturaGiorniSpecialiHtml(strutturaMesseKind);
+  const anno = getStrutturaFestivitaAnno();
 
   if (modelliHtml) {
     container.innerHTML = `
-      <p class="liturgy-meta" style="margin:0 0 14px">Ogni blocco è un <strong>modello</strong> (preset) con le messe celebrate nelle sedi locali.</p>
+      <div class="struttura-modello-intro">
+        <p class="struttura-modello-intro-title">${esc(meta.label)}</p>
+        <p class="liturgy-meta" style="margin:0">Ogni blocco è un modello con le messe locali. Al salvataggio si applica subito a Messe. Le domeniche ordinarie restano sul modello domenicale.</p>
+      </div>
       ${modelliHtml}`;
+    return;
+  }
+
+  if (isDom) {
+    const nDom = countDomenicheOrdinarieAnno(anno);
+    const nTurni = messe.filter(m => m.conTurno).length;
+    const intro = `
+      <div class="struttura-modello-intro is-domenicale">
+        <p class="struttura-modello-intro-title">Modello di default</p>
+        <p class="liturgy-meta" style="margin:0 0 10px">Si applica a <strong>ogni domenica ordinaria</strong> del ${esc(anno)} (e alla vigilia del sabato). Poi, in Correzioni, togli i giorni che non celebrate.</p>
+        <div class="struttura-applica-stats" style="margin:0">
+          <span class="struttura-applica-stat">Domeniche <strong>${nDom}</strong></span>
+          <span class="struttura-applica-stat">Messe nel modello <strong>${messe.length}</strong></span>
+          <span class="struttura-applica-stat">Con squadra <strong>${nTurni}</strong></span>
+        </div>
+      </div>`;
+
+    if (!messe.length) {
+      container.innerHTML = `
+        ${intro}
+        <div class="struttura-festivo-empty">
+          <p class="empty-state">Nessuna messa — aggiungine una dal pannello a destra</p>
+        </div>`;
+      return;
+    }
+
+    const groups = [
+      { key: -1, label: 'Sabato (vigilia)' },
+      { key: 0, label: 'Domenica' }
+    ];
+    container.innerHTML = intro + groups.map(g => {
+      const items = messe.filter(m => m.dayOffset === g.key);
+      if (!items.length) return '';
+      return `
+        <h4 class="turni-messe-group-title">${esc(g.label)}</h4>
+        <div class="config-list">
+          ${items.map(m => renderMessaDomenicaleItem(m, prossimaDom)).join('')}
+        </div>
+      `;
+    }).join('');
     return;
   }
 
@@ -8572,7 +8651,7 @@ function renderMesseDomenicaliList() {
     container.innerHTML = `
       <div class="struttura-festivo-empty">
         <p class="empty-state" style="margin-bottom:12px">${esc(meta.hint)}</p>
-        ${!isDom && isCurrentUserAdmin() ? `
+        ${isCurrentUserAdmin() ? `
           <div class="messa-actions" style="justify-content:flex-start;margin-bottom:8px">
             <button type="button" class="btn btn-primary" onclick="copiaOrarioFestivoDaDomenicale()">Parti dalla struttura domenicale</button>
           </div>` : '<p class="empty-state">Nessuna messa — aggiungine una dal pannello a destra</p>'}
@@ -8580,17 +8659,12 @@ function renderMesseDomenicaliList() {
     return;
   }
 
-  const groups = isDom
-    ? [
-      { key: -1, label: 'Sabato (vigilia)' },
-      { key: 0, label: 'Domenica' }
-    ]
-    : [
-      { key: -1, label: 'Vigilia (giorno prima)' },
-      { key: 0, label: 'Giorno' }
-    ];
+  const groups = [
+    { key: -1, label: 'Vigilia (giorno prima)' },
+    { key: 0, label: 'Giorno' }
+  ];
 
-  const templateHtml = groups.map(g => {
+  container.innerHTML = groups.map(g => {
     const items = messe.filter(m => m.dayOffset === g.key);
     if (!items.length) return '';
     return `
@@ -8600,8 +8674,6 @@ function renderMesseDomenicaliList() {
       </div>
     `;
   }).join('');
-
-  container.innerHTML = templateHtml;
 }
 
 function getSlotsForStrutturaGiornoSpeciale(group) {
@@ -10561,9 +10633,19 @@ function getLiturgicalContext(dateStr) {
     || keys.some(k => /Christmas|Epiphany|Baptism|Nativity/i.test(k) && !/Weekday|SundayAfter/i.test(k))) {
     // Escludi ferie ambigue: solo range o chiavi forti
     if (bounds.nataleRanges.some(r => dateInRange(dateStr, r))) {
+      // Domeniche del tempo → sempre modello domenicale (i giorni speciali hanno preset)
+      if (isSundayDate(dateStr)) {
+        return {
+          stagione: 'natalizio',
+          strutturaKind: 'domenicale',
+          preset: null,
+          label: primary?.nome || 'Domenica del tempo natalizio',
+          primary
+        };
+      }
       return {
         stagione: 'natalizio',
-        strutturaKind: hasStrutturaConfig('natalizio') ? 'natalizio' : (isSundayDate(dateStr) ? 'domenicale' : 'festivo'),
+        strutturaKind: hasStrutturaConfig('natalizio') ? 'natalizio' : 'festivo',
         preset: null,
         label: 'Tempo natalizio',
         primary
@@ -10572,9 +10654,18 @@ function getLiturgicalContext(dateStr) {
   }
 
   if (bounds.pasqua && dateInRange(dateStr, bounds.pasqua)) {
+    if (isSundayDate(dateStr)) {
+      return {
+        stagione: 'pasquale',
+        strutturaKind: 'domenicale',
+        preset: null,
+        label: primary?.nome || 'Domenica del tempo pasquale',
+        primary
+      };
+    }
     return {
       stagione: 'pasquale',
-      strutturaKind: hasStrutturaConfig('pasquale') ? 'pasquale' : (isSundayDate(dateStr) ? 'domenicale' : 'festivo'),
+      strutturaKind: hasStrutturaConfig('pasquale') ? 'pasquale' : 'festivo',
       preset: null,
       label: 'Tempo pasquale',
       primary
@@ -10583,6 +10674,15 @@ function getLiturgicalContext(dateStr) {
 
   if (dateInRange(dateStr, bounds.defunti)
     || keys.some(k => /AllSaints|AllSouls/i.test(k))) {
+    if (isSundayDate(dateStr) && !keys.some(k => /AllSaints|AllSouls/i.test(k))) {
+      return {
+        stagione: 'defunti',
+        strutturaKind: 'domenicale',
+        preset: null,
+        label: primary?.nome || 'Domenica',
+        primary
+      };
+    }
     return {
       stagione: 'defunti',
       strutturaKind: hasStrutturaConfig('defunti') ? 'defunti' : 'festivo',

@@ -613,7 +613,7 @@
             <div class="panel">
               <div class="panel-head">
                 <h3 id="turni-struttura-title">Modelli</h3>
-                <p id="messe-domenicali-summary">Ogni modello è un preset popolato con le messe delle parrocchie locali</p>
+                <p id="messe-domenicali-summary">Il modello domenicale vale per ogni domenica ordinaria; gli altri modelli per i giorni speciali</p>
               </div>
               <div class="panel-body">
                 <div id="messe-domenicali-list"></div>
@@ -1121,7 +1121,7 @@
       <section id="strutture-messe" class="section">
         <div class="panel-head calendario-page-intro">
           <h3>Struttura liturgica</h3>
-          <p>Calendario → modelli (applicati subito) → correzioni (giorni non celebrati). Il risultato si vede in Messe.</p>
+          <p>Calendario → modelli (domenicale di default + giorni speciali) → correzioni. Il risultato si vede in Messe.</p>
         </div>
         <div class="section-tabs" role="tablist" aria-label="Struttura liturgica">
           <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')">Calendario</button>
@@ -1237,8 +1237,8 @@
         <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
           <div class="panel" id="struttura-correzioni-list-panel">
             <div class="panel-head">
-              <h3>Giorni non celebrati</h3>
-              <p>Togli dall’agenda i giorni liturgici che la comunità non celebra. I modelli restano invariati.</p>
+              <h3>Correzioni all’agenda</h3>
+              <p>Il modello domenicale e i modelli speciali popolano Messe. Qui togli i giorni liturgici che non celebrate.</p>
             </div>
             <div class="panel-body">
               <div class="struttura-applica-toolbar">
@@ -1288,7 +1288,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario (default su ogni domenica);</li><li>tempi natalizio, pasquale e defunti per i giorni speciali;</li><li>festivo generico (solennità e feste);</li><li>correzioni per togliere i giorni non celebrati.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
