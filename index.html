@@ -1067,7 +1067,7 @@
             <li class="struttura-pipeline-step" data-step="modelli" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('modelli')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('modelli')}">
               <span class="struttura-pipeline-num" aria-hidden="true">2</span>
               <span class="struttura-pipeline-label">Modelli</span>
-              <span class="struttura-pipeline-desc">Cosa celebrate</span>
+              <span class="struttura-pipeline-desc">Override comunità</span>
             </li>
             <li class="struttura-pipeline-step" data-step="correzioni" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('correzioni')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('correzioni')}">
               <span class="struttura-pipeline-num" aria-hidden="true">3</span>
@@ -1181,7 +1181,7 @@
           <div class="struttura-correzioni-toolbar">
             <div class="struttura-correzioni-toolbar-copy">
               <h3>Correzioni</h3>
-              <p id="struttura-correzioni-sub">Giorni speciali di quest’anno · senza messe = senza servizio</p>
+              <p id="struttura-correzioni-sub">Giorni civili dell’anno · modelli applicati · senza messe = senza servizio</p>
             </div>
             <div class="struttura-correzioni-toolbar-actions">
               <label for="anno-struttura-correzioni">Anno</label>
@@ -1227,7 +1227,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario (default su ogni domenica);</li><li>tempi natalizio, pasquale e defunti per i giorni speciali;</li><li>festivo generico (solennità e feste);</li><li>correzioni per anno pastorale (settembre–agosto): messe, orario e sede; senza messe = senza servizio.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti della comunità. Partono dal default ambrosiano e si possono sovrascrivere:</p><ul><li>domenicale ordinario (default su ogni domenica);</li><li>tempi natalizio, pasquale e defunti per i giorni speciali;</li><li>«non celebriamo» se una festa ambrosiana non si fa in parrocchia;</li><li>messe aggiunte nei feriali del tempo (dove il calendario non ha festa);</li><li>correzioni per anno pastorale: orario/sede; senza messe = senza servizio.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>

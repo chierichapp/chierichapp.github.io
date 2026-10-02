@@ -733,6 +733,12 @@ body.sidebar-open { overflow: hidden; }
   border-bottom: 1px solid var(--border);
 }
 
+.struttura-giorno-date-panel .struttura-giorno-date-field {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3042,6 +3048,36 @@ body.anag-sheet-open { overflow: hidden; }
   border-color: color-mix(in srgb, var(--accent, #2a5a4a) 28%, var(--border));
 }
 
+.struttura-day.is-disabled {
+  opacity: 0.78;
+  border-style: dashed;
+}
+
+.struttura-day-badge {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.struttura-day-badge--ambrosiano {
+  color: color-mix(in srgb, var(--accent, #2a5a4a) 78%, var(--ink));
+}
+
+.struttura-day-badge--comunita {
+  color: color-mix(in srgb, #8a5a20 85%, var(--ink));
+}
+
+.struttura-day-badge--disabilitato {
+  color: color-mix(in srgb, #8a3030 80%, var(--ink));
+}
+
+.struttura-layer-hint {
+  margin: 0 0 12px;
+}
+
 .struttura-day-head {
   display: flex;
   flex-wrap: wrap;
@@ -3170,12 +3206,13 @@ body.anag-sheet-open { overflow: hidden; }
 .struttura-sched-row-actions { display: inline-flex; }
 
 #struttura-modello-modal .modal.struttura-modello-modal {
-  max-width: min(760px, 96vw);
+  max-width: min(720px, 96vw);
   width: 100%;
-  max-height: min(92vh, 860px);
+  max-height: min(92vh, 880px);
   display: flex;
   flex-direction: column;
-  padding: 22px 24px 18px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .struttura-modello-modal-head {
@@ -3183,30 +3220,116 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.struttura-modello-modal-head h3 { margin: 0 0 2px; }
+.struttura-modello-modal-head h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
 
 .struttura-modello-modal-head p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   color: var(--muted);
+  line-height: 1.35;
 }
 
 .struttura-modello-modal-body {
   flex: 1 1 auto;
   overflow: auto;
   min-height: 0;
-  padding-right: 4px;
-  margin-bottom: 14px;
+  padding: 16px 22px 8px;
+}
+
+.struttura-modello-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.struttura-celeb-name-field {
+  margin: 0;
+}
+
+.struttura-celeb-name-field input {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.struttura-giorno-date-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface, #fff) 88%, var(--accent, #2a5a4a) 4%);
+}
+
+.struttura-giorno-date-panel .struttura-giorno-date-field {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.struttura-giorno-date-panel .form-hint {
+  margin: 0;
+}
+
+.struttura-date-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.struttura-date-facts dt {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.struttura-date-facts dd {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.struttura-layer-hint {
+  margin: 0;
+}
+
+.struttura-modello-slots-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 -4px;
+}
+
+.struttura-modello-slots-head h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
 #struttura-modello-modal .festiva-slot-edit {
-  padding: 14px 44px 12px 14px;
+  padding: 14px 44px 14px 14px;
   margin-bottom: 10px;
-  border-bottom: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface, #fff);
 }
 
 #struttura-modello-modal .festiva-slot-edit .form-group {
@@ -3224,7 +3347,7 @@ body.anag-sheet-open { overflow: hidden; }
 
 #struttura-modello-modal .festiva-slot-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(5.5rem, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(6rem, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px 12px;
   align-items: start;
 }
@@ -3253,15 +3376,31 @@ body.anag-sheet-open { overflow: hidden; }
   margin: 0;
   flex-shrink: 0;
   flex-wrap: wrap;
-  padding-top: 12px;
+  gap: 8px;
+  padding: 12px 22px 18px;
   border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface, #fff) 92%, var(--bg, #f4f4f2));
 }
 
 @media (max-width: 640px) {
   #struttura-modello-modal .modal.struttura-modello-modal {
     max-width: 100%;
-    max-height: min(94vh, 100%);
-    padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    max-height: min(96vh, 100%);
+  }
+
+  .struttura-modello-modal-head,
+  .struttura-modello-modal-body,
+  #struttura-modello-modal .modal-actions {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  #struttura-modello-modal .modal-actions {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .struttura-date-facts {
+    grid-template-columns: 1fr;
   }
 
   #struttura-modello-modal .festiva-slot-grid {
@@ -3463,7 +3602,32 @@ body.struttura-modal-open { overflow: hidden; }
 }
 
 .struttura-correzioni-days {
-  margin-bottom: 4px;
+  display: grid;
+  gap: 12px;
+}
+
+.struttura-day.is-civil-day .struttura-correzione-celeb {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.struttura-day.is-civil-day .struttura-correzione-celeb:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.struttura-correzione-celeb-title {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#struttura-modello-modal .festiva-slot-grid.is-civil-mode {
+  grid-template-columns: minmax(6rem, 0.8fr) minmax(0, 1.2fr) minmax(0, 1fr);
 }
 
 .struttura-day.is-senza-messe {
