@@ -11,27 +11,17 @@
   let passwordInvitePending = false;
   let authListenersReady = false;
 
+  /** Destinazione fissa dei link auth (invite / recovery). Non usare location.origin:
+   * se Site URL Supabase è localhost e redirectTo non è in allow-list, GoTrue
+   * riscrive comunque redirect_to → Site URL. */
   const PRODUCTION_APP_URL = 'https://chierichapp.github.io/';
 
-  function isLocalDevHost() {
-    try {
-      const h = global.location.hostname;
-      return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
-    } catch { /* ignore */ }
-    return false;
-  }
-
-  /** URL dove Supabase reindirizza dopo invite / recovery (sempre produzione se apri da localhost). */
   function authRedirectTo() {
     const fromConfig = String(cfg.siteUrl || cfg.appUrl || '').trim();
     if (fromConfig) {
       return fromConfig.endsWith('/') ? fromConfig : `${fromConfig}/`;
     }
-    if (isLocalDevHost()) return PRODUCTION_APP_URL;
-    const origin = global.location.origin;
-    const path = global.location.pathname || '/';
-    if (path === '/' || path === '') return `${origin}/`;
-    return origin + path;
+    return PRODUCTION_APP_URL;
   }
 
   function recoveryRedirectTo() {
@@ -689,10 +679,11 @@
   async function ricreaInvitoAccesso(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, resetExisting: true, redirectTo: authRedirectTo() }
+      body: { email, resetExisting: true }
     });
     if (error) return { success: false, message: error.message };
     if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
+    // Compat: vecchia edge function che chiedeva al client di mandare il recovery
     if (data.passwordResetRequired) return resetPasswordForEmail(email);
     return data;
   }

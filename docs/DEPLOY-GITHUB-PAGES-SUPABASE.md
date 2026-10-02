@@ -16,7 +16,11 @@ Non serve Google Apps Script né Docker. Il browser parla direttamente con Supab
 ## Setup Supabase (una volta)
 
 1. Crea un progetto su [supabase.com](https://supabase.com)
-2. **Authentication → Providers → Email**: abilita Email (disattiva "Confirm email" in sviluppo se vuoi bootstrap immediato)
+2. **Authentication → URL Configuration** (obbligatorio in produzione):
+   - **Site URL**: `https://chierichapp.github.io`
+   - **Redirect URLs**: `https://chierichapp.github.io`, `https://chierichapp.github.io/**`
+   - Se Site URL resta `http://localhost:3000`, i link di invito/reset nelle email useranno sempre localhost (GoTrue ignora `redirectTo` non in allow-list)
+3. **Authentication → Providers → Email**: abilita Email (disattiva "Confirm email" in sviluppo se vuoi bootstrap immediato)
 3. **SQL Editor**: esegui in ordine:
    - `supabase/migrations/001_init.sql`
    - `supabase/migrations/002_fix_bootstrap.sql` (se hai già applicato solo la 001)
