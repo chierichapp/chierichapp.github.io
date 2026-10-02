@@ -2955,6 +2955,11 @@ body.anag-sheet-open { overflow: hidden; }
   color: var(--muted);
 }
 
+.config-item.is-anno-override {
+  border-left: 3px solid color-mix(in srgb, var(--accent, #2a5a4a) 55%, transparent);
+  padding-left: 10px;
+}
+
 .struttura-applica-toolbar {
   display: flex;
   flex-wrap: wrap;

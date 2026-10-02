@@ -618,7 +618,7 @@
               <div class="panel-body">
                 <div id="messe-domenicali-list"></div>
                 <div class="turni-footer-actions">
-                  <button type="button" class="btn btn-ghost-light" id="btn-copia-orario-festivo" hidden onclick="copiaOrarioFestivoDaDomenicale()">Copia da domenicale</button>
+                  <button type="button" class="btn btn-primary" id="btn-applica-modello" onclick="applicaModelloCorrente()">Applica modello</button>
                   <button type="button" class="btn btn-ghost-light" onclick="resetGruppiConfig()">Ripristina predefiniti</button>
                 </div>
               </div>
@@ -1233,12 +1233,12 @@
           </div>
         </div>
 
-        <!-- 3. Correzioni: giorni liturgici non celebrati -->
+        <!-- 3. Correzioni: esclusioni + sedi/orari di quest’anno -->
         <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
           <div class="panel" id="struttura-correzioni-list-panel">
             <div class="panel-head">
               <h3>Correzioni all’agenda</h3>
-              <p>Il modello domenicale e i modelli speciali popolano Messe. Qui togli i giorni liturgici che non celebrate.</p>
+              <p>Togli i giorni non celebrati, oppure cambia sedi e orari solo per quest’anno (il modello resta uguale).</p>
             </div>
             <div class="panel-body">
               <div class="struttura-applica-toolbar">
@@ -1251,6 +1251,13 @@
               </div>
               <div id="struttura-correzioni-list"></div>
             </div>
+          </div>
+          <div class="panel" id="struttura-correzioni-editor-panel" hidden>
+            <div class="panel-head">
+              <h3 id="struttura-correzioni-editor-title">Sedi di quest’anno</h3>
+              <p>Modifica solo per l’anno selezionato. Il modello nei Modelli non cambia.</p>
+            </div>
+            <div class="panel-body" id="struttura-correzioni-editor"></div>
           </div>
         </div>
       </section>
