@@ -3612,6 +3612,22 @@ body.struttura-modal-open { overflow: hidden; }
   border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
+.struttura-correzione-day-config {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.struttura-correzione-day-config h4 {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 .struttura-day.is-civil-day .struttura-correzione-celeb:first-of-type {
   border-top: none;
   padding-top: 0;
