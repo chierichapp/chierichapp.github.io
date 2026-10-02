@@ -184,6 +184,11 @@ body.sidebar-open { overflow: hidden; }
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
 
+.nav-item[hidden],
+.mobile-more-item[hidden] {
+  display: none !important;
+}
+
 .nav-item svg {
   width: 18px;
   height: 18px;
