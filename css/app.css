@@ -2873,6 +2873,70 @@ body.anag-sheet-open { overflow: hidden; }
   border-top: 1px solid var(--border);
 }
 
+.struttura-pipeline-panel {
+  margin-top: 4px;
+}
+
+.struttura-applica-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.struttura-applica-toolbar label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.struttura-applica-toolbar select {
+  min-width: 6.5rem;
+}
+
+.struttura-applica-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.struttura-applica-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.struttura-applica-stat strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.struttura-applica-stat.is-warn {
+  background: color-mix(in srgb, #c47a2c 14%, transparent);
+  color: #8a5010;
+}
+
+.struttura-applica-warn {
+  margin: 0 0 12px;
+}
+
+.struttura-applica-list {
+  margin-top: 8px;
+}
+
+.form-optional {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
 .struttura-festivita-item {
   cursor: pointer;
 }

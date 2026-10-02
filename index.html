@@ -632,6 +632,10 @@
               <div class="panel-body">
                 <form id="messaDomenicaleForm">
                   <input type="hidden" id="messa-domenicale-edit-id" value="">
+                  <div class="form-group">
+                    <label for="messa-domenicale-titolo">Titolo <span class="form-optional">(opzionale)</span></label>
+                    <input type="text" id="messa-domenicale-titolo" maxlength="80" placeholder="Es. Cena Domini, Via Crucis">
+                  </div>
                   <div class="form-row">
                     <div class="form-group">
                       <label for="messa-domenicale-day">Giorno</label>
@@ -1116,19 +1120,20 @@
       <section id="strutture-messe" class="section">
         <div class="panel-head calendario-page-intro">
           <h3>Struttura liturgica</h3>
-          <p>Calendario ambrosiano e modelli delle celebrazioni locali.</p>
+          <p>Calendario → modelli → applica all’anno → correzioni. Il risultato si vede in Messe.</p>
         </div>
         <div class="section-tabs" role="tablist" aria-label="Struttura liturgica">
-          <button type="button" class="section-tab active" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="true" onclick="setStrutturaLiturgicaTab('modelli')">Modelli delle Messe</button>
-          <button type="button" class="section-tab" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="false" onclick="setStrutturaLiturgicaTab('calendario')">Calendario liturgico</button>
+          <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')">Calendario</button>
+          <button type="button" class="section-tab" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="false" onclick="setStrutturaLiturgicaTab('modelli')">Modelli</button>
+          <button type="button" class="section-tab" id="tab-struttura-applica" aria-controls="struttura-liturgica-applica" aria-pressed="false" onclick="setStrutturaLiturgicaTab('applica')">Applica</button>
+          <button type="button" class="section-tab" id="tab-struttura-correzioni" aria-controls="struttura-liturgica-correzioni" aria-pressed="false" onclick="setStrutturaLiturgicaTab('correzioni')">Correzioni</button>
         </div>
-        <div id="struttura-liturgica-modelli" role="tabpanel" aria-labelledby="tab-struttura-modelli"><div id="strutture-messe-slot" class="messe-strutture-slot"></div></div>
 
-        <!-- Calendario liturgico ambrosiano -->
-        <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario" hidden>
+        <!-- 1. Calendario liturgico ambrosiano -->
+        <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario">
         <div class="panel-head calendario-page-intro">
           <h3>Calendario liturgico ambrosiano</h3>
-          <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici. Le celebrazioni locali si gestiscono in Messe.</p>
+          <p>Fonte liturgica ufficiale. Le Messe locali nascono dai passi Modelli → Applica → Correzioni.</p>
         </div>
         <div class="cal-section-head">
           <div class="cal-legend" aria-label="Legenda gradi liturgici">
@@ -1199,6 +1204,62 @@
 
         <p class="cal-source" id="cal-source"></p>
       </div>
+
+        <!-- 2. Modelli strutture -->
+        <div id="struttura-liturgica-modelli" role="tabpanel" aria-labelledby="tab-struttura-modelli" hidden>
+          <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
+        </div>
+
+        <!-- 3. Applica strutture all'anno civile -->
+        <div id="struttura-liturgica-applica" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-applica" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Applica strutture all’anno</h3>
+              <p>Materializza solennità e giorni speciali dell’anno civile dalle strutture configurate.</p>
+            </div>
+            <div class="panel-body">
+              <div class="struttura-applica-toolbar">
+                <label for="anno-struttura-applica">Anno civile</label>
+                <select id="anno-struttura-applica" onchange="onStrutturaApplicaAnnoChange()">
+                  <option value="2025">2025</option>
+                  <option value="2026" selected>2026</option>
+                  <option value="2027">2027</option>
+                </select>
+                <button type="button" class="btn btn-primary" id="btn-applica-strutture-anno" onclick="applicaStruttureAnno()">Applica strutture</button>
+              </div>
+              <div id="struttura-applica-summary" class="struttura-applica-summary"></div>
+              <div id="struttura-applica-list" class="struttura-applica-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Correzioni anno -->
+        <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
+          <div class="panel" id="struttura-correzioni-list-panel">
+            <div class="panel-head">
+              <h3>Correzioni dell’anno</h3>
+              <p>Override liturgici e orari personalizzati (con titoli) per l’anno civile selezionato.</p>
+            </div>
+            <div class="panel-body">
+              <div class="struttura-applica-toolbar">
+                <label for="anno-struttura-correzioni">Anno civile</label>
+                <select id="anno-struttura-correzioni" onchange="onStrutturaCorrezioniAnnoChange()">
+                  <option value="2025">2025</option>
+                  <option value="2026" selected>2026</option>
+                  <option value="2027">2027</option>
+                </select>
+              </div>
+              <div id="struttura-correzioni-list"></div>
+            </div>
+          </div>
+          <div class="panel" id="struttura-correzioni-editor-panel" hidden>
+            <div class="panel-head">
+              <h3 id="struttura-correzioni-editor-title">Modifica orari</h3>
+              <p>Correzione per questo anno civile (i titoli valgono anche come modello per gli anni successivi).</p>
+            </div>
+            <div class="panel-body" id="struttura-correzioni-editor"></div>
+          </div>
+        </div>
       </section>
 
       <!-- Accessi (log login — solo admin) -->
