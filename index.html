@@ -159,10 +159,6 @@
         </span>
         Anagrafica
       </button>
-      <button class="nav-item nav-admin-only" data-section="cerimonieri" onclick="showSection('cerimonieri')" hidden>
-        <span class="nav-item-icon" aria-hidden="true">♙</span>
-        Cerimonieri
-      </button>
       <button class="nav-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -259,6 +255,7 @@
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
+          <button type="button" class="section-tab nav-admin-only" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')" hidden>Cerimonieri</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -515,14 +512,6 @@
             </div>
           </div>
         </div>
-      </section>
-
-      <section id="cerimonieri" class="section">
-        <div class="panel-head calendario-page-intro">
-          <h3>Cerimonieri e sacerdoti</h3>
-          <p>Account, ruoli e accessi alle funzioni dell’app.</p>
-        </div>
-        <div id="cerimonieri-page-slot"></div>
       </section>
 
       <!-- Turni -->
@@ -1402,10 +1391,6 @@
       <button type="button" class="mobile-more-item" data-section="anagrafica" onclick="showSection('anagrafica')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg></span>
         Anagrafica
-      </button>
-      <button type="button" class="mobile-more-item nav-admin-only" data-section="cerimonieri" onclick="showSection('cerimonieri')" hidden>
-        <span class="mobile-more-ico" aria-hidden="true">♙</span>
-        Cerimonieri
       </button>
       <button type="button" class="mobile-more-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>

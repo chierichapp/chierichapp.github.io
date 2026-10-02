@@ -199,7 +199,6 @@ const messeState = {
 // ── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   moveStrutturaMesseToMesse();
-  moveCerimonieriToPage();
   document.getElementById('auth-login-form').addEventListener('submit', handleAuthSubmit);
   document.getElementById('cerimoniereForm').addEventListener('submit', handleCerimoniereFormSubmit);
   document.getElementById('accountForm')?.addEventListener('submit', handleAccountFormSubmit);
@@ -264,15 +263,6 @@ function moveStrutturaMesseToMesse() {
   panel.hidden = false;
   panel.style.removeProperty('display');
   if (tab) tab.hidden = true;
-}
-
-function moveCerimonieriToPage() {
-  const panel = document.getElementById('anag-panel-cerimonieri');
-  const target = document.getElementById('cerimonieri-page-slot');
-  if (!panel || !target) return;
-  target.appendChild(panel);
-  panel.style.removeProperty('display');
-  panel.classList.add('cerimonieri-page-panel');
 }
 
 function showMesseLocalPanel(panelName) {
@@ -540,7 +530,12 @@ function syncCurrentUserAdminFlag() {
 function syncCerimonieriAdminUi() {
   const panel = document.getElementById('cerimoniere-form-panel');
   const grid = document.getElementById('anag-panel-cerimonieri');
+  const tab = document.getElementById('tab-anag-cerimonieri');
   const canAdmin = isCurrentUserAdmin();
+  if (tab) tab.hidden = !canAdmin;
+  if (grid) grid.style.display = canAdmin && anagraficaTab === 'cerimoniere' ? '' : 'none';
+  const chiGrid = document.getElementById('anag-panel-chierichetti');
+  if (chiGrid) chiGrid.style.display = anagraficaTab === 'cerimoniere' ? 'none' : '';
   // Solo admin gestisce accessi da Anagrafica; il profilo è in sezione Account
   if (panel) panel.style.display = canAdmin ? '' : 'none';
   if (grid) grid.classList.toggle('cerimonieri-readonly', !canAdmin);
@@ -1807,13 +1802,22 @@ async function flushAppelloIfNeeded() {
 }
 
 async function showSection(sectionId, options = {}) {
+  if (sectionId === 'cerimonieri') {
+    if (!isCurrentUserAdmin()) {
+      showToast('Questa sezione è riservata all\'admin');
+      return;
+    }
+    await showSection('anagrafica', { ...options, syncUrl: true });
+    switchAnagraficaTab('cerimoniere', true);
+    return;
+  }
   const current = document.querySelector('.section.active')?.id;
   if (current === 'presenze' && sectionId !== 'presenze') {
     const ok = await flushAppelloIfNeeded();
     if (!ok) return;
   }
 
-  if (['accessi', 'calendario', 'strutture-messe', 'cerimonieri'].includes(sectionId) && !isCurrentUserAdmin()) {
+  if (['accessi', 'calendario', 'strutture-messe'].includes(sectionId) && !isCurrentUserAdmin()) {
     showToast('Questa sezione è riservata all\'admin');
     return;
   }
@@ -1858,8 +1862,12 @@ async function showSection(sectionId, options = {}) {
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
-  if (sectionId === 'anagrafica') anagraficaTab = 'chierichetto';
-  if (sectionId === 'cerimonieri') anagraficaTab = 'cerimoniere';
+  if (sectionId === 'anagrafica') {
+    anagraficaTab = 'chierichetto';
+    document.getElementById('tab-anag-chierichetti')?.classList.add('active');
+    document.getElementById('tab-anag-cerimonieri')?.classList.remove('active');
+    syncCerimonieriAdminUi();
+  }
   if (sectionId !== 'gruppi') {
     closeGruppiFormSheet();
     closeGruppiEdit(true);
@@ -1874,11 +1882,6 @@ async function showSection(sectionId, options = {}) {
     syncAnagFab();
     updateAnagraficaFormLabels();
     renderChierichetti();
-  }
-  else if (sectionId === 'cerimonieri') {
-    anagraficaTab = 'cerimoniere';
-    syncAnagFab();
-    void loadCerimonieriAccounts().then(() => renderCerimonieri());
   }
   else if (sectionId === 'turni') renderTurni();
   else if (sectionId === 'gruppi') void renderGruppi();
@@ -6278,12 +6281,22 @@ function setAnagraficaStatusFilter(status) {
 
 function switchAnagraficaTab(ruolo, keepForm) {
   if (ruolo === 'cerimoniere') {
+    if (!isCurrentUserAdmin()) return;
     anagraficaTab = 'cerimoniere';
-    void showSection('cerimonieri');
+    document.getElementById('tab-anag-chierichetti')?.classList.remove('active');
+    document.getElementById('tab-anag-cerimonieri')?.classList.add('active');
+    syncCerimonieriAdminUi();
+    syncAnagraficaStatusTabs();
+    syncAnagFab();
+    void loadCerimonieriAccounts().then(() => renderCerimonieri());
     return;
   }
   anagraficaTab = 'chierichetto';
+  document.getElementById('tab-anag-chierichetti')?.classList.add('active');
+  document.getElementById('tab-anag-cerimonieri')?.classList.remove('active');
   document.getElementById('anag-panel-chierichetti').style.display = '';
+  syncCerimonieriAdminUi();
+  syncAnagFab();
   syncAnagraficaStatusTabs();
   document.getElementById('persona-ruolo').value = 'chierichetto';
   if (!keepForm) {
@@ -6411,7 +6424,7 @@ function syncAnagFab() {
   if (!fab) return;
   const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
   const onCerimonieri = document.getElementById('cerimonieri')?.classList.contains('active');
-  const canAddCer = onCerimonieri && isCurrentUserAdmin();
+  const canAddCer = (onCerimonieri || (onAnag && anagraficaTab === 'cerimoniere')) && isCurrentUserAdmin();
   const sheetBusy = isAnagSheetOpen();
   const show = !!(isAnagMobile() && !sheetBusy && ((onAnag && anagraficaTab === 'chierichetto') || canAddCer));
   fab.hidden = !show;
