@@ -24,10 +24,6 @@
     return PRODUCTION_APP_URL;
   }
 
-  function recoveryRedirectTo() {
-    return authRedirectTo();
-  }
-
   function detectRecoveryFromUrl() {
     try {
       const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
@@ -327,13 +323,27 @@
     const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail) return { success: false, message: 'Inserisci l\'email' };
     const { error } = await sb.auth.resetPasswordForEmail(cleanEmail, {
-      redirectTo: recoveryRedirectTo()
+      redirectTo: authRedirectTo()
     });
     if (error) return { success: false, message: error.message };
     return {
       success: true,
       message: 'Se l\'email è registrata, riceverai un link per reimpostare la password.'
     };
+  }
+
+  /** Admin: email «cambio password» con redirect fisso produzione (via edge). */
+  async function reinviaInvito(email) {
+    const sb = requireClient();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail) return { success: false, message: 'Email obbligatoria' };
+    const { data, error } = await sb.functions.invoke('invite-user', {
+      body: { email: cleanEmail, passwordReset: true }
+    });
+    if (error) return { success: false, message: error.message };
+    if (data?.success) return data;
+    // Fallback se edge non aggiornata: recovery client-side con stesso redirect produzione
+    return resetPasswordForEmail(cleanEmail);
   }
 
   async function updatePassword(password) {
@@ -659,14 +669,10 @@
     return passwordInvitePending;
   }
 
-  async function reinviaInvito(email) {
-    return resetPasswordForEmail(email);
-  }
-
   async function invitaUtente(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, redirectTo: authRedirectTo() }
+      body: { email }
     });
     if (error) return { success: false, message: error.message };
     return data || { success: false, message: 'Invito non riuscito' };

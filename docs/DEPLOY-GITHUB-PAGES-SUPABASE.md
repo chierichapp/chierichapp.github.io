@@ -20,6 +20,7 @@ Non serve Google Apps Script né Docker. Il browser parla direttamente con Supab
    - **Site URL**: `https://chierichapp.github.io`
    - **Redirect URLs**: `https://chierichapp.github.io`, `https://chierichapp.github.io/**`
    - Se Site URL resta `http://localhost:3000`, i link di invito/reset nelle email useranno sempre localhost (GoTrue ignora `redirectTo` non in allow-list)
+   - Vale per **invito**, **reinvio invito** e **cambio/reset password**
 3. **Authentication → Providers → Email**: abilita Email (disattiva "Confirm email" in sviluppo se vuoi bootstrap immediato)
 3. **SQL Editor**: esegui in ordine:
    - `supabase/migrations/001_init.sql`

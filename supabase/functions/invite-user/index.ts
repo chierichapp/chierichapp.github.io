@@ -27,6 +27,21 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const email = String(body.email || '').trim().toLowerCase();
     if (!email) throw new Error('Email obbligatoria');
+
+    // Cambio / reset password (admin → «Invia cambio password»)
+    if (body.passwordReset || body.sendRecovery) {
+      const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
+        redirectTo: APP_REDIRECT,
+      });
+      if (resetError) throw resetError;
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Link per il cambio password inviato via email'
+      }), {
+        headers: { ...cors, 'Content-Type': 'application/json' }
+      });
+    }
+
     if (body.resetExisting) {
       const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (listError) throw listError;
