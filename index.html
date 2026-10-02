@@ -34,7 +34,7 @@
     </div>
     <div id="auth-error" class="auth-error" role="alert"></div>
     <p id="auth-bootstrap-hint" class="auth-hint" style="display:none">
-      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi da Anagrafica → Cerimonieri e Don.
+      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi dalla pagina Cerimonieri.
     </p>
     <p id="auth-info-hint" class="auth-hint" style="display:none" role="status"></p>
     <div id="auth-google-block" class="auth-google-block" hidden>
@@ -53,12 +53,24 @@
       </div>
       <div class="form-group" id="auth-password-wrap">
         <label for="auth-password">Password</label>
-        <input type="password" id="auth-password" required autocomplete="current-password" placeholder="••••••••">
+        <div class="auth-password-field">
+          <input type="password" id="auth-password" required autocomplete="current-password" placeholder="••••••••">
+          <button type="button" class="auth-password-toggle" id="auth-password-toggle" onclick="toggleAuthPassword('auth-password')" aria-label="Mostra password" aria-pressed="false" title="Mostra password">
+            <svg class="auth-password-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="auth-password-icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
       </div>
       <button type="button" class="auth-forgot-link" id="auth-forgot-link" style="display:none" onclick="setAuthMode('forgot')">Password dimenticata?</button>
       <div class="form-group" id="auth-password2-wrap" style="display:none">
         <label for="auth-password2">Conferma nuova password</label>
-        <input type="password" id="auth-password2" autocomplete="new-password" placeholder="Ripeti la password" minlength="6">
+        <div class="auth-password-field">
+          <input type="password" id="auth-password2" autocomplete="new-password" placeholder="Ripeti la password" minlength="6">
+          <button type="button" class="auth-password-toggle" id="auth-password2-toggle" onclick="toggleAuthPassword('auth-password2')" aria-label="Mostra password" aria-pressed="false" title="Mostra password">
+            <svg class="auth-password-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="auth-password-icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
       </div>
       <div class="form-group" id="auth-nome-wrap" style="display:none">
         <label for="auth-nome">Nome e cognome</label>
@@ -121,23 +133,21 @@
         </span>
         Registro
       </button>
-      <button class="nav-item is-group-start" data-section="messe" onclick="showSection('messe')">
+      <button class="nav-item" data-section="messe" onclick="showSection('messe')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg>
         </span>
         Messe
       </button>
-      <button class="nav-item" data-section="calendario" onclick="showSection('calendario')">
-        <span class="nav-item-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
-        </span>
-        Calendario
-      </button>
       <button class="nav-item" data-section="info" onclick="showSection('info')">
         <span class="nav-item-icon" aria-hidden="true">ⓘ</span>
         Info sull’app
       </button>
-      <button class="nav-item is-group-start" data-section="gruppi" onclick="showSection('gruppi')">
+      <button class="nav-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
+        <span class="nav-item-icon" aria-hidden="true">⚙</span>
+        Struttura liturgica
+      </button>
+      <button class="nav-item" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </span>
@@ -149,7 +159,7 @@
         </span>
         Turni
       </button>
-      <button class="nav-item is-group-start" data-section="anagrafica" onclick="showSection('anagrafica')">
+      <button class="nav-item" data-section="anagrafica" onclick="showSection('anagrafica')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg>
         </span>
@@ -251,7 +261,7 @@
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
-          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Cerimonieri e Don</button>
+          <button type="button" class="section-tab nav-admin-only" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')" hidden>Cerimonieri</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -528,9 +538,9 @@
             </div>
             <div class="panel-body">
               <div class="turni-structure-hint">
-                <strong>Le strutture si gestiscono in Messe → Strutture.</strong>
+                <strong>I modelli si configurano in Struttura liturgica.</strong>
                 <span>Qui vengono usate solo le Messe contrassegnate “Con squadra” per assegnare e ruotare i gruppi.</span>
-                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('messe'); setTimeout(() => showMesseLocalPanel('strutture'), 0)">Apri Strutture</button>
+                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('strutture-messe')">Apri Struttura liturgica</button>
               </div>
               <p class="rotazione-status-text" id="rotazione-anteprima-text">Apri una finestra da Gestione per attivare la rotazione automatica.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
@@ -592,81 +602,24 @@
         </div>
 
         <div id="turni-panel-messe" class="turni-tab-panel">
-          <div class="struttura-messe-kind" role="tablist" aria-label="Tipo struttura">
+          <div class="struttura-messe-kind" role="tablist" aria-label="Categoria modelli">
             <button type="button" class="struttura-chip active" data-struttura="domenicale" id="chip-struttura-domenicale" onclick="setStrutturaMesseKind('domenicale')">Domenicale</button>
             <button type="button" class="struttura-chip" data-struttura="natalizio" id="chip-struttura-natalizio" onclick="setStrutturaMesseKind('natalizio')">Natalizio</button>
             <button type="button" class="struttura-chip" data-struttura="pasquale" id="chip-struttura-pasquale" onclick="setStrutturaMesseKind('pasquale')">Pasquale</button>
             <button type="button" class="struttura-chip" data-struttura="defunti" id="chip-struttura-defunti" onclick="setStrutturaMesseKind('defunti')">Defunti</button>
             <button type="button" class="struttura-chip" data-struttura="festivo" id="chip-struttura-festivo" onclick="setStrutturaMesseKind('festivo')">Festivo</button>
           </div>
-          <div class="turni-layout-grid">
-            <div class="panel">
-              <div class="panel-head">
-                <h3 id="turni-struttura-title">Struttura delle celebrazioni</h3>
-                <p id="messe-domenicali-summary">Modelli locali per domeniche ordinarie e festività</p>
-              </div>
-              <div class="panel-body">
-                <div id="messe-domenicali-list"></div>
-                <div class="turni-footer-actions">
-                  <button type="button" class="btn btn-ghost-light" id="btn-copia-orario-festivo" hidden onclick="copiaOrarioFestivoDaDomenicale()">Copia da domenicale</button>
-                  <button type="button" class="btn btn-ghost-light" onclick="resetGruppiConfig()">Ripristina predefiniti</button>
-                </div>
-              </div>
+          <div class="struttura-modelli-toolbar">
+            <div class="struttura-modelli-toolbar-copy">
+              <h3 id="turni-struttura-title">Modelli</h3>
+              <p id="messe-domenicali-summary">Scegli la categoria, poi modifica le messe tipiche</p>
             </div>
-
-            <div class="panel turni-form-panel">
-              <div class="panel-head">
-                <h3 id="turni-form-title">Nuova Messa</h3>
-                <p id="turni-form-hint">Aggiungi o modifica una Messa della struttura locale</p>
-              </div>
-              <div class="panel-body">
-                <form id="messaDomenicaleForm">
-                  <input type="hidden" id="messa-domenicale-edit-id" value="">
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="messa-domenicale-day">Giorno</label>
-                      <select id="messa-domenicale-day" required onchange="syncMessaDomenicaleFormDay()">
-                        <option value="-1">Sabato (vigilia)</option>
-                        <option value="0" selected>Domenica</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="messa-domenicale-ora">Ora</label>
-                      <input type="time" id="messa-domenicale-ora" required value="10:00">
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="messa-domenicale-sede">Sede</label>
-                    <select id="messa-domenicale-sede" required>
-                      <option value="santuario">Santuario</option>
-                      <option value="vanzago">Vanzago</option>
-                      <option value="mantegazza">Mantegazza</option>
-                    </select>
-                  </div>
-                  <div class="form-check-group">
-                    <label class="form-check" id="messa-domenicale-vigilia-wrap" for="messa-domenicale-vigilia">
-                      <input type="checkbox" id="messa-domenicale-vigilia">
-                      <span class="form-check-text">
-                        <span class="form-check-title">Vigilia domenicale</span>
-                        <span class="form-check-desc">Messa del sabato sera</span>
-                      </span>
-                    </label>
-                    <label class="form-check" for="messa-domenicale-con-turno">
-                      <input type="checkbox" id="messa-domenicale-con-turno" checked>
-                      <span class="form-check-text">
-                        <span class="form-check-title">Con squadra chierichetti</span>
-                        <span class="form-check-desc">Crea un gruppo squadra per il servizio d'altare</span>
-                      </span>
-                    </label>
-                  </div>
-                  <div class="form-actions" style="display:flex;gap:10px;flex-wrap:wrap">
-                    <button type="submit" class="btn btn-primary btn-full" id="btn-save-messa-domenicale">Aggiungi celebrazione</button>
-                    <button type="button" class="btn btn-ghost btn-full" id="btn-cancel-messa-domenicale" style="display:none" onclick="cancelMessaDomenicaleEdit()">Annulla modifica</button>
-                  </div>
-                </form>
-              </div>
+            <div class="struttura-modelli-toolbar-actions">
+              <button type="button" class="btn btn-primary" id="btn-struttura-add-messa" hidden onclick="openMessaDomenicaleModal()">+ Messa</button>
+              <button type="button" class="btn btn-secondary" id="btn-applica-modello" onclick="applicaModelloCorrente()">Riapplica</button>
             </div>
           </div>
+          <div id="messe-domenicali-list" class="struttura-modelli-list"></div>
         </div>
       </section>
 
@@ -992,9 +945,9 @@
             <p>Le Messe effettivamente celebrate dalla parrocchia, con turni, appelli e presenze</p>
           </div>
           <div class="panel-body">
-            <div class="messe-local-tabs" role="tablist" aria-label="Celebrazioni locali">
-              <button type="button" class="section-tab active" onclick="showMesseLocalPanel('agenda')">Agenda</button>
-              <button type="button" class="section-tab" onclick="showMesseLocalPanel('strutture')">Strutture</button>
+            <div class="messe-local-tabs messe-view-tabs" role="tablist" aria-label="Vista delle Messe">
+              <button type="button" class="section-tab" data-messe-view="agenda" aria-pressed="true" onclick="setMesseView('agenda')">Agenda</button>
+              <button type="button" class="section-tab" data-messe-view="calendario" aria-pressed="false" onclick="setMesseView('calendario')">Calendario</button>
             </div>
             <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
               <span><i class="lit-verde"></i> Verde</span>
@@ -1030,7 +983,6 @@
                   </div>
                   <div class="messe-toolbar-right">
                     <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
-                    <button type="button" class="btn btn-ghost messe-sync-fest-btn" onclick="syncFestivitaAnnoManual()" title="Sincronizza festività dalle strutture">Sync festività</button>
                     <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
                   </div>
                   </div>
@@ -1100,23 +1052,45 @@
                 </div>
               </div>
             </div>
-            <div id="messe-strutture-slot" class="messe-strutture-slot" hidden></div>
           </div>
         </div>
       </section>
 
-      <!-- Calendario liturgico ambrosiano -->
-      <section id="calendario" class="section">
-        <div class="panel-head calendario-page-intro">
-          <h3>Calendario liturgico ambrosiano</h3>
-          <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici. Le celebrazioni locali si gestiscono in Messe.</p>
+      <section id="strutture-messe" class="section">
+        <div class="struttura-page-hero">
+          <ol class="struttura-pipeline-steps" aria-label="Passi della struttura liturgica">
+            <li class="struttura-pipeline-step is-active" data-step="calendario" role="button" tabindex="0" aria-current="step" onclick="setStrutturaLiturgicaTab('calendario')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('calendario')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">1</span>
+              <span class="struttura-pipeline-label">Calendario</span>
+              <span class="struttura-pipeline-desc">Fonte ambrosiana</span>
+            </li>
+            <li class="struttura-pipeline-step" data-step="modelli" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('modelli')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('modelli')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">2</span>
+              <span class="struttura-pipeline-label">Modelli</span>
+              <span class="struttura-pipeline-desc">Override comunità</span>
+            </li>
+            <li class="struttura-pipeline-step" data-step="correzioni" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('correzioni')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('correzioni')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">3</span>
+              <span class="struttura-pipeline-label">Correzioni</span>
+              <span class="struttura-pipeline-desc">Anno pastorale</span>
+            </li>
+          </ol>
         </div>
+        <!-- Tab nascoste: la pipeline è la navigazione primaria; restano per sync stato JS -->
+        <div class="section-tabs struttura-section-tabs" role="tablist" aria-label="Struttura liturgica" hidden>
+          <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')"><span class="tab-label-full">Calendario</span><span class="tab-label-short">Cal.</span></button>
+          <button type="button" class="section-tab" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="false" onclick="setStrutturaLiturgicaTab('modelli')"><span class="tab-label-full">Modelli</span><span class="tab-label-short">Modelli</span></button>
+          <button type="button" class="section-tab" id="tab-struttura-correzioni" aria-controls="struttura-liturgica-correzioni" aria-pressed="false" onclick="setStrutturaLiturgicaTab('correzioni')"><span class="tab-label-full">Correzioni</span><span class="tab-label-short">Correz.</span></button>
+        </div>
+
+        <!-- 1. Calendario liturgico ambrosiano -->
+        <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario">
         <div class="cal-section-head">
           <div class="cal-legend" aria-label="Legenda gradi liturgici">
             <span><i class="solemnity"></i> S — Solennità</span>
             <span><i class="feast"></i> F — Festa</span>
             <span><i class="memorial"></i> M — Memoria</span>
-            <span><i class="feriale"></i> m — Memoria facoltativa</span>
+            <span><i class="feriale"></i> m — Facoltativa</span>
           </div>
 
           <div class="calendar-toolbar" id="cal-toolbar">
@@ -1128,7 +1102,7 @@
                 <option value="2027">2027</option>
               </select>
               <button type="button" class="btn btn-secondary" id="btn-cal-refresh" onclick="loadCalendario(true)" aria-label="Aggiorna calendario">
-                <span class="cal-refresh-label">Aggiorna calendario</span>
+                <span class="cal-refresh-label">Aggiorna</span>
                 <span class="cal-refresh-icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
                 </span>
@@ -1136,8 +1110,13 @@
             </div>
             <label class="cal-filter" for="cal-filter-important">
               <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
-              <span class="cal-filter-label-full">Evidenzia solo solennità, feste e memorie</span>
+              <span class="cal-filter-label-full">Solo solennità, feste e memorie</span>
               <span class="cal-filter-label-short">Solo S · F · M</span>
+            </label>
+            <label class="cal-filter" for="cal-escludi-feriali" title="Niente servizio all’altare da lunedì a sabato, salvo tempi natalizio/pasquale/defunti e solennità">
+              <input type="checkbox" id="cal-escludi-feriali" onchange="onEscludiFerialiIntrasettimanaliChange()">
+              <span class="cal-filter-label-full">Escludi feriali lun–sab</span>
+              <span class="cal-filter-label-short">No feriali</span>
             </label>
           </div>
         </div>
@@ -1165,20 +1144,54 @@
                 <p class="day-detail-empty empty-state-inline">Seleziona un giorno nel calendario</p>
               </div>
             </div>
-
-            <div class="panel">
-              <div class="panel-head">
-                <h3>Prossime celebrazioni</h3>
-                <p>Solennità, feste e memorie in arrivo</p>
-              </div>
-              <div class="panel-body">
-                <div class="celebration-list" id="prossime-celebrazioni"></div>
-              </div>
-            </div>
           </div>
         </div>
 
         <p class="cal-source" id="cal-source"></p>
+      </div>
+
+        <!-- 2. Modelli strutture -->
+        <div id="struttura-liturgica-modelli" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-modelli" hidden>
+          <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
+        </div>
+
+        <!-- Applica: nascosto — i modelli si applicano al salvataggio; panel tenuto per deep-link legacy -->
+        <div id="struttura-liturgica-applica" class="struttura-pipeline-panel" role="tabpanel" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Riapplica all’anno</h3>
+              <p>I modelli si applicano automaticamente al salvataggio. Usa questo solo per forzare un refresh dell’anno.</p>
+            </div>
+            <div class="panel-body">
+              <div class="struttura-applica-toolbar">
+                <label for="anno-struttura-applica">Anno pastorale</label>
+                <select id="anno-struttura-applica" onchange="onStrutturaApplicaAnnoChange()">
+                  <option value="2026" selected>2026/27</option>
+                </select>
+                <button type="button" class="btn btn-primary" id="btn-applica-strutture-anno" onclick="applicaStruttureAnno()">Riapplica</button>
+              </div>
+              <div id="struttura-applica-summary" class="struttura-applica-summary"></div>
+              <div id="struttura-applica-list" class="struttura-applica-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Correzioni anno pastorale -->
+        <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
+          <div class="struttura-correzioni-toolbar">
+            <div class="struttura-correzioni-toolbar-copy">
+              <h3>Correzioni</h3>
+              <p id="struttura-correzioni-sub">Giorni civili dell’anno · modelli applicati · senza messe = senza servizio</p>
+            </div>
+            <div class="struttura-correzioni-toolbar-actions">
+              <label for="anno-struttura-correzioni">Anno</label>
+              <select id="anno-struttura-correzioni" onchange="onStrutturaCorrezioniAnnoChange()">
+                <option value="2026" selected>2026/27</option>
+              </select>
+            </div>
+          </div>
+          <div id="struttura-correzioni-list" class="struttura-correzioni-list"></div>
+        </div>
       </section>
 
       <!-- Accessi (log login — solo admin) -->
@@ -1214,7 +1227,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano in <strong>Messe → Strutture</strong>.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti della comunità. Partono dal default ambrosiano e si possono sovrascrivere:</p><ul><li>domenicale ordinario (default su ogni domenica);</li><li>tempi natalizio, pasquale e defunti per i giorni speciali;</li><li>«non celebriamo» se una festa ambrosiana non si fa in parrocchia;</li><li>messe aggiunte nei feriali del tempo (dove il calendario non ha festa);</li><li>correzioni per anno pastorale: orario/sede; senza messe = senza servizio.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
@@ -1357,9 +1370,9 @@
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg></span>
         Messe
       </button>
-      <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
-        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
-        Calendario
+      <button type="button" class="mobile-more-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
+        <span class="mobile-more-ico" aria-hidden="true">⚙</span>
+        Struttura liturgica
       </button>
       <button type="button" class="mobile-more-item" data-section="info" onclick="showSection('info')">
         <span class="mobile-more-ico" aria-hidden="true">ⓘ</span>
@@ -1427,6 +1440,69 @@
       <button type="button" class="btn btn-secondary" onclick="closeMessaNotaModal()">Annulla</button>
       <button type="button" class="btn btn-primary" id="messa-nota-modal-submit" onclick="submitMessaNotaModal()">Inserisci nota</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="struttura-modello-modal" role="dialog" aria-modal="true" aria-labelledby="struttura-modello-modal-title" onclick="if(event.target===this)closeStrutturaModelloModal()">
+  <div class="modal struttura-modello-modal">
+    <div class="struttura-modello-modal-head">
+      <div>
+        <h3 id="struttura-modello-modal-title">Modifica modello</h3>
+        <p id="struttura-modello-modal-sub"></p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-icon" onclick="closeStrutturaModelloModal()" aria-label="Chiudi">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="struttura-modello-modal-body" class="struttura-modello-modal-body">
+      <form id="messaDomenicaleForm" hidden>
+        <input type="hidden" id="messa-domenicale-edit-id" value="">
+        <div class="form-group">
+          <label for="messa-domenicale-titolo">Titolo <span class="form-optional">(opzionale)</span></label>
+          <input type="text" id="messa-domenicale-titolo" maxlength="80" placeholder="Es. Cena Domini, Via Crucis">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="messa-domenicale-day">Giorno</label>
+            <select id="messa-domenicale-day" required onchange="syncMessaDomenicaleFormDay()">
+              <option value="-1">Sabato (vigilia)</option>
+              <option value="0" selected>Domenica</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="messa-domenicale-ora">Ora</label>
+            <input type="time" id="messa-domenicale-ora" required value="10:00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="messa-domenicale-sede">Sede</label>
+          <select id="messa-domenicale-sede" required>
+            <option value="santuario">Santuario</option>
+            <option value="vanzago">Vanzago</option>
+            <option value="mantegazza">Mantegazza</option>
+            <option value="cimitero">Cimitero Vanzago</option>
+          </select>
+        </div>
+        <div class="form-check-group">
+          <label class="form-check" id="messa-domenicale-vigilia-wrap" for="messa-domenicale-vigilia">
+            <input type="checkbox" id="messa-domenicale-vigilia">
+            <span class="form-check-text">
+              <span class="form-check-title">Vigilia domenicale</span>
+              <span class="form-check-desc">Messa del sabato sera</span>
+            </span>
+          </label>
+          <label class="form-check" for="messa-domenicale-con-turno">
+            <input type="checkbox" id="messa-domenicale-con-turno" checked>
+            <span class="form-check-text">
+              <span class="form-check-title">Con squadra chierichetti</span>
+              <span class="form-check-desc">Crea un gruppo squadra per il servizio d'altare</span>
+            </span>
+          </label>
+        </div>
+      </form>
+      <div id="struttura-slots-editor-host" hidden></div>
+    </div>
+    <div class="modal-actions" id="struttura-modello-modal-actions"></div>
   </div>
 </div>
 

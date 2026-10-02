@@ -3,18 +3,23 @@ const isSupabase = !!(window.CHIERICH_CONFIG?.supabaseUrl && window.CHIERICH_CON
   && !String(window.CHIERICH_CONFIG.supabaseUrl).includes('YOUR_PROJECT'));
 const isGAS = !isSupabase && typeof google !== 'undefined' && google.script && google.script.host;
 const STORAGE_KEY = 'chierichetti_data';
+const MESSE_EXTRA_PENDING_KEY = 'chierichapp_messe_extra_pending';
+const LITURGICAL_CONFIG_PENDING_KEY = 'chierichapp_liturgical_config_pending';
+const CALENDAR_CACHE_PREFIX = 'chierichapp_calendario_';
 const DATA_SCHEMA_VERSION = 6;
 
 const PAGE_META = {
   dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
   presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
   registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
-  messe:      { title: 'Messe',      subtitle: 'Agenda locale e strutture delle Messe' },
+  messe:      { title: 'Messe',      subtitle: 'Agenda e calendario delle celebrazioni' },
   turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
   gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
+  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti ed ex' },
+  cerimonieri:{ title: 'Cerimonieri', subtitle: 'Gestione degli account e dei ruoli' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
-  calendario: { title: 'Calendario', subtitle: 'Calendario liturgico ambrosiano' },
+  calendario: { title: 'Struttura liturgica', subtitle: 'Calendario ambrosiano e modelli delle celebrazioni' },
+  'strutture-messe': { title: 'Struttura liturgica', subtitle: 'Calendario → modelli → correzioni (servizio altare)' },
   info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -25,7 +30,12 @@ const GRUPPI_LABEL_LEGACY = {
   gruppo3: 'Gruppo 3',
   centrale: 'Centrale', nord: 'Nord', sud: 'Sud', est: 'Est', ovest: 'Ovest'
 };
-const SEDI_LABEL = { santuario: 'Santuario', vanzago: 'Vanzago', mantegazza: 'Mantegazza' };
+const SEDI_LABEL = {
+  santuario: 'Santuario',
+  vanzago: 'Vanzago',
+  mantegazza: 'Mantegazza',
+  cimitero: 'Cimitero Vanzago'
+};
 const PARROCCHIA_LABEL = { vanzago: 'Vanzago', mantegazza: 'Mantegazza' };
 const CLASSE_TO_ANNO_NASCITA = { '1a': '2015', '2a': '2014', '3a': '2013', '4a': '2012', '5a': '2011' };
 const RUOLI_LABEL = { chierichetto: 'Chierichetto', cerimoniere: 'Cerimoniere', prete: 'Don' };
@@ -59,6 +69,21 @@ const DEFAULT_MESSE_DOMENICALI = [
   { id: 'msc2', dayOffset: 0, ora: '18:00', sede: 'mantegazza', vigilia: false, conTurno: false }
 ];
 
+/** Orario festivo di un solo giorno (senza vigilia) — Natale, Pasqua, 1 gen, Santo Stefano… */
+const DEFAULT_MESSE_FESTIVE_GIORNO = [
+  { id: 'fes1', dayOffset: 0, ora: '08:30', sede: 'vanzago', vigilia: false, conTurno: true, turnoNum: 1 },
+  { id: 'fes2', dayOffset: 0, ora: '10:00', sede: 'mantegazza', vigilia: false, conTurno: false },
+  { id: 'fes3', dayOffset: 0, ora: '11:15', sede: 'santuario', vigilia: false, conTurno: true, turnoNum: 2 }
+];
+
+/** Pattern domenicale con messa vigiliare la sera prima (Tutti i Santi, Epifania…) */
+const DEFAULT_MESSE_CON_VIGILIA = [
+  { id: 'vig1', dayOffset: -1, ora: '18:00', sede: 'santuario', vigilia: true, conTurno: true, turnoNum: 1 },
+  { id: 'vig2', dayOffset: 0, ora: '08:30', sede: 'vanzago', vigilia: false, conTurno: true, turnoNum: 2 },
+  { id: 'vig3', dayOffset: 0, ora: '10:00', sede: 'mantegazza', vigilia: false, conTurno: false },
+  { id: 'vig4', dayOffset: 0, ora: '11:15', sede: 'santuario', vigilia: false, conTurno: true, turnoNum: 3 }
+];
+
 /** Metadati strutture messe (tempi liturgici + festivo generico) */
 const STRUTTURA_KINDS = {
   domenicale: {
@@ -66,36 +91,74 @@ const STRUTTURA_KINDS = {
     configKey: 'strutturaDomenicaleOrdinaria',
     label: 'Domenicale ordinario',
     shortLabel: 'Domenica',
-    hint: 'Domeniche e vigilie fuori dai tempi speciali'
+    hint: 'Si applica a ogni domenica ordinaria (e alla vigilia del sabato)'
   },
   natalizio: {
     id: 'natalizio',
     configKey: 'strutturaTempoNatalizio',
     label: 'Tempo natalizio',
     shortLabel: 'Natale',
-    hint: 'Tutti i giorni dal Natale al Battesimo del Signore'
+    hint: 'Preset e ferie del tempo; ha priorità sul domenicale ordinario'
   },
   pasquale: {
     id: 'pasquale',
     configKey: 'strutturaTempoPasquale',
     label: 'Tempo pasquale',
     shortLabel: 'Pasqua',
-    hint: 'Tutti i giorni da Pasqua a Pentecoste'
+    hint: 'Triduo, Pasqua e ferie; ha priorità sul domenicale ordinario'
   },
   defunti: {
     id: 'defunti',
     configKey: 'strutturaTempoDefunti',
     label: 'Defunti / Tutti i Santi',
     shortLabel: 'Defunti',
-    hint: 'Finestra Tutti i Santi e Commemorazione dei defunti'
+    hint: '1–2 novembre e ferie della finestra; ha priorità sul domenicale'
   },
   festivo: {
     id: 'festivo',
     configKey: 'strutturaFestivoGenerico',
     label: 'Festivo generico',
     shortLabel: 'Festivo',
-    hint: 'Solennità e feste fuori dai tempi speciali'
+    hint: 'Solennità e feste a giorno singolo (anche se cadono di domenica)'
   }
+};
+
+/** Giorni-modello (= preset) mostrati in Modelli, raggruppati per categoria.
+ *  `celebrationKey` = blocco celebrazione distinto sullo stesso giorno liturgico (`eventKey`).
+ *  `dayPreset` = preset giorno usato in detectFestivityPreset / merge slot.
+ */
+const STRUTTURA_GIORNI_SPECIALI = {
+  natalizio: [
+    { presetId: 'christmasVigilEve', label: 'Vigilia', eventKey: 'Christmas_vigil', celebrationKey: 'vigilia', dayPreset: 'christmasVigil', dateHint: '24 dicembre' },
+    { presetId: 'christmasNight', label: 'Notte', eventKey: 'Christmas_vigil', celebrationKey: 'notte', dayPreset: 'christmasVigil', dateHint: '24 dicembre' },
+    { presetId: 'christmasDay', label: 'Natale', eventKey: 'Christmas', dateHint: '25 dicembre' },
+    { presetId: 'stephen', label: 'Santo Stefano', eventKey: 'Stephen', dateHint: '26 dicembre' },
+    { presetId: 'newYearEve', label: '31 dicembre', eventKey: 'NewYearEve', dateHint: 'Te Deum' },
+    { presetId: 'newYearDay', label: '1° gennaio', eventKey: 'MaryMotherOfGod', dateHint: 'Ottava di Natale' },
+    { presetId: 'epiphanyVigil', label: 'Vigilia Epifania', eventKey: 'Epiphany_vigil', dateHint: '5 gennaio' },
+    { presetId: 'epiphanyDay', label: 'Epifania', eventKey: 'Epiphany', dateHint: '6 gennaio' },
+    { presetId: 'seasonFallback', label: 'Ferie del tempo', eventKey: null, dateHint: 'Solo feriali lun–sab (non le domeniche)', usesSeasonTemplate: true, seasonKind: 'natalizio' }
+  ],
+  pasquale: [
+    { presetId: 'holyThursLavanda', label: 'Lavanda dei Piedi', eventKey: 'HolyThurs', celebrationKey: 'lavanda', dayPreset: 'holyThurs', dateHint: 'Giovedì Santo' },
+    { presetId: 'holyThursCena', label: 'Cena Domini', eventKey: 'HolyThurs', celebrationKey: 'cena', dayPreset: 'holyThurs', dateHint: 'Giovedì Santo' },
+    { presetId: 'goodFriPassione', label: 'Passione del Signore', eventKey: 'GoodFri', celebrationKey: 'passione', dayPreset: 'goodFri', dateHint: 'Venerdì Santo' },
+    { presetId: 'goodFriViaCrucis', label: 'Via Crucis', eventKey: 'GoodFri', celebrationKey: 'viaCrucis', dayPreset: 'goodFri', dateHint: 'Venerdì Santo' },
+    { presetId: 'easterVigil', label: 'Veglia Pasquale', eventKey: 'EasterVigil', dateHint: 'Sabato Santo' },
+    { presetId: 'easterDay', label: 'Pasqua', eventKey: 'Easter', dateHint: 'Domenica di Risurrezione' },
+    { presetId: 'seasonFallback', label: 'Ferie del tempo', eventKey: null, dateHint: 'Solo feriali lun–sab (non le domeniche)', usesSeasonTemplate: true, seasonKind: 'pasquale' }
+  ],
+  defunti: [
+    { presetId: 'allSaintsVigil', label: 'Vigilia Tutti i Santi', eventKey: 'AllSaints', celebrationKey: 'vigilia', dayPreset: 'allSaints', dateHint: '31 ottobre' },
+    { presetId: 'allSaintsDay', label: 'Messe del giorno', eventKey: 'AllSaints', celebrationKey: 'giorno', dayPreset: 'allSaints', dateHint: '1 novembre' },
+    { presetId: 'allSoulsVigil', label: 'Vespri dei Defunti', eventKey: 'AllSouls', celebrationKey: 'vespri', dayPreset: 'allSouls', dateHint: '1 novembre' },
+    { presetId: 'allSoulsDay', label: 'Messe del giorno', eventKey: 'AllSouls', celebrationKey: 'giorno', dayPreset: 'allSouls', dateHint: '2 novembre' },
+    { presetId: 'seasonFallback', label: 'Altri giorni della finestra', eventKey: null, dateHint: 'Solo feriali fuori dalle feste (non le domeniche)', usesSeasonTemplate: true, seasonKind: 'defunti' }
+  ],
+  festivo: [
+    { presetId: 'solennita', label: 'Orario festivo', eventKey: null, dateHint: 'Giorno singolo senza vigilia', usesSeasonTemplate: true, seasonKind: 'festivo' },
+    { presetId: 'solennitaConVigilia', label: 'Festivo con vigilia', eventKey: 'SolennitaConVigilia', dateHint: 'Vigilia 18 + giorno' }
+  ]
 };
 
 const DEFAULT_GRUPPI_CONFIG = {
@@ -107,14 +170,19 @@ const DEFAULT_GRUPPI_CONFIG = {
   /** @deprecated migrato in strutturaDomenicaleOrdinaria */
   messeDomenicali: JSON.parse(JSON.stringify(DEFAULT_MESSE_DOMENICALI)),
   /** @deprecated migrato in strutturaFestivoGenerico */
-  messeFestive: [],
+  messeFestive: JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO)),
   strutturaDomenicaleOrdinaria: JSON.parse(JSON.stringify(DEFAULT_MESSE_DOMENICALI)),
-  strutturaTempoNatalizio: [],
-  strutturaTempoPasquale: [],
-  strutturaTempoDefunti: [],
-  strutturaFestivoGenerico: [],
+  strutturaTempoNatalizio: JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO)),
+  strutturaTempoPasquale: JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO)),
+  strutturaTempoDefunti: JSON.parse(JSON.stringify(DEFAULT_MESSE_CON_VIGILIA)),
+  strutturaFestivoGenerico: JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO)),
+  giorniLiturgici: {},
   festivitaEscluse: [],
   festivitaModelli: [],
+  /** Date effettive per anno civile: { AllSaints: { '2026': '2026-10-31' }, ... } */
+  festivitaDateOverrides: {},
+  /** Se true: lun–sab senza servizio salvo tempi Natale/Pasqua/Defunti e solennità */
+  escludiFerialiIntrasettimanali: false,
   rotazione: { attiva: false, inizioFinestra: null, fineFinestra: null, storicoFinestre: [] },
   cronologia: []
 };
@@ -122,6 +190,8 @@ const DEFAULT_GRUPPI_CONFIG = {
 let editingMessaDomenicaleId = null;
 /** Chiave in STRUTTURA_KINDS */
 let strutturaMesseKind = 'domenicale';
+/** Mese corrente in Correzioni (`YYYY-MM`), null = auto (primo mese con giorni / mese odierno). */
+let strutturaCorrezioniMonthKey = null;
 /** Tab hub calendario (legacy, non più usato in UI) */
 let calendarioHubTab = 'ambrosiano';
 let turniTab = 'anteprima';
@@ -185,7 +255,9 @@ const messeState = {
   selectedDate: null,
   loading: false,
   reloadQueued: false,
-  showPast: false
+  showPast: false,
+  view: localStorage.getItem('messe_view') === 'calendario' ? 'calendario' : 'agenda',
+  month: new Date().getMonth()
 };
 
 // ── Init ────────────────────────────────────────────────────
@@ -205,78 +277,124 @@ document.addEventListener('DOMContentLoaded', () => {
 const SECTION_ROUTES = {
   dashboard: 'oggi', presenze: 'appello', registro: 'registro', messe: 'messe',
   calendario: 'calendario', gruppi: 'gruppi', turni: 'turni',
-  anagrafica: 'anagrafica', accessi: 'accessi', info: 'info', account: 'account'
+  'strutture-messe': 'strutture-messe', anagrafica: 'anagrafica', cerimonieri: 'cerimonieri', accessi: 'accessi', info: 'info', account: 'account'
 };
 const ROUTE_SECTIONS = Object.fromEntries(Object.entries(SECTION_ROUTES).map(([section, route]) => [route, section]));
+let lastNavigationUrl = location.href;
 
 function sectionFromRoute() {
   const route = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/')[0];
   return ROUTE_SECTIONS[route] || null;
 }
 
-window.addEventListener('hashchange', () => {
+function restoreSectionFromLocation() {
+  if (lastNavigationUrl === location.href) return;
+  lastNavigationUrl = location.href;
   const section = sectionFromRoute();
   if (section && document.getElementById(section)) void showSection(section, { syncUrl: false });
+}
+
+window.addEventListener('hashchange', restoreSectionFromLocation);
+window.addEventListener('popstate', restoreSectionFromLocation);
+
+window.addEventListener('online', async () => {
+  if (!currentUser) return;
+  let pending = false;
+  if (localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1') {
+    pending = true;
+    if (!await persistMesseExtra()) return;
+  }
+  if (localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1') {
+    pending = true;
+    if (!await persistConfig()) return;
+  }
+  if (pending) {
+    setSyncBanner('');
+    const status = document.getElementById('sync-status');
+    if (status) status.textContent = isSupabase ? 'Modifiche sincronizzate con Supabase' : 'Modifiche sincronizzate';
+    refreshVisibleUi();
+  }
 });
 
 function moveStrutturaMesseToMesse() {
   const panel = document.getElementById('turni-panel-messe');
-  const target = document.getElementById('messe-strutture-slot');
+  const target = document.getElementById('strutture-messe-slot');
   const tab = document.getElementById('tab-turni-messe');
   if (!panel || !target) return;
   target.appendChild(panel);
   panel.classList.remove('turni-tab-panel');
   panel.classList.add('messe-struttura-panel');
-  panel.hidden = true;
+  panel.hidden = false;
   panel.style.removeProperty('display');
   if (tab) tab.hidden = true;
 }
 
-function showMesseLocalPanel(panelName) {
-  const target = document.getElementById('messe-strutture-slot');
-  const structure = document.getElementById('turni-panel-messe');
-  const agenda = document.querySelector('#messe .messe-layout');
-  const showStructure = panelName === 'strutture';
-  if (target) {
-    target.hidden = !showStructure;
-    if (showStructure) target.style.removeProperty('display');
-    else target.style.display = 'none';
+function setStrutturaLiturgicaTab(tab) {
+  // 'applica' resta raggiungibile via codice ma non ha più tab UI
+  const allowed = ['calendario', 'modelli', 'applica', 'correzioni'];
+  let active = allowed.includes(tab) ? tab : 'calendario';
+  if (active === 'applica' && !document.getElementById('tab-struttura-applica')) {
+    // deep-link legacy: mostra panel senza tab
   }
-  if (structure) {
-    structure.hidden = !showStructure;
-    if (showStructure) structure.style.removeProperty('display');
-    else structure.style.display = 'none';
-  }
-  if (agenda) {
-    agenda.hidden = showStructure;
-    if (showStructure) agenda.style.display = 'none';
-    else agenda.style.removeProperty('display');
-  }
-  document.querySelectorAll('#messe .messe-legend, #messe .messe-agenda-summary, #messe .messe-festivo-banner').forEach(el => {
-    if (showStructure) {
-      el.setAttribute('data-hidden-by-strutture', '1');
-      el.style.display = 'none';
-    } else {
-      el.removeAttribute('data-hidden-by-strutture');
-      el.style.removeProperty('display');
+  const panels = {
+    calendario: document.getElementById('calendario'),
+    modelli: document.getElementById('struttura-liturgica-modelli'),
+    applica: document.getElementById('struttura-liturgica-applica'),
+    correzioni: document.getElementById('struttura-liturgica-correzioni')
+  };
+  const tabs = {
+    calendario: document.getElementById('tab-struttura-calendario'),
+    modelli: document.getElementById('tab-struttura-modelli'),
+    correzioni: document.getElementById('tab-struttura-correzioni')
+  };
+  allowed.forEach(id => {
+    if (panels[id]) panels[id].hidden = id !== active;
+  });
+  Object.keys(tabs).forEach(id => {
+    if (!tabs[id]) return;
+    const on = id === active;
+    tabs[id].classList.toggle('active', on);
+    tabs[id].setAttribute('aria-pressed', String(on));
+  });
+  const stepKey = active === 'applica' ? 'correzioni' : active;
+  document.querySelectorAll('.struttura-pipeline-step').forEach(el => {
+    const on = el.dataset.step === stepKey;
+    el.classList.toggle('is-active', on);
+    if (on) el.setAttribute('aria-current', 'step');
+    else el.removeAttribute('aria-current');
+  });
+  if (active === 'calendario') {
+    const anno = getCalAnno();
+    if (!calState.data || calState.data.anno !== anno) void loadCalendario();
+    else {
+      renderCalMonth();
+      ensureCalDaySelected();
     }
-  });
-  document.querySelectorAll('#messe .messe-local-tabs .section-tab').forEach((btn, i) => {
-    btn.classList.toggle('active', showStructure ? i === 1 : i === 0);
-  });
-  if (showStructure) {
+  } else if (active === 'modelli') {
     setStrutturaMesseKind(strutturaMesseKind);
     renderMesseDomenicaliList();
     void ensureStrutturaFestivitaLoaded();
-  } else {
-    void loadMesseAgenda();
+  } else if (active === 'applica') {
+    syncStrutturaAnnoSelects();
+    void renderStrutturaApplicaPanel();
+  } else if (active === 'correzioni') {
+    syncStrutturaAnnoSelects();
+    void renderStrutturaCorrezioniPanel();
   }
+}
+
+function showMesseLocalPanel(panelName) {
+  if (panelName === 'strutture') {
+    void showSection('strutture-messe');
+    return;
+  }
+  setMesseView(panelName === 'calendario' ? 'calendario' : 'agenda');
 }
 
 /** @deprecated mantiene compatibilità link vecchi → Messe */
 function openCalendarioHub(tab) {
   if (tab === 'strutture') {
-    void showSection('messe').then(() => showMesseLocalPanel('strutture'));
+    void showSection('strutture-messe');
   } else if (tab === 'locale') {
     void showSection('messe').then(() => showMesseLocalPanel('agenda'));
   } else {
@@ -340,8 +458,33 @@ function showAuthInfo(msg) {
   }
 }
 
+function toggleAuthPassword(inputId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(inputId + '-toggle');
+  if (!input || !btn) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+  btn.setAttribute('aria-label', show ? 'Nascondi password' : 'Mostra password');
+  btn.title = show ? 'Nascondi password' : 'Mostra password';
+}
+
+function resetAuthPasswordVisibility() {
+  ['auth-password', 'auth-password2'].forEach(id => {
+    const input = document.getElementById(id);
+    const btn = document.getElementById(id + '-toggle');
+    if (input) input.type = 'password';
+    if (btn) {
+      btn.setAttribute('aria-pressed', 'false');
+      btn.setAttribute('aria-label', 'Mostra password');
+      btn.title = 'Mostra password';
+    }
+  });
+}
+
 function setAuthMode(mode, extra = {}) {
   authMode = mode;
+  resetAuthPasswordVisibility();
   const isBootstrap = mode === 'bootstrap';
   const isUnauthorized = mode === 'unauthorized';
   const waitGoogle = mode === 'google-wait';
@@ -367,10 +510,10 @@ function setAuthMode(mode, extra = {}) {
   const hint = document.getElementById('auth-bootstrap-hint');
   if (isBootstrap && isGAS) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
+    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don dalla pagina Cerimonieri.';
   } else if (isBootstrap) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
+    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don dalla pagina Cerimonieri.';
   } else if (isForgot) {
     hint.style.display = '';
     hint.textContent = 'Inserisci l\'email dell\'account: ti invieremo un link per scegliere una nuova password.';
@@ -530,7 +673,12 @@ function syncCurrentUserAdminFlag() {
 function syncCerimonieriAdminUi() {
   const panel = document.getElementById('cerimoniere-form-panel');
   const grid = document.getElementById('anag-panel-cerimonieri');
+  const tab = document.getElementById('tab-anag-cerimonieri');
   const canAdmin = isCurrentUserAdmin();
+  if (tab) tab.hidden = !canAdmin;
+  if (grid) grid.style.display = canAdmin && anagraficaTab === 'cerimoniere' ? '' : 'none';
+  const chiGrid = document.getElementById('anag-panel-chierichetti');
+  if (chiGrid) chiGrid.style.display = anagraficaTab === 'cerimoniere' ? 'none' : '';
   // Solo admin gestisce accessi da Anagrafica; il profilo è in sezione Account
   if (panel) panel.style.display = canAdmin ? '' : 'none';
   if (grid) grid.classList.toggle('cerimonieri-readonly', !canAdmin);
@@ -714,7 +862,7 @@ function syncAdminOnlyNav() {
   document.querySelectorAll('.nav-admin-only').forEach(el => {
     el.hidden = !canAdmin;
   });
-  if (!canAdmin && document.getElementById('accessi')?.classList.contains('active')) {
+  if (!canAdmin && ['accessi', 'strutture-messe', 'cerimonieri'].some(id => document.getElementById(id)?.classList.contains('active'))) {
     void showSection('dashboard');
   }
 }
@@ -1026,6 +1174,34 @@ async function checkAuthAndInit() {
       initApp();
       return;
     }
+    // Sessione forse ancora in hydration: un secondo tentativo prima di mostrare il login
+    if (!status.needsBootstrap && !status.unauthorized) {
+      await new Promise(r => setTimeout(r, 350));
+      const again = await fetchAuthStatus();
+      if (again.authenticated && again.user
+        && again.user.accountActivated === true
+        && again.user.inviteAccepted === true
+        && !again.mustChangePassword
+        && !again.pendingActivation) {
+        saveSession(again.token || 'supabase', again.user);
+        showAppShell();
+        initApp();
+        return;
+      }
+      if (again.needsBootstrap) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('bootstrap');
+        return;
+      }
+      if (again.unauthorized) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('login');
+        showAuthError(again.message || 'Account non autorizzato');
+        return;
+      }
+    }
     clearSession();
     showAuthGate();
     if (status.needsBootstrap) setAuthMode('bootstrap');
@@ -1034,9 +1210,43 @@ async function checkAuthAndInit() {
       showAuthError(status.message || 'Account non autorizzato');
     } else setAuthMode('login');
   } catch (err) {
+    console.error('[ChierichApp] checkAuthAndInit', err);
+    // Riprova una volta: spesso è solo hydration sessione / rete momentanea
+    let retryErr = null;
+    try {
+      await new Promise(r => setTimeout(r, 400));
+      const retry = await fetchAuthStatus();
+      if (retry.authenticated && retry.user
+        && retry.user.accountActivated === true
+        && retry.user.inviteAccepted === true
+        && !retry.mustChangePassword
+        && !retry.pendingActivation) {
+        saveSession(retry.token || 'supabase', retry.user);
+        showAppShell();
+        initApp();
+        return;
+      }
+      clearSession();
+      showAuthGate();
+      if (retry.needsBootstrap) setAuthMode('bootstrap');
+      else {
+        setAuthMode('login');
+        if (retry.unauthorized) showAuthError(retry.message || 'Account non autorizzato');
+      }
+      return;
+    } catch (err2) {
+      retryErr = err2;
+      console.error('[ChierichApp] checkAuthAndInit retry', err2);
+    }
     showAuthGate();
     setAuthMode('login');
-    showAuthError('Supabase non raggiungibile — riprova tra poco');
+    const msg = String(err?.message || retryErr?.message || '');
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    showAuthError(
+      offline || /failed to fetch|network|fetch|timeout/i.test(msg)
+        ? 'Supabase non raggiungibile — riprova tra poco'
+        : (msg || 'Accesso non riuscito — ricarica la pagina')
+    );
   }
 }
 
@@ -1247,19 +1457,42 @@ function initApp() {
   const year = new Date().getFullYear();
   document.getElementById('anno-messe').value = String(year);
   document.getElementById('anno-calendario').value = String(year);
+  syncStrutturaAnnoSelects(getStrutturaPastoralStartForDate());
 
   const launchSection = getLaunchSection();
   if (launchSection === 'presenze') openAppello();
   else if (launchSection === 'account') openAccountPage();
   else showSection(launchSection || 'dashboard');
   syncMessaDomenicaleFormDay();
-  void bootstrapFromServer().then(() => {
+  void (async () => {
+    if (navigator.onLine !== false) {
+      const hasPendingWrites = localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1'
+        || localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1';
+      if (localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1' && !await persistMesseExtra()) {
+        setSyncBanner('Messa locale in attesa di sincronizzazione', true);
+        refreshVisibleUi();
+        return;
+      }
+      if (localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1' && !await persistConfig()) {
+        setSyncBanner('Configurazione locale in attesa di sincronizzazione', true);
+        refreshVisibleUi();
+        return;
+      }
+      if (hasPendingWrites) {
+        setSyncBanner('');
+        const status = document.getElementById('sync-status');
+        if (status) status.textContent = isSupabase ? 'Modifiche sincronizzate con Supabase' : 'Modifiche sincronizzate';
+        refreshVisibleUi();
+        return;
+      }
+    }
+    await bootstrapFromServer();
     if (calState.data?.byDate) {
       if (document.getElementById('dashboard').classList.contains('active')) renderDashboard();
     } else {
       void ensureCalendarioForToday();
     }
-  });
+  })();
 }
 
 function getLaunchSection() {
@@ -1270,7 +1503,7 @@ function getLaunchSection() {
     const section = params.get('section');
     const allowed = new Set([
       'dashboard', 'presenze', 'registro', 'messe',
-      'calendario', 'gruppi', 'turni', 'anagrafica', 'account'
+      'calendario', 'strutture-messe', 'cerimonieri', 'gruppi', 'turni', 'anagrafica', 'account'
       , 'accessi', 'info'
     ]);
     if (!section || !allowed.has(section)) return null;
@@ -1374,15 +1607,19 @@ function calendarioCoversCivilYear(data, anno) {
 
 async function loadCalendarioPackYear(anno, { refresh = false } = {}) {
   anno = String(anno);
+  const cached = readCalendarioLocal(anno);
   try {
     if (isGAS) {
-      return await gasRun('getCalendarioLiturgico', anno, !!refresh);
+      const data = await gasRun('getCalendarioLiturgico', anno, !!refresh);
+      if (data?.byDate) saveCalendarioLocal(anno, data);
+      return data?.byDate ? data : cached;
     }
     if (isSupabase) {
       if (refresh) {
         const data = await fetchAmbrosianCalendarYear(anno);
         const saved = await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
         if (!saved.success) throw new Error(saved.message || 'Salvataggio in cache non riuscito');
+        saveCalendarioLocal(anno, data);
         return data;
       }
       let data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
@@ -1390,16 +1627,33 @@ async function loadCalendarioPackYear(anno, { refresh = false } = {}) {
         data = await fetchAmbrosianCalendarYear(anno);
         await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
       }
-      return data;
+      if (data?.byDate) saveCalendarioLocal(anno, data);
+      return data?.byDate ? data : cached;
     }
     const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Errore HTTP ' + res.status);
-    return await res.json();
+    const data = await res.json();
+    if (data?.byDate) saveCalendarioLocal(anno, data);
+    return data?.byDate ? data : cached;
   } catch (err) {
     console.warn('[ChierichApp] loadCalendarioPackYear', anno, err);
-    return null;
+    return cached;
   }
+}
+
+function readCalendarioLocal(anno) {
+  try {
+    const raw = localStorage.getItem(CALENDAR_CACHE_PREFIX + String(anno));
+    const data = raw ? JSON.parse(raw) : null;
+    return data?.byDate && Object.keys(data.byDate).length ? data : null;
+  } catch { return null; }
+}
+
+function saveCalendarioLocal(anno, data) {
+  if (!data?.byDate) return;
+  try { localStorage.setItem(CALENDAR_CACHE_PREFIX + String(anno), JSON.stringify(data)); }
+  catch (err) { console.warn('[ChierichApp] calendario locale non salvato', err); }
 }
 
 async function ensureCalendarioForYear(anno) {
@@ -1443,7 +1697,7 @@ function isCalendarioUnavailable() {
 }
 
 function calendarioUnavailableHtml(opts = {}) {
-  const withCta = opts.withCta !== false;
+  const withCta = opts.withCta !== false && isCurrentUserAdmin();
   const cta = withCta
     ? `<div class="today-agenda-footer"><button type="button" class="btn-ghost-light" onclick="showSection('calendario')">Apri Calendario e aggiorna</button></div>`
     : '';
@@ -1661,6 +1915,10 @@ function toggleSidebar() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!document.getElementById('struttura-modello-modal')?.classList.contains('hidden')) {
+    closeStrutturaModelloModal();
+    return;
+  }
   if (!document.getElementById('messa-nota-modal')?.classList.contains('hidden')) {
     closeMessaNotaModal();
     return;
@@ -1754,16 +2012,30 @@ async function flushAppelloIfNeeded() {
 }
 
 async function showSection(sectionId, options = {}) {
+  const openCalendarTab = sectionId === 'calendario';
+  if (sectionId === 'calendario') {
+    sectionId = 'strutture-messe';
+  }
+  if (sectionId === 'cerimonieri') {
+    if (!isCurrentUserAdmin()) {
+      showToast('Questa sezione è riservata all\'admin');
+      return;
+    }
+    await showSection('anagrafica', { ...options, syncUrl: true });
+    switchAnagraficaTab('cerimoniere', true);
+    return;
+  }
   const current = document.querySelector('.section.active')?.id;
   if (current === 'presenze' && sectionId !== 'presenze') {
     const ok = await flushAppelloIfNeeded();
     if (!ok) return;
   }
 
-  if (sectionId === 'accessi' && !isCurrentUserAdmin()) {
-    showToast('Solo l\'admin può vedere il log accessi');
+  if (['accessi', 'strutture-messe'].includes(sectionId) && !isCurrentUserAdmin()) {
+    showToast('Questa sezione è riservata all\'admin');
     return;
   }
+  if (openCalendarTab) setStrutturaLiturgicaTab('calendario');
 
   const next = document.getElementById(sectionId);
   if (!next) return;
@@ -1771,7 +2043,8 @@ async function showSection(sectionId, options = {}) {
   if (options.syncUrl !== false) {
     const route = SECTION_ROUTES[sectionId];
     if (route && location.hash !== `#/${route}`) {
-      history.replaceState({ section: sectionId }, '', `${location.pathname}${location.search}#/${route}`);
+      history.pushState({ section: sectionId }, '', `${location.pathname}${location.search}#/${route}`);
+      lastNavigationUrl = location.href;
     }
   }
 
@@ -1804,6 +2077,12 @@ async function showSection(sectionId, options = {}) {
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
+  if (sectionId === 'anagrafica') {
+    anagraficaTab = 'chierichetto';
+    document.getElementById('tab-anag-chierichetti')?.classList.add('active');
+    document.getElementById('tab-anag-cerimonieri')?.classList.remove('active');
+    syncCerimonieriAdminUi();
+  }
   if (sectionId !== 'gruppi') {
     closeGruppiFormSheet();
     closeGruppiEdit(true);
@@ -1814,17 +2093,21 @@ async function showSection(sectionId, options = {}) {
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
-    if (anagraficaTab === 'cerimoniere') {
-      loadCerimonieriAccounts().then(() => renderCerimonieri());
-    } else {
-      updateAnagraficaFormLabels();
-      renderChierichetti();
-    }
+    anagraficaTab = 'chierichetto';
+    syncAnagFab();
+    updateAnagraficaFormLabels();
+    renderChierichetti();
   }
   else if (sectionId === 'turni') renderTurni();
   else if (sectionId === 'gruppi') void renderGruppi();
-  else if (sectionId === 'messe') {
-    showMesseLocalPanel('agenda');
+  else if (sectionId === 'messe') loadMesseAgenda();
+  else if (sectionId === 'strutture-messe') {
+    const activeTab = document.getElementById('tab-struttura-calendario')?.classList.contains('active') ? 'calendario'
+      : document.getElementById('tab-struttura-modelli')?.classList.contains('active') ? 'modelli'
+      : document.getElementById('tab-struttura-applica')?.classList.contains('active') ? 'applica'
+      : document.getElementById('tab-struttura-correzioni')?.classList.contains('active') ? 'correzioni'
+      : 'calendario';
+    setStrutturaLiturgicaTab(activeTab);
   }
   else if (sectionId === 'presenze') renderAppello();
   else if (sectionId === 'registro') {
@@ -2355,6 +2638,7 @@ function parrocchiaBadgeHtml(id) {
 /** Santuario: entrambe le parrocchie; Vanzago/Mantegazza: parrocchia dedicata */
 function getParrocchiaForSede(sede) {
   if (sede === 'vanzago' || sede === 'mantegazza') return sede;
+  if (sede === 'cimitero') return 'vanzago';
   return null;
 }
 
@@ -2676,6 +2960,7 @@ async function persistConfig() {
     messeIndicazioni: state.messeIndicazioni || {}
   };
   try {
+    if (!isGAS && !isSupabase && !apiOnline) throw new Error('Connessione al server non disponibile');
     if (isGAS) {
       mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio configurazione non riuscito');
     } else if (isSupabase) {
@@ -2683,9 +2968,30 @@ async function persistConfig() {
     } else {
       await persistToApi('/api/config', body);
     }
+    localStorage.removeItem(LITURGICAL_CONFIG_PENDING_KEY);
     return true;
   } catch (e) {
     showToast(e.message || 'Salvataggio configurazione non riuscito');
+    return false;
+  }
+}
+
+async function persistMesseExtra() {
+  saveDataLocal();
+  const body = { messeExtra: state.messeExtra || [] };
+  try {
+    if (!isGAS && !isSupabase && !apiOnline) throw new Error('Connessione al server non disponibile');
+    if (isGAS) {
+      mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio Messe straordinarie non riuscito');
+    } else if (isSupabase) {
+      mutationFailed(await window.ChierichSupabase.salvaConfig(body), 'Salvataggio Messe straordinarie non riuscito');
+    } else {
+      await persistToApi('/api/config', body);
+    }
+    localStorage.removeItem(MESSE_EXTRA_PENDING_KEY);
+    return true;
+  } catch (e) {
+    if (navigator.onLine !== false) showToast(e.message || 'Salvataggio Messe straordinarie non riuscito');
     return false;
   }
 }
@@ -3090,15 +3396,20 @@ function getCelebrationsForAppelloDate(dateStr) {
     pushFestivaSlotsForDate(dateStr, dateStr);
   }
 
-  // Sabato: messe di vigilia della domenica successiva — non se oggi è già una festività
-  // (es. Veglia Pasquale: evita di aggiungere anche la vigilia domenicale ordinaria)
-  if (day === 6 && info?.type !== 'festiva') {
+  // Vigilia del giorno successivo (domenica o festivo): anche se oggi è già festivo
+  // (es. 1 nov Tutti i Santi + vigilia Defunti alle 18)
+  {
     const next = addDaysToDateStr(dateStr, 1);
     const nextInfo = getMessaInfo(next);
-    if (nextInfo?.type === 'domenica') {
+    if (nextInfo?.type === 'festiva') {
+      getFestivaSlots(next)
+        .filter(s => s.data === dateStr)
+        .forEach(s => {
+          const key = messaSlotKey(s);
+          if (!slots.some(x => x.key === key)) slots.push({ ...s, key, isFestiva: true });
+        });
+    } else if (day === 6 && info?.type !== 'festiva' && nextInfo?.type === 'domenica') {
       pushSlotsForDate(next, dateStr);
-    } else if (nextInfo?.type === 'festiva') {
-      pushFestivaSlotsForDate(next, dateStr);
     }
   }
 
@@ -3122,7 +3433,18 @@ function getCelebrationsForAppelloDate(dateStr) {
     if (!slots.some(s => s.key === slot.key)) slots.push(slot);
   }
 
-  return slots.sort((a, b) => a.ora.localeCompare(b.ora) || (a.sede || '').localeCompare(b.sede || ''));
+  return slots.sort((a, b) => compareOraSlot(a.ora, b.ora) || (a.sede || '').localeCompare(b.sede || ''));
+}
+
+function compareOraSlot(a, b) {
+  const norm = o => (String(o || '') === '00:00' ? '24:00' : String(o || ''));
+  return norm(a).localeCompare(norm(b));
+}
+
+function sedeOptionsHtml(selected) {
+  return Object.entries(SEDI_LABEL).map(([id, label]) =>
+    `<option value="${id}"${selected === id ? ' selected' : ''}>${esc(label)}</option>`
+  ).join('');
 }
 
 function sortChierichettiForMessaSlot(a, b, slotGruppo) {
@@ -3239,6 +3561,9 @@ function ensureGruppiConfig() {
     if (!state.gruppiConfig) {
       state.gruppiConfig = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG));
     }
+    if (!state.gruppiConfig.giorniLiturgici || typeof state.gruppiConfig.giorniLiturgici !== 'object' || Array.isArray(state.gruppiConfig.giorniLiturgici)) {
+      state.gruppiConfig.giorniLiturgici = {};
+    }
 
     if (Array.isArray(state.gruppiConfig.turni) && !state.gruppiConfig.turniSlot && !state.gruppiConfig.messeDomenicali) {
       const old = state.gruppiConfig.turni;
@@ -3305,6 +3630,12 @@ function ensureGruppiConfig() {
     if (!Array.isArray(state.gruppiConfig.festivitaModelli)) {
       state.gruppiConfig.festivitaModelli = [];
     }
+    if (typeof state.gruppiConfig.escludiFerialiIntrasettimanali !== 'boolean') {
+      state.gruppiConfig.escludiFerialiIntrasettimanali = false;
+    }
+    if (!state.gruppiConfig.festivitaDateOverrides || typeof state.gruppiConfig.festivitaDateOverrides !== 'object' || Array.isArray(state.gruppiConfig.festivitaDateOverrides)) {
+      state.gruppiConfig.festivitaDateOverrides = {};
+    }
     migrateStruttureMesseConfig();
     renumberMesseDomenicali();
     renumberAllStruttureMesse();
@@ -3323,15 +3654,21 @@ function migrateStruttureMesseConfig() {
       ? JSON.parse(JSON.stringify(cfg.messeDomenicali))
       : JSON.parse(JSON.stringify(DEFAULT_MESSE_DOMENICALI));
   }
-  if (!Array.isArray(cfg.strutturaFestivoGenerico)
-    || (!cfg.strutturaFestivoGenerico.length && Array.isArray(cfg.messeFestive) && cfg.messeFestive.length)) {
-    cfg.strutturaFestivoGenerico = Array.isArray(cfg.messeFestive)
+  // Solo se la chiave manca: [] vuoto è una scelta esplicita («nessuna messa»).
+  if (!Array.isArray(cfg.strutturaFestivoGenerico)) {
+    cfg.strutturaFestivoGenerico = Array.isArray(cfg.messeFestive) && cfg.messeFestive.length
       ? JSON.parse(JSON.stringify(cfg.messeFestive))
-      : [];
+      : JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO));
   }
-  if (!Array.isArray(cfg.strutturaTempoNatalizio)) cfg.strutturaTempoNatalizio = [];
-  if (!Array.isArray(cfg.strutturaTempoPasquale)) cfg.strutturaTempoPasquale = [];
-  if (!Array.isArray(cfg.strutturaTempoDefunti)) cfg.strutturaTempoDefunti = [];
+  if (!Array.isArray(cfg.strutturaTempoNatalizio)) {
+    cfg.strutturaTempoNatalizio = JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO));
+  }
+  if (!Array.isArray(cfg.strutturaTempoPasquale)) {
+    cfg.strutturaTempoPasquale = JSON.parse(JSON.stringify(DEFAULT_MESSE_FESTIVE_GIORNO));
+  }
+  if (!Array.isArray(cfg.strutturaTempoDefunti)) {
+    cfg.strutturaTempoDefunti = JSON.parse(JSON.stringify(DEFAULT_MESSE_CON_VIGILIA));
+  }
   // Alias legacy per codice/API che ancora legge i vecchi campi
   cfg.messeDomenicali = cfg.strutturaDomenicaleOrdinaria;
   cfg.messeFestive = cfg.strutturaFestivoGenerico;
@@ -3339,6 +3676,44 @@ function migrateStruttureMesseConfig() {
 
 function getStrutturaMeta(kind) {
   return STRUTTURA_KINDS[kind] || STRUTTURA_KINDS.domenicale;
+}
+
+/** True se la stringa è un nome di struttura (non va usato come titolo celebrazione/giorno). */
+function isStrutturaDisplayName(name) {
+  if (!name) return false;
+  const n = String(name).trim().toLowerCase();
+  if (!n) return false;
+  return Object.values(STRUTTURA_KINDS).some(m => {
+    const label = String(m.label || '').trim().toLowerCase();
+    const shortLabel = String(m.shortLabel || '').trim().toLowerCase();
+    return (label && label === n) || (shortLabel && shortLabel === n);
+  });
+}
+
+function getLiturgicalDisplayTitle(dateStr, fallback = 'Celebrazione') {
+  if (!dateStr) return fallback;
+  const ev = getLiturgicalDayEvent(dateStr);
+  const nome = ev?.nome ? String(ev.nome).trim() : '';
+  if (nome && !isStrutturaDisplayName(nome)) return nome;
+  const events = calState.data?.byDate?.[dateStr] || [];
+  for (const e of events) {
+    const n = e?.nome ? String(e.nome).trim() : '';
+    if (n && !isStrutturaDisplayName(n)) return n;
+  }
+  if (fallback == null) return null;
+  return isStrutturaDisplayName(fallback) ? 'Celebrazione' : fallback;
+}
+
+function sanitizeAwayStrutturaName(title, dateStr, fallback = 'Celebrazione') {
+  const t = title ? String(title).trim() : '';
+  if (t && !isStrutturaDisplayName(t)) return t;
+  if (dateStr) {
+    const lit = getLiturgicalDisplayTitle(dateStr, null);
+    if (lit && !isStrutturaDisplayName(lit)) return lit;
+  }
+  const fb = fallback != null ? String(fallback).trim() : '';
+  if (fb && !isStrutturaDisplayName(fb)) return fb;
+  return 'Celebrazione';
 }
 
 function getStrutturaConfigKey(kind) {
@@ -3350,7 +3725,7 @@ function getStrutturaSlots(kind) {
   const key = getStrutturaConfigKey(kind);
   const list = state.gruppiConfig[key];
   return (Array.isArray(list) ? list : []).slice()
-    .sort((a, b) => a.dayOffset - b.dayOffset || String(a.ora).localeCompare(String(b.ora)));
+    .sort((a, b) => a.dayOffset - b.dayOffset || compareOraSlot(a.ora, b.ora));
 }
 
 function getStrutturaSlotsMutable(kind) {
@@ -3394,7 +3769,8 @@ function cloneStrutturaSlots(kind) {
     sede: m.sede,
     vigilia: !!m.vigilia || m.dayOffset === -1,
     conTurno: !!m.conTurno,
-    turnoNum: m.conTurno ? m.turnoNum : undefined
+    turnoNum: m.conTurno ? m.turnoNum : undefined,
+    titolo: m.titolo ? String(m.titolo).trim() : undefined
   }));
 }
 
@@ -3740,7 +4116,8 @@ function getMESSE_ORDINARIE() {
     sede: m.sede,
     vigilia: !!m.vigilia,
     turno: m.conTurno ? m.turnoNum : null,
-    conChierichetti: !!m.conTurno
+    conChierichetti: !!m.conTurno,
+    titolo: m.titolo ? String(m.titolo).trim() : undefined
   }));
 }
 
@@ -3823,15 +4200,20 @@ function updateMesseDomenicaliSummary() {
   const el = document.getElementById('messe-domenicali-summary');
   const meta = getStrutturaMeta(strutturaMesseKind);
   const list = getStrutturaMesseList();
+  const modelli = STRUTTURA_GIORNI_SPECIALI[strutturaMesseKind] || [];
   const nTurni = list.filter(m => m.conTurno).length;
   const nLibere = list.length - nTurni;
   if (el) {
-    if (!list.length) {
-      el.textContent = meta.hint || 'Nessuna celebrazione in questa struttura';
+    if (modelli.length) {
+      el.textContent = `${modelli.length} giorni · tocca per modificare`;
     } else if (strutturaMesseKind === 'domenicale') {
-      el.textContent = `${list.length} celebrazioni · ${nTurni} con squadra · ${nLibere} libere`;
+      el.textContent = list.length
+        ? `${countDomenicheOrdinarieAnno()} domeniche · ${list.length} messe`
+        : 'Aggiungi le messe del modello domenicale';
+    } else if (!list.length) {
+      el.textContent = meta.hint || 'Nessun modello in questa categoria';
     } else {
-      el.textContent = `${meta.label}: ${list.length} celebrazioni · ${nTurni} con squadra · ${nLibere} libere`;
+      el.textContent = `${list.length} messe · ${nTurni} con squadra`;
     }
   }
   updateMesseAgendaSummary();
@@ -3839,11 +4221,14 @@ function updateMesseDomenicaliSummary() {
 
 function setStrutturaMesseKind(kind) {
   strutturaMesseKind = STRUTTURA_KINDS[kind] ? kind : 'domenicale';
-  cancelMessaDomenicaleEdit();
+  if (!document.getElementById('struttura-modello-modal')?.classList.contains('hidden')) {
+    closeStrutturaModelloModal();
+  } else {
+    cancelMessaDomenicaleEdit({ keepModal: true });
+  }
   document.querySelectorAll('.struttura-chip[data-struttura]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.struttura === strutturaMesseKind);
   });
-  // legacy chips
   document.getElementById('chip-struttura-domenicale')?.classList.toggle('active', strutturaMesseKind === 'domenicale');
   document.getElementById('chip-struttura-festivo')?.classList.toggle('active', strutturaMesseKind === 'festivo');
   syncStrutturaMesseFormLabels();
@@ -3854,42 +4239,134 @@ function setStrutturaMesseKind(kind) {
 function syncStrutturaMesseFormLabels() {
   const meta = getStrutturaMeta(strutturaMesseKind);
   const isDom = strutturaMesseKind === 'domenicale';
+  const hasModelli = !!(STRUTTURA_GIORNI_SPECIALI[strutturaMesseKind] || []).length;
   const title = document.getElementById('turni-struttura-title');
-  const formTitle = document.getElementById('turni-form-title');
-  const hint = document.getElementById('turni-form-hint');
+  const summary = document.getElementById('messe-domenicali-summary');
   const daySel = document.getElementById('messa-domenicale-day');
   const vigiliaTitle = document.querySelector('#messa-domenicale-vigilia-wrap .form-check-title');
   const vigiliaDesc = document.querySelector('#messa-domenicale-vigilia-wrap .form-check-desc');
-  const copyBtn = document.getElementById('btn-copia-orario-festivo');
-  if (title) title.textContent = meta.label;
-  if (formTitle && !editingMessaDomenicaleId) {
-    formTitle.textContent = isDom ? 'Nuova celebrazione' : 'Nuova celebrazione';
+  const applicaBtn = document.getElementById('btn-applica-modello');
+  const addBtn = document.getElementById('btn-struttura-add-messa');
+  if (title) title.textContent = isDom ? 'Domeniche ordinarie' : (meta.shortLabel || meta.label);
+  if (summary) {
+    summary.textContent = isDom
+      ? 'Stesso orario ogni domenica ordinaria'
+      : 'Default ambrosiano · personalizza ciò che celebrate qui';
   }
-  if (hint && !editingMessaDomenicaleId) {
-    hint.textContent = meta.hint;
-  }
+  if (addBtn) addBtn.hidden = !(isCurrentUserAdmin() && isDom);
   if (daySel) {
     daySel.options[0].textContent = isDom ? 'Sabato (vigilia)' : 'Vigilia (giorno prima)';
     daySel.options[1].textContent = isDom ? 'Domenica' : 'Giorno';
   }
   if (vigiliaTitle) vigiliaTitle.textContent = isDom ? 'Vigilia domenicale' : 'Vigilia';
   if (vigiliaDesc) vigiliaDesc.textContent = isDom ? 'Messa del sabato sera' : 'Messa della vigilia';
-  if (copyBtn) {
-    copyBtn.hidden = isDom || !isCurrentUserAdmin();
-    copyBtn.textContent = 'Copia da domenicale';
+  if (applicaBtn) {
+    applicaBtn.hidden = !isCurrentUserAdmin();
+    applicaBtn.textContent = 'Riapplica';
   }
+  // hasModelli reserved for future empty-state copy
+  void hasModelli;
 }
 
 function getStrutturaFestivitaAnno() {
-  const el = document.getElementById('anno-messe');
-  if (el?.value) return String(el.value);
-  return String(new Date().getFullYear());
+  const applica = document.getElementById('anno-struttura-applica');
+  if (applica?.value) return String(applica.value);
+  const corr = document.getElementById('anno-struttura-correzioni');
+  if (corr?.value) return String(corr.value);
+  return String(getStrutturaPastoralStartForDate());
+}
+
+function populateStrutturaPastoralSelects(selectedStart) {
+  const preferred = String(selectedStart || getStrutturaPastoralStartForDate());
+  const options = getStrutturaPastoralOptionStarts();
+  const value = options.includes(parseInt(preferred, 10)) ? preferred : String(options[options.length - 1] || REGISTRO_MIN_PASTORAL_START);
+  ['anno-struttura-applica', 'anno-struttura-correzioni'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = options.map(y =>
+      `<option value="${y}"${String(y) === value ? ' selected' : ''}>${formatPastoralYearLabel(y)}</option>`
+    ).join('');
+    el.value = value;
+  });
+}
+
+function syncStrutturaAnnoSelects(anno) {
+  const startY = String(anno || getStrutturaFestivitaAnno() || getStrutturaPastoralStartForDate());
+  populateStrutturaPastoralSelects(startY);
+  // Calendario / Messe restano anno civile: allinea al start pastorale (set–dic)
+  ['anno-calendario', 'anno-messe'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && [...el.options].some(o => o.value === startY)) el.value = startY;
+  });
+}
+
+function onStrutturaApplicaAnnoChange() {
+  syncStrutturaAnnoSelects(document.getElementById('anno-struttura-applica')?.value);
+  void renderStrutturaApplicaPanel();
+}
+
+function onStrutturaCorrezioniAnnoChange() {
+  syncStrutturaAnnoSelects(document.getElementById('anno-struttura-correzioni')?.value);
+  strutturaCorrezioniMonthKey = null;
+  void renderStrutturaCorrezioniPanel();
+}
+
+/** Mesi YYYY-MM dell’anno pastorale Struttura (set → ago). */
+function getStrutturaCorrezioniMonthKeys(anno) {
+  const { from, to } = getStrutturaPastoralBounds(anno);
+  const keys = [];
+  let y = parseInt(from.slice(0, 4), 10);
+  let m = parseInt(from.slice(5, 7), 10);
+  const endY = parseInt(to.slice(0, 4), 10);
+  const endM = parseInt(to.slice(5, 7), 10);
+  while (y < endY || (y === endY && m <= endM)) {
+    keys.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return keys;
+}
+
+function ensureStrutturaCorrezioniMonthKey(anno, monthKeysWithDays) {
+  const allKeys = getStrutturaCorrezioniMonthKeys(anno);
+  if (!allKeys.length) return null;
+  const preferred = monthKeysWithDays?.length ? monthKeysWithDays : allKeys;
+  if (strutturaCorrezioniMonthKey && allKeys.includes(strutturaCorrezioniMonthKey)) {
+    return strutturaCorrezioniMonthKey;
+  }
+  const today = typeof getTodayStr === 'function' ? getTodayStr() : formatDateFromDate(new Date());
+  const todayKey = today.slice(0, 7);
+  if (preferred.includes(todayKey)) {
+    strutturaCorrezioniMonthKey = todayKey;
+    return todayKey;
+  }
+  if (allKeys.includes(todayKey)) {
+    strutturaCorrezioniMonthKey = todayKey;
+    return todayKey;
+  }
+  strutturaCorrezioniMonthKey = preferred[0] || allKeys[0];
+  return strutturaCorrezioniMonthKey;
+}
+
+function shiftStrutturaCorrezioniMonth(delta) {
+  const anno = getStrutturaFestivitaAnno();
+  const keys = getStrutturaCorrezioniMonthKeys(anno);
+  if (!keys.length) return;
+  const current = ensureStrutturaCorrezioniMonthKey(anno, keys);
+  const idx = keys.indexOf(current);
+  const next = keys[Math.max(0, Math.min(keys.length - 1, idx + delta))];
+  if (!next || next === current) return;
+  strutturaCorrezioniMonthKey = next;
+  void renderStrutturaCorrezioniPanel();
 }
 
 function getFestivitaListForAnno(anno) {
-  anno = String(anno);
+  const startY = String(anno || getStrutturaFestivitaAnno());
   return (state.messeExtra || [])
-    .filter(m => m.data && m.data.startsWith(anno) && isExtraFestiva(m))
+    .filter(m => m.data && dateInStrutturaPastoralYear(m.data, startY) && isExtraFestiva(m))
     .slice()
     .sort((a, b) => String(a.data).localeCompare(String(b.data)));
 }
@@ -3897,54 +4374,189 @@ function getFestivitaListForAnno(anno) {
 async function ensureStrutturaFestivitaLoaded() {
   const anno = getStrutturaFestivitaAnno();
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
     console.error(err);
   }
-  if (strutturaMesseKind === 'festivo') {
-    renderMesseDomenicaliList();
-    updateMesseDomenicaliSummary();
-  }
+  renderMesseDomenicaliList();
+  updateMesseDomenicaliSummary();
 }
 
 async function syncFestivitaFromStruttura() {
+  return applicaStruttureAnno();
+}
+
+/** Applica i modelli all'anno pastorale (set–ago). `{ quiet: true }` = dopo salvataggio modello. */
+async function applicaStruttureAnno(opts = {}) {
+  const quiet = !!opts.quiet;
   if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
-  const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
-  if (!hasAny) {
-    showToast('Configura almeno una struttura qui sopra');
+  const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig)
+    || Object.keys(STRUTTURA_GIORNI_SPECIALI).some(k => (STRUTTURA_GIORNI_SPECIALI[k] || []).length);
+  if (!hasAny && !hasStrutturaConfig('domenicale')) {
+    if (!quiet) {
+      showToast('Configura almeno un modello');
+      setStrutturaLiturgicaTab('modelli');
+    }
     return;
   }
   const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
-    showToast(err.message || 'Calendario non disponibile');
+    if (!quiet) showToast(err.message || 'Calendario non disponibile');
     return;
   }
   const { added, updated, removed } = syncFestivitaAnno(anno);
   if (added > 0 || updated > 0 || removed > 0) {
     saveData();
     void persistConfig();
-    if (added > 0) {
-      showToast(added === 1 ? 'Aggiunta 1 festività' : `Aggiunte ${added} festività`);
-    } else if (removed > 0) {
-      showToast(removed === 1
-        ? 'Rimossa 1 vigilia domenicale errata'
-        : `Rimosse ${removed} vigilie domenicali errate`);
+    if (quiet) {
+      showToast(`Modello applicato a Messe (${label})`);
     } else {
-      showToast('Aggiornati i preset delle festività');
+      const parts = [];
+      if (added) parts.push(added === 1 ? '1 aggiunta' : `${added} aggiunte`);
+      if (updated) parts.push(updated === 1 ? '1 aggiornata' : `${updated} aggiornate`);
+      if (removed) parts.push(removed === 1 ? '1 rimossa' : `${removed} rimosse`);
+      showToast(`Festività ${label}: ${parts.join(', ')}`);
     }
+  } else if (!quiet) {
+    showToast('Agenda già allineata ai modelli');
   } else {
-    showToast('Nessuna nuova solennità da aggiungere');
+    showToast('Modello salvato e applicato');
   }
   renderMesseDomenicaliList();
   updateMesseDomenicaliSummary();
+  void renderStrutturaApplicaPanel();
+  void renderStrutturaCorrezioniPanel();
+  renderMesseAgenda();
+}
+
+/** Anteprima giorni che Messe mostrerà / sync materializzerà per l'anno. */
+function previewStrutturaApplicaAnno(anno) {
+  anno = String(anno);
+  const bounds = getStrutturaPastoralBounds(anno);
+  const counts = {
+    domenicale: 0,
+    natalizio: 0,
+    pasquale: 0,
+    defunti: 0,
+    festivo: 0,
+    preset: 0,
+    materialize: 0
+  };
+  const days = [];
+  const missingKinds = new Set();
+  const byDate = calState.data?.byDate || {};
+  const dates = Object.keys(byDate)
+    .filter(d => dateInStrutturaPastoralYear(d, anno))
+    .sort();
+  dates.forEach(dateStr => {
+    if (isFestivitaEsclusa(dateStr)) return;
+    if (isGiornoIntrasettimanaleEscluso(dateStr)) return;
+    const ctx = getLiturgicalContext(dateStr);
+    const kind = ctx.strutturaKind;
+    const massInfo = getMessaInfo(dateStr);
+    // Stesso criterio di Messe: se c’è orario (anche sintetico di stagione), entra in Correzioni
+    const willShow = !!(massInfo || isSundayDate(dateStr) || (ctx.preset && ctx.preset !== 'solennita') || isSolennitaFestivaDay(dateStr));
+    if (!willShow && !(ctx.strutturaKind === 'festivo' && !isSundayDate(dateStr))) return;
+    if (!kind && !massInfo) return;
+    const effectiveKind = kind || massInfo?.context?.strutturaKind || massInfo?.extra?.strutturaKind || null;
+    if (effectiveKind && counts[effectiveKind] != null) counts[effectiveKind]++;
+    if (ctx.preset && ctx.preset !== 'solennita') counts.preset++;
+    const needsPersist = (ctx.preset && ctx.preset !== 'solennita')
+      || isSolennitaFestivaDay(dateStr)
+      || (ctx.strutturaKind === 'festivo' && !isSundayDate(dateStr) && hasStrutturaConfig('festivo'));
+    if (needsPersist && !getMessaExtraForDate(dateStr)) {
+      counts.materialize++;
+      if (effectiveKind && !hasStrutturaConfig(effectiveKind) && !hasOrarioFestivoConfig() && !hasStrutturaConfig('domenicale')) {
+        missingKinds.add(effectiveKind);
+      }
+    }
+    if (massInfo || isSundayDate(dateStr) || needsPersist || getMessaExtraForDate(dateStr) || (ctx.preset && ctx.preset !== 'solennita')) {
+      days.push({
+        data: dateStr,
+        label: sanitizeAwayStrutturaName(
+          (ctx.preset && ctx.preset !== 'solennita' ? ctx.label : null) || ctx.primary?.nome || ctx.label,
+          dateStr,
+          'Celebrazione'
+        ),
+        kind: effectiveKind,
+        preset: ctx.preset,
+        materialize: needsPersist && !getMessaExtraForDate(dateStr),
+        existing: !!getMessaExtraForDate(dateStr)
+      });
+    }
+  });
+  days.filter(d => d.materialize).forEach(d => {
+    if (d.kind && !hasStrutturaConfig(d.kind) && !hasOrarioFestivoConfig()) {
+      if (d.kind !== 'domenicale' || !hasStrutturaConfig('domenicale')) missingKinds.add(d.kind);
+    }
+  });
+  const requiredEmpty = [...missingKinds].filter(k => !hasStrutturaConfig(k));
+  return { anno, label: formatPastoralYearLabel(anno), bounds, counts, days, missingKinds: requiredEmpty };
+}
+
+async function renderStrutturaApplicaPanel() {
+  const summaryEl = document.getElementById('struttura-applica-summary');
+  const listEl = document.getElementById('struttura-applica-list');
+  const btn = document.getElementById('btn-applica-strutture-anno');
+  if (!summaryEl || !listEl) return;
+  const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
+  syncStrutturaAnnoSelects(anno);
+  if (btn) btn.textContent = `Applica strutture a ${label}`;
+  try {
+    await ensureCalendarioForPastoralYear(anno);
+  } catch (err) {
+    summaryEl.innerHTML = `<p class="empty-state">${esc(err.message || 'Calendario non disponibile')}</p>`;
+    listEl.innerHTML = '';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  const preview = previewStrutturaApplicaAnno(anno);
+  const kindChips = Object.keys(STRUTTURA_KINDS).map(k => {
+    const n = preview.counts[k] || 0;
+    const ok = hasStrutturaConfig(k);
+    return `<span class="struttura-applica-stat${!ok && n ? ' is-warn' : ''}">${esc(getStrutturaMeta(k).label)} <strong>${n}</strong>${!ok ? ' · vuota' : ''}</span>`;
+  }).join('');
+  summaryEl.innerHTML = `
+    <div class="struttura-applica-stats">${kindChips}
+      <span class="struttura-applica-stat">Preset speciali <strong>${preview.counts.preset}</strong></span>
+      <span class="struttura-applica-stat">Da materializzare <strong>${preview.counts.materialize}</strong></span>
+    </div>
+    ${preview.missingKinds.length
+      ? `<p class="liturgy-meta struttura-applica-warn">Configura in Modelli: ${preview.missingKinds.map(k => esc(getStrutturaMeta(k).label)).join(', ')}.
+          <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="setStrutturaLiturgicaTab('modelli')">Apri Modelli</button></p>`
+      : `<p class="liturgy-meta">Le domeniche di stagione restano automatiche dai modelli; Sync crea le solennità e i giorni speciali.</p>`}
+  `;
+  if (btn) btn.disabled = !isCurrentUserAdmin();
+  const showDays = preview.days.filter(d => d.materialize || d.existing || (d.preset && d.preset !== 'solennita') || (!isSundayDate(d.data) && d.kind === 'festivo'));
+  if (!showDays.length) {
+    listEl.innerHTML = '<p class="empty-state">Nessun giorno speciale da materializzare per questo anno.</p>';
+    return;
+  }
+  listEl.innerHTML = `
+    <h4 class="turni-messe-group-title">Giorni in agenda (${showDays.length})</h4>
+    <div class="config-list">
+      ${showDays.slice(0, 80).map(d => `
+        <div class="config-item">
+          <div class="config-item-main">
+            <p class="config-item-title">${esc(formatFestivitaDateShort(d.data))} · ${esc(d.label)}</p>
+            <p class="config-item-meta">${esc(getStrutturaMeta(d.kind).label)}${d.preset && d.preset !== 'solennita' ? ' · ' + esc(getFestivityPresetMeta(d.preset).label) : ''}${d.materialize ? ' · da applicare' : d.existing ? ' · già in agenda' : ''}</p>
+          </div>
+          ${isCurrentUserAdmin() ? `
+            <div class="config-item-actions">
+              <button type="button" class="btn btn-secondary" onclick="editCorrezioneAnno(${jsStr(d.data)})">Modifica</button>
+            </div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ${showDays.length > 80 ? `<p class="liturgy-meta">…e altri ${showDays.length - 80} giorni</p>` : ''}
+  `;
 }
 
 function openFestivitaFromStruttura(dateStr) {
-  const year = String(dateStr).slice(0, 4);
-  const yearSel = document.getElementById('anno-messe');
-  if (yearSel && yearSel.value !== year) yearSel.value = year;
   void showSection('messe').then(() => {
     showMesseLocalPanel('agenda');
     void loadMesseAgenda().then(() => selectMessaDay(dateStr, true));
@@ -3969,15 +4581,10 @@ function renderStrutturaFestivitaSection() {
       const nTurni = getFestivaTurniCount(extra);
       const actions = canManage ? `
         <div class="config-item-actions" onclick="event.stopPropagation()">
-          <button type="button" class="btn btn-ghost btn-icon" title="Apri e modifica orari" onclick="openFestivitaFromStruttura(${jsStr(extra.data)})">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button type="button" class="btn btn-danger btn-icon" title="Non la celebriamo" onclick="escludiFestivita(${jsStr(extra.uuid)})">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
-          </button>
+          <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(extra.uuid)})">Senza servizio</button>
         </div>` : '';
       return `
-        <div class="config-item struttura-festivita-item" role="button" tabindex="0" onclick="openFestivitaFromStruttura(${jsStr(extra.data)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openFestivitaFromStruttura(${jsStr(extra.data)})}">
+        <div class="config-item struttura-festivita-item">
           <div class="config-item-main">
             <p class="config-item-title">${esc(formatFestivitaDateShort(extra.data))} · ${esc(extra.nota || 'Festività')}</p>
             <p class="config-item-meta">${esc(preset.label)} · ${n} celebrazioni · ${nTurni} con squadra</p>
@@ -3988,8 +4595,8 @@ function renderStrutturaFestivitaSection() {
     : `<p class="empty-state" style="margin:0">Nessuna festività in agenda per il ${esc(anno)}.</p>`;
 
   const escluseHtml = escluse.length ? `
-    <h4 class="turni-messe-group-title" style="margin-top:18px">Non celebrate</h4>
-    <p class="liturgy-meta" style="margin:-4px 0 10px">Escluse dallo sync automatico</p>
+    <h4 class="turni-messe-group-title" style="margin-top:18px">Senza servizio all’altare</h4>
+    <p class="liturgy-meta" style="margin:-4px 0 10px">Escluse dallo sync automatico (niente squadra chierichetti)</p>
     <div class="config-list">
       ${escluse.map(ex => `
         <div class="config-item">
@@ -4008,16 +4615,1341 @@ function renderStrutturaFestivitaSection() {
 
   return `
     <div class="struttura-festivita-block">
-      <h4 class="turni-messe-group-title">Festività ${esc(anno)}</h4>
-      <p class="liturgy-meta" style="margin:-4px 0 10px">Solennità e giorni speciali già in agenda</p>
+      <h4 class="turni-messe-group-title">Festività ${esc(formatPastoralYearLabel(anno))}</h4>
+      <p class="liturgy-meta" style="margin:-4px 0 10px">I modelli si applicano al salvataggio. Usa <strong>Correzioni</strong> per sedi/orari dell’anno pastorale o giorni senza servizio all’altare.</p>
       <div class="config-list">${items}</div>
       ${canManage ? `
         <div class="messa-actions" style="margin-top:12px;justify-content:flex-start;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn btn-secondary" onclick="syncFestivitaFromStruttura()">Sync festività ${esc(anno)}</button>
+          <button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('correzioni')">Vai a Correzioni</button>
         </div>` : ''}
       ${escluseHtml}
     </div>
   `;
+}
+
+function ensureFestivaExtraMaterialized(dateStr) {
+  if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
+  let extra = getMessaExtraForDate(dateStr);
+  if (extra) return extra;
+  const info = getMessaInfo(dateStr);
+  if (info?.type === 'festiva' && info.extra) {
+    extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
+    state.messeExtra.push(extra);
+    return extra;
+  }
+  if (info?.type === 'domenica') {
+    const ctx = info.context || getLiturgicalContext(dateStr);
+    extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
+    extra.nota = sanitizeAwayStrutturaName(ctx.primary?.nome || ctx.label, dateStr, 'Domenica');
+    extra.strutturaKind = 'domenicale';
+    applyDomenicaleStrutturaToFestivaExtra(extra);
+    state.messeExtra.push(extra);
+    return extra;
+  }
+  extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
+  state.messeExtra.push(extra);
+  return extra;
+}
+
+/** Deep-link: apre Correzioni per sedi di quest’anno pastorale (o lista). */
+function openCorrezioneOrari(dateStr) {
+  if (dateStr) syncStrutturaAnnoSelects(getPastoralStartForDateStr(dateStr));
+  void showSection('strutture-messe').then(() => {
+    setStrutturaLiturgicaTab('correzioni');
+    if (dateStr) setTimeout(() => editCorrezioneAnno(dateStr), 0);
+  });
+}
+
+function closeStrutturaCorrezioniEditor() {
+  closeStrutturaModelloModal();
+  void renderStrutturaCorrezioniPanel();
+}
+
+/** Giorni in agenda Correzioni: allineati a ciò che compare in Messe. */
+function isCorrezioniListedDay(d, extra) {
+  if (extra && extra.tipo === 'straordinaria' && !isExtraFestiva(extra)) return true;
+  if (extra?.orarioPersonalizzato) return true;
+  if (d?.displaced || isFestivityDisplacedFromDate(d?.data)) return true;
+  if (isGiornoIntrasettimanaleEscluso(d.data)) return false;
+  if (['natalizio', 'pasquale', 'defunti'].includes(d.kind)) return true;
+  if (d.preset && d.preset !== 'solennita') return true;
+  if (isVigiliaDomenicaleLiturgica(d.data)) return false;
+  if (isSundayDate(d.data)) {
+    const ctx = getLiturgicalContext(d.data);
+    if (ctx.strutturaKind === 'domenicale' || d.kind === 'domenicale') return true;
+    if (['natalizio', 'pasquale', 'defunti'].includes(ctx.strutturaKind)) return true;
+    if (ctx.preset && ctx.preset !== 'solennita') return true;
+    if (ctx.primary?.tipo === 'solennita' || ctx.strutturaKind === 'festivo') return true;
+    return false;
+  }
+  if (isSolennitaFestivaDay(d.data)) return true;
+  if (d.kind === 'festivo') return true;
+  const primary = getLiturgicalDayEvent(d.data);
+  if (primary?.tipo === 'festa') return true;
+  // Fallback: se Messe lo mostra, Correzioni lo elenca
+  if (d.data && getMessaInfo(d.data)) return true;
+  return false;
+}
+
+function applyDomenicaleStrutturaToFestivaExtra(extra) {
+  if (!extra) return;
+  const template = getStrutturaSlots('domenicale');
+  extra.tipo = 'festiva';
+  extra.usaOrarioDomenicale = true;
+  extra.strutturaKind = 'domenicale';
+  extra.preset = extra.preset || 'solennita';
+  extra.slots = renumberFestivaSlots(template.map(s => {
+    const row = {
+      id: newFestivaSlotId(),
+      dayOffset: s.dayOffset === -1 ? -1 : 0,
+      ora: s.ora || '10:00',
+      sede: s.sede || 'santuario',
+      vigilia: !!s.vigilia || s.dayOffset === -1,
+      conTurno: !!s.conTurno
+    };
+    if (s.titolo) row.titolo = String(s.titolo).trim();
+    return row;
+  }));
+}
+
+function getCorrezioniDaysForAnno(anno) {
+  anno = String(anno || getStrutturaFestivitaAnno());
+  const preview = previewStrutturaApplicaAnno(anno);
+  const byDate = new Map();
+
+  const upsert = (d) => {
+    const extra = getMessaExtraForDate(d.data);
+    if (!isCorrezioniListedDay(d, extra)) return;
+    const prev = byDate.get(d.data);
+    if (prev) {
+      if (d.preset && d.preset !== 'solennita') prev.preset = d.preset;
+      if (d.kind) prev.kind = d.kind;
+      if (d.label) prev.label = d.label;
+      if (d.existing) prev.existing = true;
+      if (d.materialize && !extra) prev.materialize = true;
+      if (d.straordinaria) prev.straordinaria = true;
+      if (d.displaced) {
+        prev.displaced = true;
+        if (d.displacedTo) prev.displacedTo = d.displacedTo;
+        if (d.displacedEventKey) prev.displacedEventKey = d.displacedEventKey;
+      }
+      return;
+    }
+    byDate.set(d.data, { ...d });
+  };
+
+  preview.days.forEach(d => {
+    upsert({
+      data: d.data,
+      label: d.label,
+      kind: d.kind,
+      preset: d.preset,
+      existing: !!getMessaExtraForDate(d.data) || !!d.existing,
+      materialize: !!d.materialize && !getMessaExtraForDate(d.data),
+      straordinaria: false
+    });
+  });
+
+  // Garantisce le date effettive dei modelli festa
+  ensureCorrezioniModelAnchorDays(anno).forEach(upsert);
+
+  // Giorni LitCal dove la festa è celebrata altrove dalla comunità
+  ensureCorrezioniDisplacedDays(anno).forEach(upsert);
+
+  getSundaysInStrutturaPastoralYear(parseInt(anno, 10)).forEach(dateStr => {
+    if (isFestivitaEsclusa(dateStr)) return;
+    if (byDate.has(dateStr)) return;
+    const ctx = getLiturgicalContext(dateStr);
+    upsert({
+      data: dateStr,
+      label: sanitizeAwayStrutturaName(
+        (ctx.preset && ctx.preset !== 'solennita' ? ctx.label : null) || ctx.primary?.nome || ctx.label,
+        dateStr,
+        'Domenica'
+      ),
+      kind: ctx.strutturaKind,
+      preset: ctx.preset,
+      existing: !!getMessaExtraForDate(dateStr),
+      materialize: false,
+      straordinaria: false
+    });
+  });
+
+  (state.messeExtra || []).forEach(m => {
+    if (!m?.data || !dateInStrutturaPastoralYear(m.data, anno)) return;
+    const isStraord = m.tipo === 'straordinaria' && !isExtraFestiva(m);
+    const ctx = getLiturgicalContext(m.data);
+    const preferredLabel = resolveCorrezioneCelebrationLabel(
+      { group: null, slots: [] },
+      m.eventKey || getPrimaryFestivityEventKey(m.data),
+      (ctx.preset && ctx.preset !== 'solennita' ? getFestivityPresetMeta(ctx.preset).label : null)
+        || m.nota
+        || (isStraord ? 'Messa straordinaria' : 'Celebrazione')
+    );
+    upsert({
+      data: m.data,
+      label: preferredLabel,
+      kind: m.strutturaKind || ctx.strutturaKind || null,
+      preset: m.preset || ctx.preset,
+      existing: true,
+      materialize: false,
+      straordinaria: isStraord
+    });
+  });
+
+  return [...byDate.values()].sort((a, b) => String(a.data).localeCompare(String(b.data)));
+}
+
+/**
+ * Ancore Correzioni dai modelli: data effettiva di ogni festa configurata.
+ * Così 1 nov / 2 nov restano visibili anche se LitCal le ha spostate.
+ */
+function ensureCorrezioniModelAnchorDays(anno) {
+  anno = String(anno);
+  const out = [];
+  const seen = new Set();
+  Object.entries(FESTIVITA_EVENTKEY_BY_PRESET).forEach(([presetId, eventKey]) => {
+    const civilAnno = resolveFestivitaAnnoForEventKey(eventKey, anno);
+    const effective = getFestivitaDateForAnno(eventKey, civilAnno);
+    if (!effective || !dateInStrutturaPastoralYear(effective, anno) || seen.has(effective)) return;
+    if (isFestivitaEsclusa(effective)) return;
+    seen.add(effective);
+    const ctx = getLiturgicalContext(effective);
+    const meta = getFestivityPresetMeta(presetId);
+    const label = sanitizeAwayStrutturaName(
+      resolveCorrezioneCelebrationLabel(
+        { group: null, slots: [] },
+        eventKey,
+        meta?.label || ctx.label || 'Celebrazione'
+      ),
+      effective,
+      meta?.label || 'Celebrazione'
+    );
+    out.push({
+      data: effective,
+      label,
+      kind: ctx.strutturaKind || (['allSaints', 'allSouls'].includes(presetId) ? 'defunti' : null),
+      preset: presetId || ctx.preset,
+      existing: !!getMessaExtraForDate(effective),
+      materialize: !getMessaExtraForDate(effective),
+      straordinaria: false
+    });
+  });
+  return out;
+}
+
+/** Giorni LitCal in cui la festa è stata spostata dalla comunità (restano in Correzioni). */
+function ensureCorrezioniDisplacedDays(anno) {
+  anno = String(anno);
+  const byDate = calState.data?.byDate || {};
+  const out = [];
+  Object.keys(byDate).filter(d => dateInStrutturaPastoralYear(d, anno)).sort().forEach(dateStr => {
+    const info = getDisplacedFestivityInfo(dateStr);
+    if (!info) return;
+    if (isFestivitaEsclusa(dateStr)) return;
+    out.push({
+      data: dateStr,
+      label: info.label,
+      kind: null,
+      preset: null,
+      displaced: true,
+      displacedTo: info.effective,
+      displacedEventKey: info.eventKey,
+      existing: !!getMessaExtraForDate(dateStr),
+      materialize: false,
+      straordinaria: false
+    });
+  });
+  return out;
+}
+
+/** Info festa LitCal presente qui ma celebrata altrove dalla comunità. */
+function getDisplacedFestivityInfo(dateStr) {
+  if (!isFestivityDisplacedFromDate(dateStr)) return null;
+  const fromLit = detectFestivityPresetFromAmbrosian(dateStr);
+  if (!fromLit) return null;
+  const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
+  if (!eventKey) return null;
+  const anno = dateStr.slice(0, 4);
+  const effective = getFestivitaDateForAnno(eventKey, anno);
+  if (!effective || effective === dateStr) return null;
+  const primary = primaryEvent(calState.data?.byDate?.[dateStr] || []);
+  const meta = getFestivityPresetMeta(fromLit);
+  return {
+    presetId: fromLit,
+    eventKey,
+    effective,
+    label: resolveCorrezioneCelebrationLabel(
+      { group: null, slots: [] },
+      eventKey,
+      meta?.label || primary?.nome || 'Celebrazione'
+    ),
+    litName: primary?.nome || meta?.label || null
+  };
+}
+
+/** Slot concreti di un giorno-ancora (festività/domenica) espansi sulle date civili. */
+function expandCorrezioneAnchorSlots(anchor) {
+  const extra = getMessaExtraForDate(anchor.data);
+  const out = [];
+  const pushGroup = (civil, celebration, slots, meta = {}) => {
+    if (!civil || !slots?.length) return;
+    out.push({
+      civil,
+      celebration,
+      slots,
+      sourceDate: anchor.data,
+      sourceUuid: meta.sourceUuid || extra?.uuid || null,
+      sourceType: meta.sourceType || (extra && isExtraFestiva(extra) ? 'festiva' : (anchor.straordinaria ? 'straordinaria' : 'modello')),
+      kind: meta.kind || anchor.kind,
+      personalized: !!meta.personalized || !!extra?.orarioPersonalizzato,
+      materialize: !!meta.materialize
+    });
+  };
+
+  const pushFestivityCivilGroups = (byCivil, fallbackLabel, meta) => {
+    const eventKey = extra?.eventKey
+      || getPrimaryFestivityEventKey(anchor.data)
+      || (anchor.preset ? FESTIVITA_EVENTKEY_BY_PRESET[anchor.preset] : null)
+      || null;
+    byCivil.forEach((slots, civil) => {
+      partitionCorrezioneSlotsByCelebration(eventKey, slots).forEach(part => {
+        pushGroup(
+          civil,
+          resolveCorrezioneCelebrationLabel(part, eventKey, fallbackLabel),
+          part.slots,
+          meta
+        );
+      });
+    });
+  };
+
+  if (extra && isExtraFestiva(extra)) {
+    const concrete = getFestivaSlots(anchor.data);
+    const byCivil = new Map();
+    concrete.forEach(s => {
+      if (!byCivil.has(s.data)) byCivil.set(s.data, []);
+      byCivil.get(s.data).push({
+        ora: s.ora,
+        sede: s.sede,
+        conTurno: !!s.conChierichetti,
+        turnoNum: s.turno,
+        titolo: s.titolo || null,
+        vigilia: !!s.vigilia,
+        dayOffset: s.data === anchor.data ? 0 : -1,
+        sourceDate: anchor.data,
+        sourceUuid: extra.uuid
+      });
+    });
+    pushFestivityCivilGroups(byCivil, extra.nota || anchor.label, {
+      sourceUuid: extra.uuid,
+      sourceType: 'festiva',
+      personalized: !!extra.orarioPersonalizzato
+    });
+    if (!concrete.length && Array.isArray(extra.slots) && extra.slots.length === 0) {
+      const eventKey = extra.eventKey || getPrimaryFestivityEventKey(anchor.data);
+      pushGroup(
+        anchor.data,
+        resolveCorrezioneCelebrationLabel({ group: null, slots: [] }, eventKey, extra.nota || anchor.label),
+        [],
+        { sourceUuid: extra.uuid, sourceType: 'festiva', personalized: true }
+      );
+    }
+    return out;
+  }
+
+  if (extra && extra.tipo === 'straordinaria' && !isExtraFestiva(extra)) {
+    pushGroup(anchor.data, extra.nota || 'Messa straordinaria', [{
+      ora: extra.ora || '10:00',
+      sede: extra.sede || 'santuario',
+      conTurno: true,
+      titolo: extra.nota || null,
+      dayOffset: 0,
+      sourceDate: anchor.data,
+      sourceUuid: extra.uuid
+    }], { sourceUuid: extra.uuid, sourceType: 'straordinaria' });
+    return out;
+  }
+
+  const isDomOrd = isSundayDate(anchor.data)
+    && (anchor.kind === 'domenicale' || getLiturgicalContext(anchor.data).strutturaKind === 'domenicale');
+  if (isDomOrd && hasStrutturaConfig('domenicale')) {
+    const byCivil = new Map();
+    getMesseOrdinarieSlots(anchor.data).forEach(s => {
+      if (!byCivil.has(s.data)) byCivil.set(s.data, []);
+      byCivil.get(s.data).push({
+        ora: s.ora,
+        sede: s.sede,
+        conTurno: !!s.conChierichetti,
+        turnoNum: s.turno,
+        titolo: s.titolo || (s.vigilia ? 'Vigilia' : null),
+        vigilia: !!s.vigilia,
+        dayOffset: s.data === anchor.data ? 0 : -1,
+        sourceDate: anchor.data,
+        sourceUuid: null
+      });
+    });
+    byCivil.forEach((slots, civil) => {
+      // Titolo = nome LitCal del giorno civile (es. Dedicazione del Duomo), non «Domenicale ordinario»
+      const litName = getCorrezioneDomenicaleTitle(civil, anchor.data);
+      pushGroup(civil, litName, slots, { sourceType: 'domenicale', kind: 'domenicale' });
+    });
+    return out;
+  }
+
+  if (anchor.materialize || (anchor.preset && anchor.preset !== 'solennita')) {
+    const eventKey = getPrimaryFestivityEventKey(anchor.data);
+    const modello = getFestivitaModello(eventKey);
+    let template = modello?.slots || null;
+    if (!template) {
+      const built = buildFestivityPresetSlots(anchor.preset || detectFestivityPreset(anchor.data));
+      template = Array.isArray(built) ? built : getFestivaTemplateSlots({
+        strutturaKind: anchor.kind,
+        preset: anchor.preset
+      });
+    }
+    const byCivil = new Map();
+    (template || []).forEach(s => {
+      const civil = addDaysToDateStr(anchor.data, s.dayOffset === -1 ? -1 : 0);
+      if (!byCivil.has(civil)) byCivil.set(civil, []);
+      byCivil.get(civil).push({
+        ora: s.ora,
+        sede: s.sede,
+        conTurno: !!s.conTurno,
+        turnoNum: s.turnoNum,
+        titolo: s.titolo || null,
+        vigilia: !!s.vigilia || s.dayOffset === -1,
+        dayOffset: s.dayOffset === -1 ? -1 : 0,
+        sourceDate: anchor.data,
+        sourceUuid: null
+      });
+    });
+    pushFestivityCivilGroups(byCivil, anchor.label, { sourceType: 'modello', materialize: true });
+  }
+
+  // Feriali di stagione (Natale/Pasqua/Defunti/festivo) senza extra persistito: stesso orario di Messe
+  if (!out.length) {
+    const seasonKind = anchor.kind || getLiturgicalContext(anchor.data).strutturaKind;
+    if (seasonKind && ['natalizio', 'pasquale', 'defunti', 'festivo'].includes(seasonKind)
+      && hasStrutturaConfig(seasonKind)) {
+      const info = getMessaInfo(anchor.data);
+      const synExtra = info?.type === 'festiva' ? info.extra : null;
+      const concrete = synExtra
+        ? getFestivaSlots(synExtra.data || anchor.data, {
+          extra: synExtra,
+          civilDate: info.civilDate || null
+        })
+        : null;
+      if (concrete?.length) {
+        const byCivil = new Map();
+        concrete.forEach(s => {
+          if (!byCivil.has(s.data)) byCivil.set(s.data, []);
+          byCivil.get(s.data).push({
+            ora: s.ora,
+            sede: s.sede,
+            conTurno: !!s.conChierichetti,
+            turnoNum: s.turno,
+            titolo: s.titolo || null,
+            vigilia: !!s.vigilia,
+            dayOffset: s.data === anchor.data ? 0 : -1,
+            sourceDate: anchor.data,
+            sourceUuid: synExtra?.uuid || null
+          });
+        });
+        byCivil.forEach((slots, civil) => {
+          pushGroup(
+            civil,
+            sanitizeAwayStrutturaName(anchor.label, civil, getLiturgicalDisplayTitle(civil, 'Celebrazione')),
+            slots,
+            { sourceType: 'modello', kind: seasonKind, materialize: true }
+          );
+        });
+      } else {
+        const template = getFestivaTemplateSlots({ strutturaKind: seasonKind });
+        const byCivil = new Map();
+        (template || []).forEach(s => {
+          const civil = addDaysToDateStr(anchor.data, s.dayOffset === -1 ? -1 : 0);
+          if (!byCivil.has(civil)) byCivil.set(civil, []);
+          byCivil.get(civil).push({
+            ora: s.ora,
+            sede: s.sede,
+            conTurno: !!s.conTurno,
+            turnoNum: s.turnoNum,
+            titolo: s.titolo || null,
+            vigilia: !!s.vigilia || s.dayOffset === -1,
+            dayOffset: s.dayOffset === -1 ? -1 : 0,
+            sourceDate: anchor.data,
+            sourceUuid: null
+          });
+        });
+        byCivil.forEach((slots, civil) => {
+          pushGroup(
+            civil,
+            sanitizeAwayStrutturaName(anchor.label, civil, getLiturgicalDisplayTitle(civil, 'Celebrazione')),
+            slots,
+            { sourceType: 'modello', kind: seasonKind, materialize: true }
+          );
+        });
+      }
+    }
+  }
+
+  return out;
+}
+
+/** Titolo celebrazione domenicale in Correzioni/Messe: nome LitCal, mai il nome struttura. */
+function getCorrezioneDomenicaleTitle(civilDateStr, sundayDateStr) {
+  const fromCivil = sanitizeAwayStrutturaName(null, civilDateStr, null);
+  if (fromCivil) return fromCivil;
+  const fromSunday = sanitizeAwayStrutturaName(null, sundayDateStr || civilDateStr, null);
+  if (fromSunday) return fromSunday;
+  return getLiturgicalDisplayTitle(sundayDateStr || civilDateStr, 'Domenica');
+}
+
+/** Spezza gli slot Correzioni per blocco celebrazione (Modelli). */
+function partitionCorrezioneSlotsByCelebration(eventKey, slots) {
+  const list = Array.isArray(slots) ? slots : [];
+  const celebGroups = getStrutturaGiornoGroupsForEventKey(eventKey).filter(g => g.celebrationKey);
+  if (!celebGroups.length || !list.length) {
+    return [{ group: null, slots: list.slice() }];
+  }
+  const assigned = new Set();
+  const parts = [];
+  celebGroups.forEach(g => {
+    const matched = [];
+    list.forEach((s, i) => {
+      if (assigned.has(i)) return;
+      if (!slotMatchesCelebrationKey(s, g.celebrationKey)) return;
+      matched.push(s);
+      assigned.add(i);
+    });
+    if (matched.length) parts.push({ group: g, slots: matched });
+  });
+  const rest = list.filter((_, i) => !assigned.has(i));
+  if (rest.length) parts.push({ group: null, slots: rest });
+  return parts.length ? parts : [{ group: null, slots: list.slice() }];
+}
+
+/** Titolo celebrazione in Correzioni: priorità nome comunità (Modelli) sul LitCal. */
+function resolveCorrezioneCelebrationLabel(part, eventKey, fallback) {
+  let label = null;
+  if (part?.group) label = getStrutturaGiornoDisplayLabel(part.group);
+  else if (eventKey) {
+    const customMono = getFestivitaModelli().find(m =>
+      m.eventKey === eventKey && !m.celebrationKey && m.label && String(m.label).trim()
+    );
+    if (customMono?.label) label = String(customMono.label).trim();
+    else {
+      const groups = getStrutturaGiornoGroupsForEventKey(eventKey).filter(g => !g.usesSeasonTemplate);
+      if (groups.length === 1) label = getStrutturaGiornoDisplayLabel(groups[0]);
+      else {
+        const presetId = Object.keys(FESTIVITA_EVENTKEY_BY_PRESET)
+          .find(id => FESTIVITA_EVENTKEY_BY_PRESET[id] === eventKey);
+        if (presetId) {
+          const meta = getFestivityPresetMeta(presetId);
+          if (meta?.label) label = meta.label;
+        }
+      }
+    }
+  }
+  if (!label) label = fallback || 'Celebrazione';
+  if (isStrutturaDisplayName(label)) {
+    // Mai restituire un nome struttura; preferisci fallback non-struttura o «Celebrazione»
+    if (fallback && !isStrutturaDisplayName(fallback)) return fallback;
+    return 'Celebrazione';
+  }
+  return label;
+}
+
+/** Giorni civili Correzioni: tutte le celebrazioni/messe che cadono in quella data civile. */
+function getCorrezioniCivilDaysForAnno(anno) {
+  anno = String(anno || getStrutturaFestivitaAnno());
+  const byCivil = new Map();
+
+  const ensure = (civil) => {
+    if (byCivil.has(civil)) return byCivil.get(civil);
+    const ctx = getLiturgicalContext(civil);
+    const day = {
+      data: civil,
+      label: sanitizeAwayStrutturaName(
+        ctx.primary?.nome || ctx.label,
+        civil,
+        'Giorno'
+      ),
+      kind: ctx.strutturaKind || null,
+      celebrations: [],
+      slots: [],
+      personalized: false,
+      materialize: false,
+      straordinaria: false,
+      senzaMesse: false
+    };
+    byCivil.set(civil, day);
+    return day;
+  };
+
+  getCorrezioniDaysForAnno(anno).forEach(anchor => {
+    const displacedInfo = anchor.displaced
+      ? {
+          effective: anchor.displacedTo,
+          eventKey: anchor.displacedEventKey,
+          label: anchor.label
+        }
+      : getDisplacedFestivityInfo(anchor.data);
+
+    if (displacedInfo) {
+      const day = ensure(anchor.data);
+      day.displaced = true;
+      day.displacedTo = displacedInfo.effective || null;
+      day.senzaMesse = day.slots.length === 0;
+      const movedLabel = displacedInfo.effective
+        ? `Spostata dalla comunità → ${formatFestivitaDateShort(displacedInfo.effective)}`
+        : 'Spostata dalla comunità';
+      day.celebrations.push({
+        label: displacedInfo.label || anchor.label || 'Celebrazione',
+        kind: null,
+        slots: [],
+        sourceDate: anchor.data,
+        sourceType: 'displaced',
+        displacedTo: displacedInfo.effective || null,
+        note: movedLabel
+      });
+      if (!day.label || day.label === 'Giorno') {
+        day.label = displacedInfo.label || anchor.label || day.label;
+      }
+      // Continua: eventuali altre messe (domenicale/extra) sullo stesso giorno
+    }
+
+    const groups = expandCorrezioneAnchorSlots(anchor);
+    if (!groups.length && isFestivitaEsclusa(anchor.data)) {
+      const day = ensure(anchor.data);
+      day.senzaMesse = true;
+      day.celebrations.push({
+        label: anchor.label,
+        kind: anchor.kind,
+        slots: [],
+        sourceDate: anchor.data,
+        sourceType: 'esclusa'
+      });
+      return;
+    }
+    if (!groups.length && displacedInfo) return;
+    groups.forEach(g => {
+      if (!dateInStrutturaPastoralYear(g.civil, anno)) return;
+      const day = ensure(g.civil);
+      if (g.personalized) day.personalized = true;
+      if (g.materialize) day.materialize = true;
+      if (g.sourceType === 'straordinaria') day.straordinaria = true;
+      if (g.kind && !day.kind) day.kind = g.kind;
+      day.celebrations.push({
+        label: g.celebration,
+        kind: g.kind,
+        slots: g.slots,
+        sourceDate: g.sourceDate,
+        sourceUuid: g.sourceUuid,
+        sourceType: g.sourceType,
+        personalized: g.personalized,
+        materialize: g.materialize
+      });
+      day.slots.push(...g.slots);
+    });
+  });
+
+  byCivil.forEach(day => {
+    day.slots.sort((a, b) => compareOraSlot(a.ora, b.ora) || String(a.sede).localeCompare(String(b.sede)));
+    day.senzaMesse = day.slots.length === 0;
+    day.celebrations.forEach(c => {
+      c.label = sanitizeAwayStrutturaName(c.label, day.data, c.label || 'Celebrazione');
+    });
+    // Titolo giorno: se una sola celebrazione, usa quella; altrimenti nome liturgico del giorno civile
+    if (day.celebrations.length === 1) {
+      day.label = day.celebrations[0].label || day.label;
+    } else if (day.celebrations.length > 1) {
+      const names = [...new Set(day.celebrations.map(c => c.label).filter(Boolean))];
+      if (names.length) day.label = names.join(' · ');
+    }
+    day.label = sanitizeAwayStrutturaName(day.label, day.data, 'Giorno');
+  });
+
+  return [...byCivil.values()].sort((a, b) => String(a.data).localeCompare(String(b.data)));
+}
+
+/** Cache giorni civili Correzioni per render Messe (stesso anno pastorale). */
+let _correzioniCivilDayCache = { anno: null, map: null };
+
+function clearCorrezioniCivilDayCache() {
+  _correzioniCivilDayCache = { anno: null, map: null };
+}
+
+function getCorrezioniCivilDayCached(dateStr) {
+  if (!dateStr) return null;
+  const anno = String(getPastoralStartForDateStr(dateStr));
+  if (_correzioniCivilDayCache.anno !== anno || !_correzioniCivilDayCache.map) {
+    const days = getCorrezioniCivilDaysForAnno(anno);
+    _correzioniCivilDayCache = {
+      anno,
+      map: new Map(days.map(d => [d.data, d]))
+    };
+  }
+  return _correzioniCivilDayCache.map.get(dateStr) || null;
+}
+
+/**
+ * Titolo Messe = stesso label di Correzioni per il giorno civile
+ * (blocchi modello con messe; es. 31 ott vigilia, 1 nov Santi + vespri).
+ */
+function getMessaCivilDayTitleFromCorrezioni(dateStr) {
+  const day = getCorrezioniCivilDayCached(dateStr);
+  if (!day) return null;
+  const celebs = (day.celebrations || []).filter(c =>
+    c.sourceType !== 'displaced' && c.sourceType !== 'esclusa' && (c.slots || []).length
+  );
+  if (celebs.length === 1) return celebs[0].label || null;
+  if (celebs.length > 1) {
+    const names = [...new Set(celebs.map(c => c.label).filter(Boolean))];
+    if (names.length) return names.join(' · ');
+  }
+  if (day.displaced && !(day.slots || []).length) return null;
+  if ((day.slots || []).length && day.label) return day.label;
+  return null;
+}
+
+async function renderStrutturaCorrezioniPanel() {
+  const listEl = document.getElementById('struttura-correzioni-list');
+  if (!listEl) return;
+
+  const anno = getStrutturaFestivitaAnno();
+  const pastoralLabel = formatPastoralYearLabel(anno);
+  syncStrutturaAnnoSelects(anno);
+  ensureGruppiConfig();
+  try {
+    await ensureCalendarioForPastoralYear(anno);
+  } catch (err) {
+    listEl.innerHTML = '<p class="empty-state">' + esc(err.message || 'Calendario non disponibile') + '</p>';
+    return;
+  }
+
+  const canManage = isCurrentUserAdmin();
+  if (canManage) {
+    try {
+      const sync = syncFestivitaAnno(anno);
+      if (sync.added || sync.updated || sync.removed) {
+        saveData();
+        void persistConfig();
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  const days = getCorrezioniCivilDaysForAnno(anno);
+  const nDom = days.filter(d => isSundayDate(d.data) && d.kind === 'domenicale').length;
+  const nOverride = days.filter(d => d.personalized).length;
+  const nSenza = days.filter(d => d.senzaMesse).length;
+  const nDisplaced = days.filter(d => d.displaced).length;
+  const nMesse = days.reduce((sum, d) => sum + d.slots.length, 0);
+
+  const sub = document.getElementById('struttura-correzioni-sub');
+  if (sub) {
+    const bits = [
+      `${days.length} giorni`,
+      formatMesseCountLabel(nMesse),
+      nDom ? `${nDom} domeniche` : null,
+      nOverride ? `${nOverride} personalizzati` : null,
+      nDisplaced ? `${nDisplaced} spostate` : null,
+      nSenza ? `${nSenza} senza messe` : null
+    ].filter(Boolean);
+    sub.textContent = bits.join(' · ') + ' · ' + formatStrutturaPastoralRangeLabel(anno);
+  }
+
+  if (!days.length) {
+    listEl.innerHTML = `
+      <div class="struttura-correzioni-empty">
+        <p class="empty-state">Nessun giorno con messe per ${esc(pastoralLabel)}. Applica i modelli o configura le strutture.</p>
+        ${canManage ? `<button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli')">Apri Modelli</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  const byMonth = {};
+  days.forEach(d => {
+    const key = String(d.data).slice(0, 7);
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(d);
+  });
+  const monthKeysWithDays = Object.keys(byMonth).sort();
+  const allMonthKeys = getStrutturaCorrezioniMonthKeys(anno);
+  const monthKey = ensureStrutturaCorrezioniMonthKey(anno, monthKeysWithDays);
+  const monthIdx = allMonthKeys.indexOf(monthKey);
+  const canPrev = monthIdx > 0;
+  const canNext = monthIdx >= 0 && monthIdx < allMonthKeys.length - 1;
+  const monthLabel = new Date(monthKey + '-15T12:00:00').toLocaleDateString('it-IT', {
+    month: 'long',
+    year: 'numeric'
+  });
+  const monthDays = byMonth[monthKey] || [];
+
+  let html = `
+    <div class="struttura-correzioni-month-nav month-nav" role="navigation" aria-label="Mese correzioni">
+      <button type="button" class="btn btn-ghost btn-icon" onclick="shiftStrutturaCorrezioniMonth(-1)" ${canPrev ? '' : 'disabled'} aria-label="Mese precedente">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h4>${esc(monthLabel)}</h4>
+      <button type="button" class="btn btn-ghost btn-icon" onclick="shiftStrutturaCorrezioniMonth(1)" ${canNext ? '' : 'disabled'} aria-label="Mese successivo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  `;
+
+  if (!monthDays.length) {
+    html += `<p class="empty-state">Nessun giorno in ${esc(monthLabel)}</p>`;
+  } else {
+    html += '<div class="struttura-days struttura-correzioni-days">';
+    html += monthDays.map(d => renderCorrezioneCivilDayCard(d, canManage)).join('');
+    html += '</div>';
+  }
+
+  listEl.innerHTML = html;
+}
+
+function renderCorrezioneCivilDayCard(d, canManage) {
+  const celebLabels = [...new Set((d.celebrations || []).map(c => c.label).filter(Boolean))];
+  const metaBits = [
+    d.displaced ? 'spostata dalla comunità' : null,
+    d.displacedTo ? `→ ${formatFestivitaDateShort(d.displacedTo)}` : null,
+    d.personalized ? 'quest’anno' : (d.displaced && d.senzaMesse ? null : 'da modello'),
+    d.senzaMesse ? 'senza messe' : formatMesseCountLabel(d.slots.length),
+    celebLabels.length > 1 ? `${celebLabels.length} celebrazioni` : null
+  ].filter(Boolean).join(' · ');
+
+  const openAttrs = canManage
+    ? `role="button" tabindex="0" onclick="editCorrezioneAnno(${jsStr(d.data)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editCorrezioneAnno(${jsStr(d.data)})}"`
+    : '';
+
+  const celebBlocks = (d.celebrations || []).map(c => {
+    const rows = (c.slots || []).map(s => {
+      const servizio = s.conTurno
+        ? (s.turnoNum ? formatMessaServizioShort(s.turnoNum) : 'Squadra')
+        : 'Libera';
+      const titolo = s.titolo ? `<span class="struttura-sched-title">${esc(s.titolo)}</span>` : '';
+      return `<li class="struttura-sched-row${s.conTurno ? ' has-squadra' : ' is-libera'}">
+        <span class="struttura-sched-ora">${esc(s.ora || '—')}</span>
+        <span class="struttura-sched-main">
+          ${titolo}
+          <span class="struttura-sched-sede">${esc(SEDI_LABEL[s.sede] || s.sede || '')}</span>
+        </span>
+        <span class="struttura-sched-servizio">${esc(servizio)}</span>
+      </li>`;
+    }).join('');
+    const emptyCopy = c.sourceType === 'displaced'
+      ? (c.note || (c.displacedTo
+        ? `Spostata dalla comunità → ${formatFestivitaDateShort(c.displacedTo)}`
+        : 'Spostata dalla comunità'))
+      : 'Nessuna messa';
+    return `
+      <div class="struttura-correzione-celeb${c.sourceType === 'displaced' ? ' is-displaced' : ''}">
+        <h5 class="struttura-correzione-celeb-title">${esc(c.label || 'Celebrazione')}</h5>
+        ${rows
+          ? `<ul class="struttura-sched">${rows}</ul>`
+          : `<p class="empty-state struttura-day-empty">${esc(emptyCopy)}</p>`}
+      </div>`;
+  }).join('');
+
+  return `
+    <article class="struttura-day is-card is-civil-day${canManage ? ' is-clickable' : ''}${d.personalized ? ' is-customized' : ''}${d.senzaMesse ? ' is-senza-messe' : ''}${d.displaced ? ' is-displaced' : ''}" ${openAttrs}>
+      <header class="struttura-day-head">
+        <div class="struttura-day-copy">
+          <h4 class="struttura-day-title">${esc(formatFestivitaDateShort(d.data))}</h4>
+          <p class="struttura-day-meta">${esc(d.label)} · ${esc(metaBits)}</p>
+        </div>
+        ${canManage ? `
+          <div class="struttura-day-actions" onclick="event.stopPropagation()">
+            <button type="button" class="btn btn-secondary" onclick="editCorrezioneAnno(${jsStr(d.data)})">Modifica</button>
+          </div>` : ''}
+      </header>
+      ${celebBlocks || '<p class="empty-state struttura-day-empty">Nessuna celebrazione</p>'}
+    </article>`;
+}
+
+/** Editor giorno civile: modello applicato + messe (solo anno pastorale). */
+function editCorrezioneAnno(civilDateStr) {
+  if (!requireAdminAction('Solo l\'admin può correggere le sedi dell\'anno')) return;
+  const anno = getPastoralStartForDateStr(civilDateStr);
+  const dayPlan = getCorrezioniCivilDaysForAnno(anno).find(d => d.data === civilDateStr)
+    || { data: civilDateStr, label: getLiturgicalContext(civilDateStr).primary?.nome || 'Giorno', celebrations: [], slots: [] };
+
+  // Materializza le fonti necessarie così il salvataggio ha uuid stabili
+  const sourceDates = [...new Set((dayPlan.celebrations || [])
+    .filter(c => c.sourceType !== 'displaced' && c.sourceType !== 'esclusa')
+    .map(c => c.sourceDate)
+    .filter(Boolean))];
+  if (!sourceDates.length && !dayPlan.displaced) sourceDates.push(civilDateStr);
+  sourceDates.forEach(src => {
+    if (isFestivityDisplacedFromDate(src)) return;
+    const info = getMessaInfo(src);
+    if (info?.type === 'domenica' || info?.type === 'festiva' || !getMessaExtraForDate(src)) {
+      ensureFestivaExtraMaterialized(src);
+    }
+  });
+
+  // Ricarica piano dopo materializzazione
+  const refreshed = getCorrezioniCivilDaysForAnno(anno).find(d => d.data === civilDateStr) || dayPlan;
+  const hostExtra = ensureFestivaExtraMaterialized(civilDateStr);
+  const editorSlots = (refreshed.slots || []).map(s => {
+    const sourceDate = s.sourceDate || civilDateStr;
+    const sourceExtra = getMessaExtraForDate(sourceDate);
+    return {
+      ora: s.ora,
+      sede: s.sede,
+      conTurno: !!s.conTurno,
+      titolo: s.titolo || '',
+      dayOffset: 0,
+      sourceDate,
+      sourceUuid: s.sourceUuid || sourceExtra?.uuid || hostExtra.uuid,
+      vigilia: !!s.vigilia
+    };
+  });
+
+  const host = document.getElementById('struttura-slots-editor-host');
+  if (!host) return;
+  const pastoralLabel = formatPastoralYearLabel(anno);
+  const ctx = getLiturgicalContext(civilDateStr);
+  const primary = getLiturgicalDayEvent(civilDateStr);
+  const override = getLiturgicalDayOverride(civilDateStr) || {};
+  const currentKind = hostExtra.strutturaKind || override.strutturaKind || ctx.strutturaKind || 'domenicale';
+  const currentTipo = override.tipo || (primary?.grado === 'm' ? 'memoria-facoltativa' : primary?.tipo) || 'feriale';
+  const currentNome = override.nome || refreshed.label || primary?.nome || '';
+  const assignedKey = findEventKeyForDateOverride(civilDateStr) || hostExtra.eventKey || '';
+  const kindOptions = Object.values(STRUTTURA_KINDS).map(meta => {
+    const configured = hasStrutturaConfig(meta.id);
+    return `<option value="${esc(meta.id)}" ${currentKind === meta.id ? 'selected' : ''}${!configured ? ' disabled' : ''}>${esc(meta.shortLabel || meta.label)}${!configured ? ' (non configurato)' : ''}</option>`;
+  }).join('');
+  const festivityOptions = Object.entries(FESTIVITA_DEFAULT_MD).map(([key, md]) => {
+    const group = Object.values(STRUTTURA_GIORNI_SPECIALI).flat().find(g => g.eventKey === key && !g.usesSeasonTemplate);
+    const label = group ? getStrutturaGiornoDisplayLabel(group) : (getFestivityPresetMeta(
+      Object.keys(FESTIVITA_EVENTKEY_BY_PRESET).find(id => FESTIVITA_EVENTKEY_BY_PRESET[id] === key) || ''
+    ).label || key);
+    return `<option value="${esc(key)}" ${assignedKey === key ? 'selected' : ''}>${esc(label)} · def. ${esc(md)}</option>`;
+  }).join('');
+
+  host.innerHTML = `
+    <div class="struttura-modello-editor" data-correzione-civil="${esc(civilDateStr)}">
+      <p class="form-hint struttura-layer-hint">
+        Correzioni per <strong>${esc(pastoralLabel)}</strong>: puoi cambiare modello orario, festa assegnata e messe.
+        I <strong>Modelli</strong> globali non vengono modificati.
+      </p>
+      <div class="struttura-correzione-day-config">
+        <h4>Giorno e modello</h4>
+        <div class="form-group">
+          <label for="correzione-day-nome">Nome celebrazione</label>
+          <input type="text" id="correzione-day-nome" maxlength="160" value="${esc(currentNome)}" placeholder="Es. Dedicazione del Duomo di Milano">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="correzione-day-tipo">Tipo</label>
+            <select id="correzione-day-tipo">
+              <option value="solennita" ${currentTipo === 'solennita' ? 'selected' : ''}>Solennità</option>
+              <option value="festa" ${currentTipo === 'festa' ? 'selected' : ''}>Festa</option>
+              <option value="memoria" ${currentTipo === 'memoria' ? 'selected' : ''}>Memoria</option>
+              <option value="memoria-facoltativa" ${currentTipo === 'memoria-facoltativa' ? 'selected' : ''}>Memoria facoltativa</option>
+              <option value="feriale" ${currentTipo === 'feriale' ? 'selected' : ''}>Feriale</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="correzione-day-struttura">Modello orario</label>
+            <select id="correzione-day-struttura">${kindOptions}</select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="correzione-day-festa">Festa modello su questa data</label>
+          <select id="correzione-day-festa">
+            <option value="">— nessuna —</option>
+            ${festivityOptions}
+          </select>
+          <p class="form-hint">Sposta qui Tutti i Santi, Defunti, Natale… per quest’anno (indipendente da LitCal).</p>
+        </div>
+        <div class="form-actions" style="margin-bottom:12px">
+          <button type="button" class="btn btn-secondary" onclick="ricaricaMesseCorrezioneDalModello(${jsStr(civilDateStr)})">Ricarica messe dal modello</button>
+        </div>
+      </div>
+      <div class="struttura-modello-slots-head"><h4>Messe del giorno</h4></div>
+      <div id="festiva-slots-editor" data-mount="anno-civile" data-civil-date="${esc(civilDateStr)}" data-host-uuid="${esc(hostExtra.uuid)}">
+        ${festivaSlotEditorRowsHtml(editorSlots, { civilMode: true }) || '<p class="empty-state">Nessuna messa</p>'}
+      </div>
+    </div>
+  `;
+  openStrutturaModelloModal({
+    title: formatFestivitaDateShort(civilDateStr),
+    sub: sanitizeAwayStrutturaName(currentNome, civilDateStr, 'Giorno') + ' · ' + pastoralLabel,
+    mode: 'slots'
+  });
+  const personalized = !!(refreshed.personalized || hostExtra.orarioPersonalizzato
+    || (refreshed.celebrations || []).some(c => c.personalized));
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-ghost" onclick="addFestivaSlotRow()">+ Messa</button>
+      ${personalized || override.nome || override.strutturaKind || assignedKey
+        ? `<button type="button" class="btn btn-ghost" onclick="ripristinaCorrezioneCivilDay(${jsStr(civilDateStr)})">Torna al modello</button>`
+        : ''}
+      <button type="button" class="btn btn-secondary" onclick="closeStrutturaCorrezioniEditor()">Annulla</button>
+      <button type="button" class="btn btn-primary" onclick="saveCorrezioneCivilDay(${jsStr(civilDateStr)})">Salva</button>
+    `;
+  }
+}
+
+/** Applica il modello orario scelto e ricarica le messe nell’editor (solo quest’anno). */
+function ricaricaMesseCorrezioneDalModello(civilDateStr) {
+  if (!requireAdminAction('Solo l\'admin può correggere le sedi dell\'anno')) return;
+  const kind = document.getElementById('correzione-day-struttura')?.value;
+  if (!kind || !STRUTTURA_KINDS[kind]) {
+    showToast('Scegli un modello orario');
+    return;
+  }
+  if (!hasStrutturaConfig(kind)) {
+    showToast('Configura prima questo modello in Modelli');
+    return;
+  }
+  if (!confirm('Sostituire le messe di questo giorno con quelle del modello «' + (getStrutturaMeta(kind).shortLabel || getStrutturaMeta(kind).label) + '»?\n\nSolo per quest’anno.')) return;
+
+  // Persisti subito nome/tipo/modello/festa scelti, poi ricarica messe
+  if (!saveCorrezioneDayConfig(civilDateStr)) return;
+
+  const festivityKey = document.getElementById('correzione-day-festa')?.value || '';
+  const extra = ensureFestivaExtraMaterialized(civilDateStr);
+  applyStrutturaToFestivaExtra(extra.uuid, kind, { yearOnly: true, quiet: true });
+  if (festivityKey && FESTIVITA_DEFAULT_MD[festivityKey]) {
+    extra.eventKey = festivityKey;
+    const presetId = Object.keys(FESTIVITA_EVENTKEY_BY_PRESET).find(id => FESTIVITA_EVENTKEY_BY_PRESET[id] === festivityKey);
+    if (presetId) {
+      const modello = getFestivitaModello(festivityKey);
+      if (modello?.slots?.length) {
+        extra.slots = renumberFestivaSlots(cloneFestivaSlotsForModello(modello.slots) || []);
+        extra.preset = modello.preset || presetId;
+      } else {
+        applyPresetToFestivaExtra(extra, presetId);
+      }
+    }
+  } else {
+    // Senza festa: riempi dagli slot della struttura scelta
+    const template = getStrutturaSlots(kind);
+    extra.slots = renumberFestivaSlots(template.map((s, i) => ({
+      id: newFestivaSlotId(),
+      dayOffset: s.dayOffset === -1 ? -1 : 0,
+      ora: s.ora || '10:00',
+      sede: s.sede || 'santuario',
+      vigilia: !!s.vigilia || s.dayOffset === -1,
+      conTurno: !!s.conTurno,
+      titolo: s.titolo
+    })));
+  }
+  extra.orarioPersonalizzato = false;
+  saveData();
+  void persistConfig();
+  clearCorrezioniCivilDayCache();
+  editCorrezioneAnno(civilDateStr);
+  showToast('Messe ricaricate dal modello');
+}
+
+/** Salva nome/tipo/modello/festa assegnata per il giorno (solo anno). */
+function saveCorrezioneDayConfig(civilDateStr) {
+  const nome = (document.getElementById('correzione-day-nome')?.value || '').trim();
+  const tipo = document.getElementById('correzione-day-tipo')?.value;
+  const strutturaKind = document.getElementById('correzione-day-struttura')?.value;
+  const festivityKey = document.getElementById('correzione-day-festa')?.value || '';
+  if (!nome) {
+    showToast('Indica il nome della celebrazione');
+    return false;
+  }
+  if (!STRUTTURA_KINDS[strutturaKind] || !['solennita', 'festa', 'memoria', 'memoria-facoltativa', 'feriale'].includes(tipo)) {
+    showToast('Indica tipo e modello orario validi');
+    return false;
+  }
+  ensureGruppiConfig();
+  state.gruppiConfig.giorniLiturgici[civilDateStr] = {
+    nome,
+    tipo,
+    strutturaKind,
+    updatedAt: new Date().toISOString()
+  };
+
+  const anno = civilDateStr.slice(0, 4);
+  Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+    const map = getFestivitaDateOverridesMap();
+    if (map[key]?.[anno] === civilDateStr && key !== festivityKey) {
+      clearFestivitaDateForAnno(key, anno);
+    }
+  });
+  if (festivityKey && FESTIVITA_DEFAULT_MD[festivityKey]) {
+    setFestivitaDateForAnno(festivityKey, civilDateStr);
+  } else {
+    Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+      if (getFestivitaDateOverridesMap()[key]?.[anno] === civilDateStr) {
+        clearFestivitaDateForAnno(key, anno);
+      }
+    });
+  }
+
+  const extra = getMessaExtraForDate(civilDateStr) || ensureFestivaExtraMaterialized(civilDateStr);
+  if (extra) {
+    extra.strutturaKind = strutturaKind;
+    extra.nota = nome;
+    if (festivityKey) extra.eventKey = festivityKey;
+    else if (extra.eventKey && getFestivitaDateForAnno(extra.eventKey, anno) !== civilDateStr) {
+      delete extra.eventKey;
+    }
+  }
+  clearLiturgicalSeasonCache();
+  clearCorrezioniCivilDayCache();
+  return true;
+}
+
+function saveCorrezioneCivilDay(civilDateStr) {
+  if (!requireAdminAction('Solo l\'admin può correggere le sedi dell\'anno')) return;
+  if (document.getElementById('correzione-day-nome') && !saveCorrezioneDayConfig(civilDateStr)) return;
+  const editor = document.getElementById('festiva-slots-editor');
+  if (!editor || editor.dataset.mount !== 'anno-civile') return;
+  const hostUuid = editor.dataset.hostUuid || '';
+  const rows = [...editor.querySelectorAll('.festiva-slot-edit')].map((row, i) => {
+    const ora = row.querySelector('[data-field="ora"]')?.value || '10:00';
+    const sede = row.querySelector('[data-field="sede"]')?.value || 'santuario';
+    const conTurno = row.querySelector('[data-field="conTurno"]')?.value === '1';
+    const titolo = (row.querySelector('[data-field="titolo"]')?.value || '').trim();
+    const sourceDate = row.dataset.sourceDate || civilDateStr;
+    const sourceUuid = row.dataset.sourceUuid || hostUuid;
+    const slot = {
+      id: 'anno-slot-' + i + '-' + Date.now().toString(36),
+      dayOffset: 0,
+      ora,
+      sede,
+      vigilia: false,
+      conTurno,
+      _sourceDate: sourceDate,
+      _sourceUuid: sourceUuid
+    };
+    if (titolo) slot.titolo = titolo;
+    return slot;
+  });
+
+  if (!rows.length) {
+    if (!confirm('Salvare senza messe per questo giorno civile?\n\nResterà senza servizio all’altare finché non le ripristini dal modello.')) return;
+  }
+
+  // Rimuovi dalle fonti gli slot che cadevano su questo giorno civile
+  const touched = new Map();
+  const touch = (extra) => {
+    if (!extra) return;
+    touched.set(extra.uuid, extra);
+  };
+
+  const anno = getPastoralStartForDateStr(civilDateStr);
+  getCorrezioniDaysForAnno(anno).forEach(anchor => {
+    const extra = getMessaExtraForDate(anchor.data);
+    if (!extra || !isExtraFestiva(extra) || !Array.isArray(extra.slots)) return;
+    const before = extra.slots.length;
+    extra.slots = extra.slots.filter(s => {
+      const civil = addDaysToDateStr(extra.data, s.dayOffset === -1 ? -1 : 0);
+      return civil !== civilDateStr;
+    });
+    if (extra.slots.length !== before) touch(extra);
+  });
+
+  // Distribuisci i nuovi slot: stesso giorno civile → dayOffset 0 sull’extra della data civile;
+  // se la fonte era il giorno dopo (vigilia), dayOffset -1 su quell’extra.
+  const hostExtra = (state.messeExtra || []).find(m => m.uuid === hostUuid)
+    || ensureFestivaExtraMaterialized(civilDateStr);
+  touch(hostExtra);
+
+  const bySource = new Map();
+  rows.forEach(slot => {
+    let extra = (state.messeExtra || []).find(m => m.uuid === slot._sourceUuid);
+    if (!extra || !isExtraFestiva(extra)) extra = hostExtra;
+    const sourceDate = extra.data;
+    const dayOffset = sourceDate === civilDateStr ? 0 : (addDaysToDateStr(sourceDate, -1) === civilDateStr ? -1 : 0);
+    // Se non combacia con la fonte, metti sull’host civile
+    const target = (dayOffset === 0 && sourceDate !== civilDateStr && addDaysToDateStr(sourceDate, -1) !== civilDateStr)
+      ? hostExtra
+      : extra;
+    const finalOffset = target.data === civilDateStr ? 0 : -1;
+    if (!bySource.has(target.uuid)) bySource.set(target.uuid, { extra: target, slots: [] });
+    bySource.get(target.uuid).slots.push({
+      id: slot.id,
+      dayOffset: finalOffset,
+      ora: slot.ora,
+      sede: slot.sede,
+      vigilia: finalOffset === -1 || !!slot.vigilia,
+      conTurno: !!slot.conTurno,
+      titolo: slot.titolo
+    });
+    touch(target);
+  });
+
+  bySource.forEach(({ extra, slots }) => {
+    if (!Array.isArray(extra.slots)) extra.slots = [];
+    extra.slots = renumberFestivaSlots([
+      ...extra.slots,
+      ...slots.map(s => {
+        const row = {
+          id: s.id,
+          dayOffset: s.dayOffset,
+          ora: s.ora,
+          sede: s.sede,
+          vigilia: !!s.vigilia,
+          conTurno: !!s.conTurno
+        };
+        if (s.titolo) row.titolo = s.titolo;
+        return row;
+      })
+    ]);
+    extra.orarioPersonalizzato = true;
+    extra.tipo = 'festiva';
+    extra.usaOrarioDomenicale = true;
+  });
+
+  touched.forEach(extra => {
+    extra.orarioPersonalizzato = true;
+    if (!Array.isArray(extra.slots)) extra.slots = [];
+    extra.slots = renumberFestivaSlots(extra.slots);
+    if (isVigilOnlySlotList(extra.slots)) extra.vigilOnly = true;
+    else delete extra.vigilOnly;
+  });
+
+  // Host civile senza altre messe: se vuoto e non aveva celebrazioni proprie, ok
+  if (!rows.length && hostExtra) {
+    // già ripulito sopra; assicurati host abbia slots [] se era la sola fonte
+    const stillHas = (hostExtra.slots || []).some(s => {
+      const civil = addDaysToDateStr(hostExtra.data, s.dayOffset === -1 ? -1 : 0);
+      return civil === civilDateStr;
+    });
+    if (!stillHas && hostExtra.data === civilDateStr) hostExtra.slots = hostExtra.slots || [];
+  }
+
+  saveData();
+  void persistConfig();
+  try {
+    syncFestivitaAnno(anno);
+  } catch (_) { /* ignore */ }
+  clearCorrezioniCivilDayCache();
+  showToast(rows.length
+    ? ('Correzioni salvate · ' + formatFestivitaDateShort(civilDateStr) + ' · ' + formatPastoralYearLabel(anno))
+    : ('Nessuna messa · ' + formatFestivitaDateShort(civilDateStr)));
+  closeStrutturaModelloModal();
+  void renderStrutturaCorrezioniPanel();
+  renderMesseAgenda();
+  if (messeState.selectedDate === civilDateStr) renderMessaDetail(civilDateStr);
+}
+
+function ripristinaCorrezioneCivilDay(civilDateStr) {
+  if (!requireAdminAction('Solo l\'admin può ripristinare dal modello')) return;
+  if (!confirm('Ripristinare questo giorno (modello, festa e messe) dalla fonte?\n\nLe modifiche di quest’anno andranno perse.')) return;
+  const anno = getPastoralStartForDateStr(civilDateStr);
+  const before = getCorrezioniCivilDaysForAnno(anno).find(d => d.data === civilDateStr);
+  const sourceDates = [...new Set((before?.celebrations || []).map(c => c.sourceDate).filter(Boolean))];
+  if (!sourceDates.includes(civilDateStr)) sourceDates.push(civilDateStr);
+
+  ensureGruppiConfig();
+  if (state.gruppiConfig.giorniLiturgici?.[civilDateStr]) {
+    delete state.gruppiConfig.giorniLiturgici[civilDateStr];
+  }
+  const civilAnno = civilDateStr.slice(0, 4);
+  Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+    if (getFestivitaDateOverridesMap()[key]?.[civilAnno] === civilDateStr) {
+      clearFestivitaDateForAnno(key, civilAnno);
+    }
+  });
+  clearLiturgicalSeasonCache();
+  clearCorrezioniCivilDayCache();
+
+  sourceDates.forEach(src => {
+    const extra = getMessaExtraForDate(src);
+    if (!extra || !isExtraFestiva(extra)) return;
+    const eventKey = getPrimaryFestivityEventKey(src) || extra.eventKey;
+    const modello = getFestivitaModello(eventKey);
+    if (modello) applyFestivitaModelloToExtra(extra, modello);
+    else if (extra.strutturaKind === 'domenicale' || getLiturgicalContext(src).strutturaKind === 'domenicale') {
+      applyDomenicaleStrutturaToFestivaExtra(extra);
+    } else {
+      applyPresetToFestivaExtra(extra, detectFestivityPreset(src));
+    }
+    extra.orarioPersonalizzato = false;
+    const ctx = getLiturgicalContext(src);
+    if (ctx.strutturaKind) extra.strutturaKind = ctx.strutturaKind;
+    if (ctx.label) extra.nota = sanitizeAwayStrutturaName(ctx.label, src, extra.nota || 'Celebrazione');
+  });
+
+  try {
+    syncFestivitaAnno(anno);
+  } catch (_) { /* ignore */ }
+
+  saveData();
+  void persistConfig();
+  showToast('Ripristinato dal modello');
+  editCorrezioneAnno(civilDateStr);
+}
+
+/** @deprecated alias */
+function saveCorrezioneAnno(uuid) {
+  const editor = document.getElementById('festiva-slots-editor');
+  if (editor?.dataset.mount === 'anno-civile' && editor.dataset.civilDate) {
+    return saveCorrezioneCivilDay(editor.dataset.civilDate);
+  }
+  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
+  if (extra?.data) return saveCorrezioneCivilDay(extra.data);
+}
+
+function ripristinaCorrezioneAnno(uuid) {
+  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
+  if (extra?.data) return ripristinaCorrezioneCivilDay(extra.data);
+}
+
+function festivaSlotEditorRowsHtml(slots, opts = {}) {
+  const civilMode = !!opts.civilMode;
+  return slots.map((s, idx) => `
+    <div class="festiva-slot-edit" data-idx="${idx}" data-source-uuid="${esc(s.sourceUuid || '')}" data-source-date="${esc(s.sourceDate || '')}">
+      <div class="form-group festiva-slot-title">
+        <label>Titolo / celebrazione <span class="form-optional">(opzionale)</span></label>
+        <input type="text" data-field="titolo" maxlength="80" value="${esc(s.titolo || '')}" placeholder="Es. Vigilia, Lavanda dei Piedi">
+      </div>
+      <div class="form-row festiva-slot-grid${civilMode ? ' is-civil-mode' : ''}">
+        ${civilMode ? '' : `
+        <div class="form-group">
+          <label>Giorno</label>
+          <select data-field="dayOffset">
+            <option value="-1"${s.dayOffset === -1 ? ' selected' : ''}>Vigilia (giorno prima)</option>
+            <option value="0"${s.dayOffset !== -1 ? ' selected' : ''}>Giorno di festa</option>
+          </select>
+        </div>`}
+        <div class="form-group">
+          <label>Ora</label>
+          <input type="time" data-field="ora" value="${esc(s.ora)}">
+        </div>
+        <div class="form-group">
+          <label>Sede</label>
+          <select data-field="sede">
+            ${sedeOptionsHtml(s.sede)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select data-field="conTurno">
+            <option value="1"${s.conTurno ? ' selected' : ''}>Con squadra</option>
+            <option value="0"${!s.conTurno ? ' selected' : ''}>Libera</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-icon" title="Elimina" onclick="removeFestivaSlotRow(this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function editFestivaSlotsInStruttura(uuid) {
+  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
+  const kind = extra?.strutturaKind || 'festivo';
+  void showSection('strutture-messe').then(() => {
+    setStrutturaLiturgicaTab('modelli');
+    setStrutturaMesseKind(STRUTTURA_KINDS[kind] ? kind : 'festivo');
+    showToast('Modifica le messe nel modello corrispondente');
+  });
 }
 
 function switchTurniTab(tab) {
@@ -4386,6 +6318,7 @@ function getMesseOrdinarieSlots(domenicaDateStr) {
   return getMESSE_ORDINARIE().map(slot => {
     const data = addDaysToDateStr(domenicaDateStr, slot.dayOffset);
     const gruppo = slot.turno ? getGruppoIdForTurno(slot.turno, domenicaDateStr) : null;
+    const titolo = slot.titolo || null;
     return {
       data,
       ora: slot.ora,
@@ -4398,7 +6331,10 @@ function getMesseOrdinarieSlots(domenicaDateStr) {
       conChierichetti: !!slot.conChierichetti,
       domenicaRef: domenicaDateStr,
       rotazioneSettimana: weekOffset,
-      label: `${slot.ora} ${SEDI_LABEL[slot.sede]}`
+      titolo,
+      label: titolo
+        ? `${titolo} · ${slot.ora} ${SEDI_LABEL[slot.sede]}`
+        : `${slot.ora} ${SEDI_LABEL[slot.sede]}`
     };
   });
 }
@@ -4434,7 +6370,10 @@ function getTurniForAgendaDate(dateStr) {
     );
   }
   if (info?.type === 'festiva') {
-    const turniSlots = getFestivaTurniSlots(dateStr);
+    const turniSlots = getFestivaTurniSlots(info.extra?.data || dateStr, {
+      extra: info.extra,
+      civilDate: info.civilDate || dateStr
+    });
     return state.turni.filter(t =>
       turniSlots.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
     );
@@ -4538,8 +6477,8 @@ function renderMessaSlotsHtml(slots, { compact, dark, turniOnly, withNotes, mess
         <div class="messa-slot-item no-chierichetti">
           <div class="messa-slot-row">
             <div class="messa-slot-main">
-              <div class="messa-slot-time">${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
-              <div class="messa-slot-meta">${esc(dayLabel)} · Messa libera</div>
+              <div class="messa-slot-time">${esc(slot.titolo || 'Messa libera')} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+              <div class="messa-slot-meta">${esc(dayLabel)}${slot.titolo ? '' : ' · Messa libera'}</div>
             </div>
             <span class="messa-slot-no-turno">—</span>
           </div>
@@ -4567,7 +6506,7 @@ function renderMessaSlotsHtml(slots, { compact, dark, turniOnly, withNotes, mess
       <div class="messa-slot-item ${coperto ? 'assigned' : ''}">
         <div class="messa-slot-row">
           <div class="messa-slot-main">
-            <div class="messa-slot-time">${formatMessaServizioLabel(slot.turno) || 'Messa —'} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
+            <div class="messa-slot-time">${esc(slot.titolo || formatMessaServizioLabel(slot.turno) || 'Messa')} · ${esc(slot.ora)} · ${esc(slot.sedeLabel)}</div>
             <div class="messa-slot-meta">${esc(dayLabel)}${slot.vigilia ? ' · <span class="messa-slot-vigilia">Vigilia</span>' : ''}${slot.gruppoLabel ? ' · ' + esc(slot.gruppoLabel) : ''}${rotHint} · ${esc(statusLine)}</div>
           </div>
         </div>
@@ -4723,7 +6662,8 @@ function renderTodayMessaRow(slot, highlightSlot, highlightTag) {
       <time class="today-messa-time" datetime="${esc(slot.data)}T${esc(slot.ora)}">${esc(slot.ora)}</time>
       <div class="today-messa-main">
         <div class="today-messa-line">
-          <span class="today-messa-sede">${esc(slot.sedeLabel)}</span>
+          ${slot.titolo ? `<span class="today-messa-sede">${esc(slot.titolo)}</span>` : `<span class="today-messa-sede">${esc(slot.sedeLabel)}</span>`}
+          ${slot.titolo ? `<span class="today-messa-m" style="opacity:.75">${esc(slot.sedeLabel)}</span>` : ''}
           ${messaBadge}
           ${focusBadge}
         </div>
@@ -4886,21 +6826,89 @@ function getPastoralYearWindowStart(startY) {
 }
 
 function formatPastoralYearLabel(startY) {
-  return `${startY}/${String(startY + 1).slice(2)}`;
+  const y = parseInt(startY, 10);
+  if (!Number.isFinite(y)) return String(startY || '');
+  return `${y}/${String(y + 1).slice(2)}`;
 }
 
 function formatPastoralYearRangeLabel(startY) {
-  const from = getPastoralYearWindowStart(startY);
+  const y = parseInt(startY, 10);
+  const from = getPastoralYearWindowStart(y);
   const d = new Date(from + 'T12:00:00');
   const openLabel = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }).replace('.', '');
-  return `${openLabel} ${startY} – Giu ${startY + 1}`;
+  return `${openLabel} ${y} – Giu ${y + 1}`;
 }
 
 function getRegistroPastoralBounds(startY) {
+  const y = parseInt(startY, 10);
   return {
-    from: getPastoralYearWindowStart(startY),
-    to: `${startY + 1}-06-30`
+    from: getPastoralYearWindowStart(y),
+    to: `${y + 1}-06-30`
   };
+}
+
+/** Bounds Struttura: settembre → agosto (es. 2026/27 = 2026-09-01 … 2027-08-31). */
+function getStrutturaPastoralBounds(startY) {
+  const y = parseInt(startY, 10);
+  return {
+    from: `${y}-09-01`,
+    to: `${y + 1}-08-31`,
+    openFrom: getPastoralYearWindowStart(y)
+  };
+}
+
+/** Start year pastorale Struttura per una data (set–ago; apertura ~2 sett. prima di set). */
+function getStrutturaPastoralStartForDate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const today = typeof getTodayStr === 'function' ? getTodayStr() : formatDateFromDate(d);
+  const earlyOpen = getPastoralYearWindowStart(y);
+  if (today >= earlyOpen && today < `${y}-09-01`) {
+    return Math.max(y, REGISTRO_MIN_PASTORAL_START);
+  }
+  const start = m >= 8 ? y : y - 1;
+  return Math.max(start, REGISTRO_MIN_PASTORAL_START);
+}
+
+function getPastoralStartForDateStr(dateStr) {
+  if (!dateStr || dateStr.length < 10) return getStrutturaPastoralStartForDate();
+  return getStrutturaPastoralStartForDate(new Date(dateStr + 'T12:00:00'));
+}
+
+function dateInStrutturaPastoralYear(dateStr, startY) {
+  if (!dateStr) return false;
+  const { from, to } = getStrutturaPastoralBounds(startY);
+  return dateStr >= from && dateStr <= to;
+}
+
+function getStrutturaPastoralOptionStarts() {
+  const max = Math.max(getStrutturaPastoralStartForDate(new Date()) + 1, REGISTRO_MIN_PASTORAL_START);
+  const starts = [];
+  for (let y = REGISTRO_MIN_PASTORAL_START; y <= max; y++) starts.push(y);
+  return starts;
+}
+
+function formatStrutturaPastoralRangeLabel(startY) {
+  const y = parseInt(startY, 10);
+  return `Set ${y} – Ago ${y + 1}`;
+}
+
+function getSundaysInStrutturaPastoralYear(startY) {
+  const { from, to } = getStrutturaPastoralBounds(startY);
+  const dates = [];
+  const d = new Date(from + 'T12:00:00');
+  const end = new Date(to + 'T12:00:00');
+  while (d <= end) {
+    if (d.getDay() === 0) dates.push(formatDateFromDate(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+async function ensureCalendarioForPastoralYear(startY) {
+  startY = String(startY);
+  // Pack startY+startY+1 copre set→ago del pastorale
+  return ensureCalendarioForYear(startY);
 }
 
 function calendarYearForPastoralMonth(startY, month) {
@@ -6190,32 +8198,32 @@ function setAnagraficaStatusFilter(status) {
 }
 
 function switchAnagraficaTab(ruolo, keepForm) {
-  anagraficaTab = ruolo;
-  document.getElementById('tab-anag-chierichetti').classList.toggle('active', ruolo === 'chierichetto');
-  document.getElementById('tab-anag-cerimonieri').classList.toggle('active', ruolo === 'cerimoniere');
-  document.getElementById('anag-panel-chierichetti').style.display = ruolo === 'chierichetto' ? '' : 'none';
-  document.getElementById('anag-panel-cerimonieri').style.display = ruolo === 'cerimoniere' ? '' : 'none';
-  syncAnagraficaStatusTabs();
-
-  if (ruolo === 'chierichetto') {
-    document.getElementById('persona-ruolo').value = 'chierichetto';
-    if (!keepForm) {
-      cancelPromoteChierichetto();
-      cancelEdit();
-    }
-    else updateAnagraficaFormLabels();
-    renderChierichetti();
-  } else {
-    closeAnagPersonMenu();
-    closeAnagPersonDetail();
-    setAnagFormOpen(false);
-    setCerFormOpen(false);
+  if (ruolo === 'cerimoniere') {
+    if (!isCurrentUserAdmin()) return;
+    anagraficaTab = 'cerimoniere';
+    document.getElementById('tab-anag-chierichetti')?.classList.remove('active');
+    document.getElementById('tab-anag-cerimonieri')?.classList.add('active');
+    syncCerimonieriAdminUi();
+    syncAnagraficaStatusTabs();
     syncAnagFab();
-    loadCerimonieriAccounts().then(() => {
-      renderCerimonieri();
-      if (!keepForm && isCurrentUserAdmin()) cancelCerimoniereEdit();
-    });
+    void loadCerimonieriAccounts().then(() => renderCerimonieri());
+    return;
   }
+  anagraficaTab = 'chierichetto';
+  document.getElementById('tab-anag-chierichetti')?.classList.add('active');
+  document.getElementById('tab-anag-cerimonieri')?.classList.remove('active');
+  document.getElementById('anag-panel-chierichetti').style.display = '';
+  syncCerimonieriAdminUi();
+  syncAnagFab();
+  syncAnagraficaStatusTabs();
+  document.getElementById('persona-ruolo').value = 'chierichetto';
+  if (!keepForm) {
+    cancelPromoteChierichetto();
+    cancelEdit();
+  } else {
+    updateAnagraficaFormLabels();
+  }
+  renderChierichetti();
 }
 
 function updateAnagraficaFormLabels() {
@@ -6333,16 +8341,17 @@ function syncAnagFab() {
   const fab = document.getElementById('anag-fab');
   if (!fab) return;
   const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
-  const canAddCer = anagraficaTab === 'cerimoniere' && isCurrentUserAdmin();
+  const onCerimonieri = document.getElementById('cerimonieri')?.classList.contains('active');
+  const canAddCer = (onCerimonieri || (onAnag && anagraficaTab === 'cerimoniere')) && isCurrentUserAdmin();
   const sheetBusy = isAnagSheetOpen();
-  const show = !!(onAnag && isAnagMobile() && !sheetBusy && (anagraficaTab === 'chierichetto' || canAddCer));
+  const show = !!(isAnagMobile() && !sheetBusy && ((onAnag && anagraficaTab === 'chierichetto') || canAddCer));
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
   fab.setAttribute('aria-label', anagraficaTab === 'cerimoniere' ? 'Aggiungi accesso' : 'Aggiungi chierichetto');
 }
 
 function onAnagFabClick() {
-  if (anagraficaTab === 'cerimoniere') startNewCerimoniere();
+  if (document.getElementById('cerimonieri')?.classList.contains('active') || anagraficaTab === 'cerimoniere') startNewCerimoniere();
   else startNewChierichetto();
 }
 
@@ -6670,10 +8679,6 @@ async function renderChierichetti() {
   const nPromossi = anagChi.filter(isChierichettoPromosso).length;
   const mobile = isAnagMobile();
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
-  const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = mobile
-    ? `Cer. e Don (${nCerAttivi})`
-    : `Cerimonieri e Don (${nCerAttivi})`;
 
   const statusAttivi = document.getElementById('anag-status-attivi');
   const statusEx = document.getElementById('anag-status-ex');
@@ -7276,9 +9281,6 @@ function renderCerimonieri() {
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
   const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
-  document.getElementById('tab-anag-cerimonieri').textContent = mobile
-    ? `Cer. e Don (${nAttivi})`
-    : `Cerimonieri e Don (${nAttivi})`;
   const cerAttiviBtn = document.getElementById('anag-cer-status-attivi');
   const cerExBtn = document.getElementById('anag-cer-status-ex');
   if (cerAttiviBtn) cerAttiviBtn.textContent = `Attivi (${nAttivi})`;
@@ -7922,6 +9924,15 @@ function renderGruppiVetrinaList() {
   container.innerHTML = gruppi.map(g => buildGruppoVetrinaCardHtml(g)).join('');
 }
 
+function countDomenicheOrdinarieAnno(anno) {
+  anno = String(anno || getStrutturaFestivitaAnno());
+  return getSundaysInStrutturaPastoralYear(parseInt(anno, 10)).filter(dateStr => {
+    if (isFestivitaEsclusa(dateStr)) return false;
+    const ctx = getLiturgicalContext(dateStr);
+    return ctx.strutturaKind === 'domenicale';
+  }).length;
+}
+
 function renderMesseDomenicaliList() {
   const container = document.getElementById('messe-domenicali-list');
   if (!container) return;
@@ -7929,55 +9940,668 @@ function renderMesseDomenicaliList() {
   const messe = getStrutturaMesseList();
   const prossimaDom = getProssimeDomeniche(1)[0];
   const meta = getStrutturaMeta(strutturaMesseKind);
-  const festivitaHtml = strutturaMesseKind === 'festivo' ? renderStrutturaFestivitaSection() : '';
-  const straordinarieHtml = '';
+  const modelliHtml = renderStrutturaGiorniSpecialiHtml(strutturaMesseKind);
+  const anno = getStrutturaFestivitaAnno();
+
+  if (modelliHtml) {
+    container.innerHTML = `<div class="struttura-days">${modelliHtml}</div>`;
+    return;
+  }
+
+  if (isDom) {
+    const nDom = countDomenicheOrdinarieAnno(anno);
+    if (!messe.length) {
+      container.innerHTML = `
+        <div class="struttura-festivo-empty">
+          <p class="empty-state">Nessuna messa nel modello · ${nDom} domeniche nell’anno</p>
+          ${isCurrentUserAdmin() ? `<button type="button" class="btn btn-primary" onclick="openMessaDomenicaleModal()">Aggiungi messa</button>` : ''}
+        </div>`;
+      return;
+    }
+
+    const groups = [
+      { key: -1, label: 'Sabato (vigilia)' },
+      { key: 0, label: 'Domenica' }
+    ];
+    container.innerHTML = `
+      <p class="struttura-modelli-count">${nDom} domeniche · ${messe.length} messe</p>
+      <div class="struttura-days struttura-days-domenicale">
+        ${groups.map(g => {
+          const items = messe.filter(m => m.dayOffset === g.key);
+          if (!items.length) return '';
+          return `
+            <article class="struttura-day">
+              <header class="struttura-day-head">
+                <div class="struttura-day-copy">
+                  <h4 class="struttura-day-title">${esc(g.label)}</h4>
+                </div>
+              </header>
+              <ul class="struttura-sched">
+                ${items.map(m => renderMessaDomenicaleSchedRow(m, prossimaDom)).join('')}
+              </ul>
+            </article>`;
+        }).join('')}
+      </div>`;
+    return;
+  }
 
   if (!messe.length) {
     container.innerHTML = `
       <div class="struttura-festivo-empty">
-        <p class="empty-state" style="margin-bottom:12px">${esc(meta.hint)}</p>
-        ${!isDom && isCurrentUserAdmin() ? `
-          <div class="messa-actions" style="justify-content:flex-start;margin-bottom:8px">
-            <button type="button" class="btn btn-primary" onclick="copiaOrarioFestivoDaDomenicale()">Parti dalla struttura domenicale</button>
-          </div>` : '<p class="empty-state">Nessuna celebrazione — aggiungine una dal pannello a destra</p>'}
-      </div>
-      ${festivitaHtml}${straordinarieHtml}`;
+        <p class="empty-state">${esc(meta.hint || 'Nessuna messa')}</p>
+      </div>`;
     return;
   }
 
-  const groups = isDom
-    ? [
-      { key: -1, label: 'Sabato (vigilia)' },
-      { key: 0, label: 'Domenica' }
-    ]
-    : [
-      { key: -1, label: 'Vigilia (giorno prima)' },
-      { key: 0, label: 'Giorno' }
-    ];
-
-  const templateHtml = groups.map(g => {
+  const groups = [
+    { key: -1, label: 'Vigilia (giorno prima)' },
+    { key: 0, label: 'Giorno' }
+  ];
+  container.innerHTML = `<div class="struttura-days">${groups.map(g => {
     const items = messe.filter(m => m.dayOffset === g.key);
     if (!items.length) return '';
     return `
-      <h4 class="turni-messe-group-title">${esc(g.label)}</h4>
-      <div class="config-list">
-        ${items.map(m => renderMessaDomenicaleItem(m, prossimaDom)).join('')}
-      </div>
+      <article class="struttura-day">
+        <header class="struttura-day-head">
+          <div class="struttura-day-copy"><h4 class="struttura-day-title">${esc(g.label)}</h4></div>
+        </header>
+        <ul class="struttura-sched">
+          ${items.map(m => renderMessaDomenicaleSchedRow(m, prossimaDom)).join('')}
+        </ul>
+      </article>`;
+  }).join('')}</div>`;
+}
+
+function renderMessaDomenicaleSchedRow(m, prossimaDom) {
+  const canManage = isCurrentUserAdmin();
+  const servizio = m.conTurno
+    ? (m.turnoNum ? formatMessaServizioShort(m.turnoNum) : 'Squadra')
+    : 'Libera';
+  const titolo = m.titolo ? `<span class="struttura-sched-title">${esc(m.titolo)}</span>` : '';
+  const editAttrs = canManage
+    ? `role="button" tabindex="0" onclick="editMessaDomenicale(${jsStr(m.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editMessaDomenicale(${jsStr(m.id)})}"`
+    : '';
+  return `
+    <li class="struttura-sched-row is-editable${m.conTurno ? ' has-squadra' : ' is-libera'}" ${editAttrs}>
+      <span class="struttura-sched-ora">${esc(m.ora || '—')}</span>
+      <span class="struttura-sched-main">
+        ${titolo}
+        <span class="struttura-sched-sede">${esc(SEDI_LABEL[m.sede] || m.sede)}</span>
+      </span>
+      <span class="struttura-sched-servizio">${esc(servizio)}</span>
+      ${canManage ? `
+        <span class="struttura-sched-row-actions" onclick="event.stopPropagation()">
+          <button type="button" class="btn btn-ghost btn-icon" title="Elimina" onclick="deleteMessaDomenicale(${jsStr(m.id)})">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </span>` : ''}
+    </li>
+  `;
+}
+
+function slotMatchesCelebrationKey(slot, celebrationKey) {
+  if (!celebrationKey) return true;
+  const titolo = String(slot?.titolo || '').toLowerCase();
+  const dayOffset = slot?.dayOffset === -1 ? -1 : 0;
+  switch (celebrationKey) {
+    case 'vigilia':
+      return dayOffset === -1 || /vigilia/.test(titolo);
+    case 'notte':
+      return /notte/.test(titolo);
+    case 'lavanda':
+      return /lavanda/.test(titolo);
+    case 'cena':
+      return /cena/.test(titolo);
+    case 'passione':
+      return /passione/.test(titolo);
+    case 'viaCrucis':
+      return /via\s*crucis|viacrucis/.test(titolo);
+    case 'vespri':
+      return dayOffset === -1 || /vespri|processione|vigilia\s*dei\s*defunti/.test(titolo);
+    case 'giorno':
+      return dayOffset !== -1
+        && !/vigilia|notte|lavanda|cena|via\s*crucis|vespri|processione/.test(titolo);
+    default:
+      return true;
+  }
+}
+
+function getStrutturaGiornoGroupsForEventKey(eventKey) {
+  if (!eventKey) return [];
+  return Object.values(STRUTTURA_GIORNI_SPECIALI)
+    .flat()
+    .filter(g => g.eventKey === eventKey && !g.usesSeasonTemplate);
+}
+
+function festivitaModelloMatches(m, eventKey, celebrationKey) {
+  if (!m || m.eventKey !== eventKey) return false;
+  if (!celebrationKey) return !m.celebrationKey;
+  if (m.celebrationKey === celebrationKey) return true;
+  // Legacy: vespri Defunti erano salvati come vigilia
+  if (eventKey === 'AllSouls' && celebrationKey === 'vespri' && m.celebrationKey === 'vigilia') return true;
+  if (eventKey === 'AllSaints' && celebrationKey === 'vespri' && m.celebrationPreset === 'allSaintsVespers') return true;
+  return false;
+}
+
+function getFestivitaModelloCelebrazione(eventKey, celebrationKey) {
+  if (!eventKey) return null;
+  const all = getFestivitaModelli();
+  const exact = all.find(m => festivitaModelloMatches(m, eventKey, celebrationKey));
+  if (exact) return exact;
+  // Legacy: un solo modello per eventKey senza celebrationKey
+  if (celebrationKey) {
+    const legacy = all.find(m => m.eventKey === eventKey && !m.celebrationKey);
+    if (legacy?.disabled) {
+      return { ...legacy, celebrationKey, slots: [], disabled: true, _fromLegacy: true };
+    }
+    if (legacy && Array.isArray(legacy.slots)) {
+      const filtered = legacy.slots.filter(s => slotMatchesCelebrationKey(s, celebrationKey));
+      if (filtered.length) {
+        return { ...legacy, celebrationKey, slots: filtered, _fromLegacy: true };
+      }
+    }
+  }
+  return null;
+}
+
+/** Default ambrosiano (preset) per un blocco celebrazione. */
+function getAmbrosianDefaultSlotsForGroup(group) {
+  if (!group) return [];
+  if (group.usesSeasonTemplate) {
+    const kind = group.seasonKind || strutturaMesseKind;
+    return cloneStrutturaSlots(kind).map(s => ({ ...s, titolo: s.titolo || undefined }));
+  }
+  const built = buildFestivityPresetSlots(group.presetId);
+  return Array.isArray(built) ? built : [];
+}
+
+/**
+ * Stato del modello comunità rispetto al default ambrosiano.
+ * `ambrosiano` = segue il preset; `comunita` = orario locale; `disabilitato` = non celebriamo.
+ */
+function getCommunityCelebrationState(group) {
+  if (!group) return { mode: 'ambrosiano', slots: [], modello: null };
+  if (group.usesSeasonTemplate) {
+    const slots = getAmbrosianDefaultSlotsForGroup(group);
+    // I template di stagione sono già il modello comunità (feriali del tempo)
+    return { mode: 'comunita', slots, modello: null, isSeasonTemplate: true };
+  }
+  const celebrationKey = group.celebrationKey || null;
+  const modello = group.eventKey
+    ? getFestivitaModelloCelebrazione(group.eventKey, celebrationKey)
+    : null;
+  if (modello?.disabled) {
+    return { mode: 'disabilitato', slots: [], modello };
+  }
+  if (modello && Array.isArray(modello.slots) && !modello._fromLegacy) {
+    return {
+      mode: 'comunita',
+      slots: renumberFestivaSlots(modello.slots.map(s => ({
+        id: s.id || newFestivaSlotId(),
+        dayOffset: s.dayOffset === -1 ? -1 : 0,
+        ora: s.ora || '10:00',
+        sede: s.sede || 'santuario',
+        vigilia: !!s.vigilia || s.dayOffset === -1,
+        conTurno: !!s.conTurno,
+        turnoNum: s.turnoNum,
+        titolo: s.titolo ? String(s.titolo).trim() : undefined
+      }))),
+      modello
+    };
+  }
+  return {
+    mode: 'ambrosiano',
+    slots: getAmbrosianDefaultSlotsForGroup(group),
+    modello: modello?._fromLegacy ? modello : null
+  };
+}
+
+function getSlotsForStrutturaGiornoSpeciale(group) {
+  return getCommunityCelebrationState(group).slots;
+}
+
+function communityModeLabel(mode) {
+  if (mode === 'disabilitato') return 'Non celebriamo';
+  if (mode === 'comunita') return 'Modello comunità';
+  return 'Default ambrosiano';
+}
+
+function formatMesseCountLabel(n) {
+  const count = Number(n) || 0;
+  if (count === 1) return '1 messa';
+  return `${count} messe`;
+}
+
+/** Nome visualizzato del blocco celebrazione (override comunità o label di default). */
+function getStrutturaGiornoDisplayLabel(group) {
+  if (!group) return '';
+  if (group.eventKey) {
+    const celeb = getFestivitaModelloCelebrazione(group.eventKey, group.celebrationKey || null);
+    const custom = celeb && !celeb._fromLegacy && celeb.label ? String(celeb.label).trim() : '';
+    if (custom) return custom;
+  }
+  // «Messe del giorno» → nome festa (Tutti i Santi / Defunti)
+  if (group.celebrationKey === 'giorno' && group.dayPreset) {
+    const meta = getFestivityPresetMeta(group.dayPreset);
+    if (meta?.label) return meta.label;
+  }
+  return group.label || '';
+}
+
+function renderStrutturaGiornoSpecialeSlotItem(slot) {
+  const sede = SEDI_LABEL[slot.sede] || slot.sede;
+  const servizio = slot.conTurno
+    ? (slot.turnoNum ? formatMessaServizioShort(slot.turnoNum) : 'Squadra')
+    : 'Libera';
+  const titolo = slot.titolo ? `<span class="struttura-sched-title">${esc(slot.titolo)}</span>` : '';
+  const vigilia = slot.dayOffset === -1 ? '<span class="struttura-sched-vigilia">Vigilia</span>' : '';
+  return `
+    <li class="struttura-sched-row${slot.conTurno ? ' has-squadra' : ' is-libera'}">
+      <span class="struttura-sched-ora">${esc(slot.ora || '—')}</span>
+      <span class="struttura-sched-main">
+        ${titolo}
+        <span class="struttura-sched-sede">${esc(sede)}</span>
+        ${vigilia}
+      </span>
+      <span class="struttura-sched-servizio">${esc(servizio)}</span>
+    </li>
+  `;
+}
+
+function renderStrutturaGiorniSpecialiHtml(kind) {
+  const groups = STRUTTURA_GIORNI_SPECIALI[kind];
+  if (!groups?.length) return '';
+  const canManage = isCurrentUserAdmin();
+  const anno = getStrutturaFestivitaAnno();
+  return groups.map(g => {
+    const stateCeleb = getCommunityCelebrationState(g);
+    const slots = stateCeleb.slots;
+    const celebrationKey = g.celebrationKey || null;
+    const mode = stateCeleb.mode;
+    const customized = mode === 'comunita' && !stateCeleb.isSeasonTemplate;
+    const disabled = mode === 'disabilitato';
+    const civilOff = getCelebrationCivilDayOffset(g, stateCeleb.slots);
+    const meta = g.eventKey ? getFestivitaModelloDateMeta(g.eventKey, anno, civilOff) : null;
+    const dateMoved = meta?.source === 'correzione';
+    const displayLabel = getStrutturaGiornoDisplayLabel(g);
+    const dayTitle = meta?.effective
+      ? formatFestivitaDayMonthLabel(meta.effective)
+      : (g.dateHint || null);
+    const title = dayTitle ? `${dayTitle} · ${displayLabel}` : displayLabel;
+    const dateBits = [];
+    if (g.usesSeasonTemplate) {
+      dateBits.push(g.dateHint || 'Feriali del tempo');
+    } else if (meta) {
+      if (meta.ambrosian) {
+        dateBits.push(`Ambrosiano ${meta.ambrosianLabel}`);
+      } else if (meta.civilDefault) {
+        dateBits.push(`Civile ${formatShortFestivitaDate(meta.civilDefault)}`);
+      } else {
+        dateBits.push('Non nel calendario ambrosiano');
+      }
+      if (dateMoved) dateBits.push(`Comunità ${meta.effectiveLabel}`);
+      else if (meta.effective && meta.source === 'ambrosiano') {
+        /* già in Ambrosiano */
+      } else if (meta.effective && meta.source === 'civile') {
+        dateBits.push(`Applicato ${meta.effectiveLabel}`);
+      }
+    }
+    const metaBits = [
+      ...dateBits,
+      disabled ? null : formatMesseCountLabel(slots.length),
+      customized ? 'orario locale' : null
+    ].filter(Boolean);
+    const openAttrs = canManage
+      ? `role="button" tabindex="0" onclick="editStrutturaGiornoSpeciale(${jsStr(kind)}, ${jsStr(g.presetId)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editStrutturaGiornoSpeciale(${jsStr(kind)}, ${jsStr(g.presetId)})}"`
+      : '';
+    const emptyCopy = disabled
+      ? 'La comunità non celebra · il calendario ambrosiano la prevede'
+      : (g.usesSeasonTemplate
+        ? 'Nessuna messa nel modello feriale'
+        : 'Nessuna messa');
+    return `
+      <article class="struttura-day is-card${customized || dateMoved || disabled ? ' is-customized' : ''}${disabled ? ' is-disabled' : ''}${canManage ? ' is-clickable' : ''}" data-preset="${esc(g.presetId)}" data-celebration="${esc(g.celebrationKey || '')}" data-mode="${esc(mode)}" ${openAttrs}>
+        <header class="struttura-day-head">
+          <div class="struttura-day-copy">
+            <p class="struttura-day-badge struttura-day-badge--${esc(mode)}">${esc(communityModeLabel(mode))}</p>
+            <h4 class="struttura-day-title">${esc(title)}</h4>
+            <p class="struttura-day-meta">${esc(metaBits.join(' · '))}</p>
+          </div>
+          ${canManage ? `
+            <div class="struttura-day-actions" onclick="event.stopPropagation()">
+              ${disabled || customized ? `<button type="button" class="btn btn-ghost" onclick="ripristinaStrutturaGiornoSpeciale(${jsStr(g.eventKey)}, ${jsStr(celebrationKey || '')})">Default ambrosiano</button>` : ''}
+              ${!disabled && g.eventKey && !g.usesSeasonTemplate ? `<button type="button" class="btn btn-ghost" onclick="disabilitaStrutturaGiornoSpeciale(${jsStr(g.eventKey)}, ${jsStr(celebrationKey || '')}, ${jsStr(g.presetId)})">Non celebriamo</button>` : ''}
+              <button type="button" class="btn btn-secondary" onclick="editStrutturaGiornoSpeciale(${jsStr(kind)}, ${jsStr(g.presetId)})">${disabled ? 'Attiva' : 'Modifica'}</button>
+            </div>` : ''}
+        </header>
+        ${slots.length
+          ? `<ul class="struttura-sched">${slots.map(renderStrutturaGiornoSpecialeSlotItem).join('')}</ul>`
+          : `<p class="empty-state struttura-day-empty">${esc(emptyCopy)}</p>`}
+      </article>
     `;
   }).join('');
+}
 
-  container.innerHTML = `${templateHtml}${festivitaHtml}${straordinarieHtml}`;
+function openStrutturaModelloModal({ title, sub, mode }) {
+  const overlay = document.getElementById('struttura-modello-modal');
+  const titleEl = document.getElementById('struttura-modello-modal-title');
+  const subEl = document.getElementById('struttura-modello-modal-sub');
+  const form = document.getElementById('messaDomenicaleForm');
+  const host = document.getElementById('struttura-slots-editor-host');
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (!overlay || !form || !host || !actions) return;
+  if (titleEl) titleEl.textContent = title || 'Modifica';
+  if (subEl) {
+    subEl.textContent = sub || '';
+    subEl.hidden = !sub;
+  }
+  form.hidden = mode !== 'domenicale';
+  host.hidden = mode !== 'slots';
+  if (mode !== 'slots') host.innerHTML = '';
+  overlay.classList.remove('hidden');
+  document.body.classList.add('struttura-modal-open');
+}
+
+function closeStrutturaModelloModal() {
+  const overlay = document.getElementById('struttura-modello-modal');
+  const host = document.getElementById('struttura-slots-editor-host');
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (overlay) overlay.classList.add('hidden');
+  document.body.classList.remove('struttura-modal-open');
+  if (host) host.innerHTML = '';
+  if (actions) actions.innerHTML = '';
+  cancelMessaDomenicaleEdit({ keepModal: true });
+}
+
+function openMessaDomenicaleModal() {
+  if (!requireAdminAction('Solo l\'admin può modificare le messe di servizio')) return;
+  cancelMessaDomenicaleEdit({ keepModal: true });
+  setTurniFormMode(false);
+  openStrutturaModelloModal({
+    title: 'Nuova messa',
+    sub: getStrutturaMeta(strutturaMesseKind).hint || 'Aggiungi una messa al modello',
+    mode: 'domenicale'
+  });
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-secondary" onclick="closeStrutturaModelloModal()">Annulla</button>
+      <button type="submit" form="messaDomenicaleForm" class="btn btn-primary" id="btn-save-messa-domenicale">Aggiungi celebrazione</button>
+    `;
+  }
+  document.getElementById('messa-domenicale-ora')?.focus();
+}
+
+function editStrutturaGiornoSpeciale(kind, presetId) {
+  if (!requireAdminAction('Solo l\'admin può modificare i modelli')) return;
+  const group = (STRUTTURA_GIORNI_SPECIALI[kind] || []).find(g => g.presetId === presetId);
+  if (!group) return;
+  const celebState = getCommunityCelebrationState(group);
+  const ambrosianSlots = getAmbrosianDefaultSlotsForGroup(group);
+  // Se era disabilitato, apri con il default ambrosiano così si può riattivare
+  const slots = celebState.mode === 'disabilitato' ? ambrosianSlots : celebState.slots;
+  const seasonKind = group.seasonKind || kind;
+  const host = document.getElementById('struttura-slots-editor-host');
+  if (!host) return;
+  const pastoralAnno = getStrutturaFestivitaAnno();
+  const civilAnno = group.eventKey
+    ? resolveFestivitaAnnoForEventKey(group.eventKey, pastoralAnno)
+    : pastoralAnno;
+  const civilDayOffset = getCelebrationCivilDayOffset(group, slots);
+  const dateMeta = group.eventKey ? getFestivitaModelloDateMeta(group.eventKey, pastoralAnno, civilDayOffset) : null;
+  const currentDate = dateMeta?.effective || '';
+  const displayLabel = getStrutturaGiornoDisplayLabel(group);
+  const civilDefaultHint = dateMeta?.civilDefault
+    ? formatShortFestivitaDate(dateMeta.civilDefault)
+    : (group.dateHint || '—');
+  const ambrosianHint = dateMeta?.ambrosian
+    ? formatShortFestivitaDate(dateMeta.ambrosian)
+    : null;
+  const nameField = !group.usesSeasonTemplate ? `
+    <div class="form-group struttura-celeb-name-field">
+      <label for="struttura-celeb-nome">Nome celebrazione</label>
+      <input type="text" id="struttura-celeb-nome" maxlength="60" value="${esc(displayLabel)}" placeholder="${esc(group.label || 'Celebrazione')}">
+    </div>
+  ` : '';
+  const dateField = group.eventKey && !group.usesSeasonTemplate ? `
+    <div class="struttura-giorno-date-panel">
+      <div class="form-group struttura-giorno-date-field">
+        <label for="struttura-giorno-data">Giorno civile delle messe · ${esc(formatPastoralYearLabel(pastoralAnno))}</label>
+        <input type="date" id="struttura-giorno-data" value="${esc(currentDate || '')}" data-civil-day-offset="${civilDayOffset}">
+      </div>
+      <dl class="struttura-date-facts">
+        <div><dt>Riferimento civile</dt><dd>${esc(civilDefaultHint)}</dd></div>
+        <div><dt>Calendario ambrosiano</dt><dd>${esc(ambrosianHint || 'non trovato')}</dd></div>
+      </dl>
+      <p class="form-hint">${civilDayOffset === -1
+        ? 'Questa è la sera/giorno civile della celebrazione (es. 31 ott). La festa liturgica resta il giorno dopo; spostare questa data sposta anche la festa.'
+        : 'Cambia la data solo se celebrate in un altro giorno rispetto al riferimento.'}</p>
+    </div>
+  ` : '';
+  const layerHint = group.usesSeasonTemplate
+    ? `<p class="form-hint struttura-layer-hint">Solo feriali (lun–sab) senza festa specifica. Le domeniche del tempo usano il modello domenicale ordinario (modificabile in Correzioni).</p>`
+    : `<p class="form-hint struttura-layer-hint">
+        Default ambrosiano: <strong>${formatMesseCountLabel(ambrosianSlots.length)}</strong>.
+        Salva per sovrascrivere con l’orario della comunità; nessuna messa = «non celebriamo».
+      </p>`;
+  host.innerHTML = `
+    <div class="struttura-modello-editor">
+      ${nameField}
+      ${dateField}
+      ${layerHint}
+      <div class="struttura-modello-slots-head">
+        <h4>Messe</h4>
+      </div>
+      <div id="festiva-slots-editor" data-mount="struttura-giorno" data-event-key="${esc(group.eventKey || '')}" data-celebration-key="${esc(group.celebrationKey || '')}" data-preset="${esc(group.presetId)}" data-day-preset="${esc(group.dayPreset || group.presetId)}" data-season-template="${group.usesSeasonTemplate ? '1' : '0'}" data-season-kind="${esc(seasonKind)}" data-civil-anno="${esc(civilAnno)}" data-civil-day-offset="${civilDayOffset}" data-default-label="${esc(group.label || '')}">
+        ${festivaSlotEditorRowsHtml(slots) || '<p class="empty-state">Nessuna messa</p>'}
+      </div>
+    </div>
+  `;
+  openStrutturaModelloModal({
+    title: group.dateHint ? `${group.dateHint} · ${displayLabel}` : displayLabel,
+    sub: [
+      communityModeLabel(celebState.mode),
+      ambrosianHint ? `ambrosiano ${ambrosianHint}` : null,
+      dateMeta?.source === 'correzione' ? `comunità ${dateMeta.effectiveLabel}` : null
+    ].filter(Boolean).join(' · '),
+    mode: 'slots'
+  });
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-ghost" onclick="addFestivaSlotRow()">+ Messa</button>
+      <button type="button" class="btn btn-secondary" onclick="closeStrutturaModelloModal()">Annulla</button>
+      <button type="button" class="btn btn-primary" onclick="saveStrutturaGiornoSpeciale(${jsStr(group.eventKey || '')}, ${jsStr(group.presetId)})">Salva</button>
+    `;
+  }
+  document.getElementById('struttura-celeb-nome')?.focus();
+}
+
+function saveStrutturaGiornoSpeciale(eventKey, presetId) {
+  if (!requireAdminAction('Solo l\'admin può modificare i modelli')) return;
+  const editor = document.getElementById('festiva-slots-editor');
+  if (!editor) return;
+  const celebrationKey = editor.dataset.celebrationKey || '';
+  const slots = [...editor.querySelectorAll('.festiva-slot-edit')].map((row, i) => {
+    const dayOffset = parseInt(row.querySelector('[data-field="dayOffset"]')?.value, 10) === -1 ? -1 : 0;
+    const ora = row.querySelector('[data-field="ora"]')?.value || '10:00';
+    const sede = row.querySelector('[data-field="sede"]')?.value || 'santuario';
+    const conTurno = row.querySelector('[data-field="conTurno"]')?.value === '1';
+    const titolo = (row.querySelector('[data-field="titolo"]')?.value || '').trim();
+    const sameDayVigil = celebrationKey === 'vigilia' || celebrationKey === 'notte'
+      || /^(vigilia|notte)\b/i.test(titolo);
+    const slot = {
+      id: 'mod-slot-' + i + '-' + Date.now().toString(36),
+      dayOffset,
+      ora,
+      sede,
+      vigilia: dayOffset === -1 || sameDayVigil,
+      conTurno
+    };
+    if (titolo) slot.titolo = titolo;
+    return slot;
+  });
+  ensureGruppiConfig();
+  const usesSeason = editor.dataset.seasonTemplate === '1';
+  const seasonKind = editor.dataset.seasonKind || strutturaMesseKind;
+  const defaultLabel = editor.dataset.defaultLabel
+    || (STRUTTURA_GIORNI_SPECIALI[strutturaMesseKind] || []).find(g => g.presetId === presetId)?.label
+    || getFestivityPresetMeta(presetId).label;
+  const customName = (document.getElementById('struttura-celeb-nome')?.value || '').trim();
+  const label = customName || defaultLabel;
+
+  if (usesSeason) {
+    if (!slots.length) {
+      if (!confirm('Nessuna messa: i feriali del tempo (lun–sab senza festa) non avranno orari.\n\nContinuare?')) return;
+    }
+    const key = getStrutturaConfigKey(seasonKind);
+    state.gruppiConfig[key] = renumberFestivaSlots(slots.map((s, i) => ({
+      id: s.id || ('st-' + seasonKind.slice(0, 3) + '-' + i),
+      dayOffset: s.dayOffset,
+      ora: s.ora,
+      sede: s.sede,
+      vigilia: !!s.vigilia,
+      conTurno: !!s.conTurno,
+      titolo: s.titolo
+    })));
+    if (seasonKind === 'festivo') state.gruppiConfig.messeFestive = state.gruppiConfig[key];
+    if (seasonKind === 'domenicale') state.gruppiConfig.messeDomenicali = state.gruppiConfig[key];
+    renumberStrutturaSlots(seasonKind);
+    afterGruppiConfigChange();
+    renderMesseDomenicaliList();
+    updateMesseDomenicaliSummary();
+    closeStrutturaModelloModal();
+    showToast(slots.length ? 'Modello salvato' : 'Feriali senza messe');
+    return;
+  }
+
+  if (!eventKey) {
+    showToast('Modello non salvabile');
+    return;
+  }
+  const dayPreset = editor.dataset.dayPreset || presetId;
+  const dateEl = document.getElementById('struttura-giorno-data');
+  if (dateEl) {
+    const newCivilDate = (dateEl.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newCivilDate)) {
+      showToast('Indica una data valida');
+      return;
+    }
+    // Il campo mostra il giorno civile delle messe; per vigilia/vespri (offset -1)
+    // la data salvata sull’eventKey è il giorno liturgico successivo.
+    const civilOff = parseInt(dateEl.dataset.civilDayOffset || editor.dataset.civilDayOffset || '0', 10) === -1 ? -1 : 0;
+    const anchorDate = civilOff === -1 ? addDaysToDateStr(newCivilDate, 1) : newCivilDate;
+    setFestivitaDateForAnno(eventKey, anchorDate);
+  }
+  if (!Array.isArray(state.gruppiConfig.festivitaModelli)) state.gruppiConfig.festivitaModelli = [];
+  // Rimuovi legacy monolitico sullo stesso eventKey quando si salva per celebrazione
+  if (celebrationKey) {
+    state.gruppiConfig.festivitaModelli = state.gruppiConfig.festivitaModelli.filter(m =>
+      !(m.eventKey === eventKey && !m.celebrationKey)
+    );
+  }
+  const disabled = slots.length === 0;
+  if (disabled) {
+    if (!confirm('Nessuna messa: la comunità non celebrerà questa celebrazione (anche se il calendario ambrosiano la prevede).\n\nContinuare?')) return;
+  }
+  const entry = {
+    eventKey,
+    celebrationKey: celebrationKey || undefined,
+    preset: dayPreset,
+    celebrationPreset: presetId,
+    strutturaKind: strutturaMesseKind,
+    slots: renumberFestivaSlots(cloneFestivaSlotsForModello(slots) || []),
+    disabled: disabled || undefined,
+    label: (customName && customName !== defaultLabel) ? customName : undefined,
+    nota: label,
+    updatedFrom: null,
+    updatedAt: new Date().toISOString()
+  };
+  if (!disabled) delete entry.disabled;
+  if (!entry.label) delete entry.label;
+  const idx = state.gruppiConfig.festivitaModelli.findIndex(m =>
+    festivitaModelloMatches(m, eventKey, celebrationKey || null)
+  );
+  if (idx >= 0) state.gruppiConfig.festivitaModelli[idx] = entry;
+  else state.gruppiConfig.festivitaModelli.push(entry);
+  saveData();
+  void persistConfig();
+  renderMesseDomenicaliList();
+  updateMesseDomenicaliSummary();
+  void applicaStruttureAnno({ quiet: true });
+  closeStrutturaModelloModal();
+  showToast(disabled ? 'Celebrazione disattivata per la comunità' : 'Modello comunità salvato');
+}
+
+function disabilitaStrutturaGiornoSpeciale(eventKey, celebrationKey, presetId) {
+  if (!requireAdminAction('Solo l\'admin può modificare i modelli')) return;
+  if (!eventKey) return;
+  if (!confirm('La comunità non celebrerà questa celebrazione (il calendario ambrosiano può continuare a mostrarla).\n\nConfermi?')) return;
+  ensureGruppiConfig();
+  if (!Array.isArray(state.gruppiConfig.festivitaModelli)) state.gruppiConfig.festivitaModelli = [];
+  if (celebrationKey) {
+    state.gruppiConfig.festivitaModelli = state.gruppiConfig.festivitaModelli.filter(m =>
+      !(m.eventKey === eventKey && !m.celebrationKey)
+    );
+  }
+  const dayPreset = (STRUTTURA_GIORNI_SPECIALI[strutturaMesseKind] || [])
+    .find(g => g.presetId === presetId)?.dayPreset || presetId;
+  const entry = {
+    eventKey,
+    celebrationKey: celebrationKey || undefined,
+    preset: dayPreset,
+    celebrationPreset: presetId,
+    strutturaKind: strutturaMesseKind,
+    slots: [],
+    disabled: true,
+    nota: 'Non celebriamo',
+    updatedFrom: null,
+    updatedAt: new Date().toISOString()
+  };
+  const idx = state.gruppiConfig.festivitaModelli.findIndex(m =>
+    festivitaModelloMatches(m, eventKey, celebrationKey || null)
+  );
+  if (idx >= 0) state.gruppiConfig.festivitaModelli[idx] = entry;
+  else state.gruppiConfig.festivitaModelli.push(entry);
+  saveData();
+  void persistConfig();
+  renderMesseDomenicaliList();
+  updateMesseDomenicaliSummary();
+  void applicaStruttureAnno({ quiet: true });
+  showToast('Celebrazione disattivata per la comunità');
+}
+
+function ripristinaStrutturaGiornoSpeciale(eventKey, celebrationKey) {
+  if (!requireAdminAction('Solo l\'admin può modificare i modelli')) return;
+  if (!eventKey) return;
+  const label = celebrationKey ? 'questa celebrazione' : 'questo modello';
+  if (!confirm(`Ripristinare il default ambrosiano di ${label}?`)) return;
+  ensureGruppiConfig();
+  if (celebrationKey) {
+    state.gruppiConfig.festivitaModelli = getFestivitaModelli().filter(m =>
+      !(m.eventKey === eventKey && m.celebrationKey === celebrationKey)
+    );
+  } else {
+    state.gruppiConfig.festivitaModelli = getFestivitaModelli().filter(m => m.eventKey !== eventKey);
+  }
+  saveData();
+  void persistConfig();
+  renderMesseDomenicaliList();
+  updateMesseDomenicaliSummary();
+  void applicaStruttureAnno({ quiet: true });
+  showToast('Ripristinato il default ambrosiano');
 }
 
 function renderStraordinarieSection() {
   const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
   const list = (state.messeExtra || [])
-    .filter(m => m.data?.startsWith(anno) && m.tipo === 'straordinaria')
+    .filter(m => m.data && dateInStrutturaPastoralYear(m.data, anno) && m.tipo === 'straordinaria')
     .sort((a, b) => String(a.data).localeCompare(String(b.data)));
   if (!list.length) return '';
   return `
     <div class="struttura-festivita-block">
-      <h4 class="turni-messe-group-title">Straordinarie ${esc(anno)}</h4>
+      <h4 class="turni-messe-group-title">Straordinarie ${esc(label)}</h4>
       <p class="liturgy-meta" style="margin:-4px 0 10px">Celebrazioni aggiunte a mano (non da struttura)</p>
       <div class="config-list">
         ${list.map(ex => `
@@ -8027,7 +10651,7 @@ function renderMessaDomenicaleItem(m, prossimaDom) {
   return `
     <div class="config-item">
       <div class="config-item-main">
-        <p class="config-item-title">${esc(m.ora)} · ${esc(SEDI_LABEL[m.sede] || m.sede)} ${tipoBadge}</p>
+        <p class="config-item-title">${m.titolo ? esc(m.titolo) + ' · ' : ''}${esc(m.ora)} · ${esc(SEDI_LABEL[m.sede] || m.sede)} ${tipoBadge}</p>
         <p class="config-item-meta">${m.vigilia ? 'Vigilia · ' : ''}${metaExtra}</p>
       </div>
       ${actions}
@@ -8037,40 +10661,81 @@ function renderMessaDomenicaleItem(m, prossimaDom) {
 
 function setTurniFormMode(editing) {
   const meta = getStrutturaMeta(strutturaMesseKind);
-  const title = document.getElementById('turni-form-title');
-  const hint = document.getElementById('turni-form-hint');
+  const title = document.getElementById('struttura-modello-modal-title');
+  const sub = document.getElementById('struttura-modello-modal-sub');
   const btn = document.getElementById('btn-save-messa-domenicale');
-  const cancel = document.getElementById('btn-cancel-messa-domenicale');
-  if (title) {
-    title.textContent = editing ? 'Modifica celebrazione' : 'Nuova celebrazione';
+  if (title && document.getElementById('messaDomenicaleForm') && !document.getElementById('messaDomenicaleForm').hidden) {
+    title.textContent = editing ? 'Modifica messa' : 'Nuova messa';
   }
-  if (hint) {
-    hint.textContent = editing
-      ? 'Aggiorna giorno, ora, sede o tipo messa'
-      : (meta.hint || 'Aggiungi una Messa alla struttura');
+  if (sub && document.getElementById('messaDomenicaleForm') && !document.getElementById('messaDomenicaleForm').hidden) {
+    sub.textContent = editing
+      ? 'Aggiorna giorno, ora, sede o tipo'
+      : (meta.hint || 'Aggiungi una messa al modello');
+    sub.hidden = false;
   }
   if (btn) btn.textContent = editing ? 'Salva modifiche' : 'Aggiungi celebrazione';
-  if (cancel) cancel.style.display = editing ? 'inline-flex' : 'none';
   syncMessaDomenicaleFormDay();
 }
 
+function editMessaDomenicale(id) {
+  if (!requireAdminAction('Solo l\'admin può modificare le messe di servizio')) return;
+  const m = getStrutturaMesseMutable().find(x => x.id === id);
+  if (!m) return;
+  editingMessaDomenicaleId = id;
+  document.getElementById('messa-domenicale-edit-id').value = id;
+  const titoloEl = document.getElementById('messa-domenicale-titolo');
+  if (titoloEl) titoloEl.value = m.titolo || '';
+  document.getElementById('messa-domenicale-day').value = String(m.dayOffset);
+  document.getElementById('messa-domenicale-ora').value = m.ora;
+  document.getElementById('messa-domenicale-sede').value = m.sede;
+  document.getElementById('messa-domenicale-vigilia').checked = !!m.vigilia;
+  document.getElementById('messa-domenicale-con-turno').checked = !!m.conTurno;
+  openStrutturaModelloModal({
+    title: 'Modifica messa',
+    sub: 'Aggiorna giorno, ora, sede o tipo',
+    mode: 'domenicale'
+  });
+  setTurniFormMode(true);
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-secondary" onclick="closeStrutturaModelloModal()">Annulla</button>
+      <button type="submit" form="messaDomenicaleForm" class="btn btn-primary" id="btn-save-messa-domenicale">Salva modifiche</button>
+    `;
+  }
+}
+
+function cancelMessaDomenicaleEdit(opts = {}) {
+  editingMessaDomenicaleId = null;
+  const form = document.getElementById('messaDomenicaleForm');
+  if (form) form.reset();
+  const editId = document.getElementById('messa-domenicale-edit-id');
+  if (editId) editId.value = '';
+  const titoloEl = document.getElementById('messa-domenicale-titolo');
+  if (titoloEl) titoloEl.value = '';
+  const day = document.getElementById('messa-domenicale-day');
+  if (day) day.value = '0';
+  const ora = document.getElementById('messa-domenicale-ora');
+  if (ora) ora.value = '10:00';
+  const conTurno = document.getElementById('messa-domenicale-con-turno');
+  if (conTurno) conTurno.checked = true;
+  if (!opts.keepModal) setTurniFormMode(false);
+}
+
+function applicaModelloCorrente() {
+  if (!requireAdminAction('Solo l\'admin può applicare i modelli')) return;
+  void applicaStruttureAnno({ quiet: true });
+}
+
+function applicaModelloGiornoSpeciale(kind, presetId) {
+  if (!requireAdminAction('Solo l\'admin può applicare i modelli')) return;
+  if (kind && STRUTTURA_KINDS[kind]) strutturaMesseKind = kind;
+  void applicaStruttureAnno({ quiet: true });
+}
+
 function copiaOrarioFestivoDaDomenicale() {
-  if (!requireAdminAction('Solo l\'admin può configurare le strutture')) return;
-  const kind = strutturaMesseKind === 'domenicale' ? 'festivo' : strutturaMesseKind;
-  const meta = getStrutturaMeta(kind);
-  if (hasStrutturaConfig(kind) && !confirm(`Sostituire «${meta.label}» con una copia della struttura domenicale?`)) return;
-  ensureGruppiConfig();
-  const key = getStrutturaConfigKey(kind);
-  state.gruppiConfig[key] = cloneOrarioDomenicaleSlots().map((m, i) => ({
-    ...m,
-    id: 'st-' + kind.slice(0, 3) + '-' + Date.now() + '-' + i
-  }));
-  if (kind === 'festivo') state.gruppiConfig.messeFestive = state.gruppiConfig[key];
-  renumberStrutturaSlots(kind);
-  afterGruppiConfigChange();
-  updateMesseFestivoBanner(false);
-  setStrutturaMesseKind(kind);
-  showToast(`«${meta.label}» creata dalla struttura domenicale`);
+  // Legacy: sostituito da Applica modello
+  applicaModelloCorrente();
 }
 
 function syncMessaDomenicaleFormDay() {
@@ -9299,6 +11964,9 @@ function afterGruppiConfigChange() {
   else if (active?.id === 'gruppi') void renderGruppi();
   else if (active?.id === 'anagrafica') renderChierichetti();
   else if (active?.id === 'presenze') renderAppello();
+  else if (active?.id === 'strutture-messe') {
+    void applicaStruttureAnno({ quiet: true });
+  }
 }
 
 function editGruppoSquadra(id) {
@@ -9331,32 +11999,7 @@ function editGruppoSquadra(id) {
 }
 
 function deleteGruppoSquadra() {
-  showToast('I gruppi si generano dalle messe con squadra — configura in Messe → Strutture');
-}
-
-function editMessaDomenicale(id) {
-  if (!requireAdminAction('Solo l\'admin può modificare le messe di servizio')) return;
-  const m = getStrutturaMesseMutable().find(x => x.id === id);
-  if (!m) return;
-  editingMessaDomenicaleId = id;
-  document.getElementById('messa-domenicale-edit-id').value = id;
-  document.getElementById('messa-domenicale-day').value = String(m.dayOffset);
-  document.getElementById('messa-domenicale-ora').value = m.ora;
-  document.getElementById('messa-domenicale-sede').value = m.sede;
-  document.getElementById('messa-domenicale-vigilia').checked = !!m.vigilia;
-  document.getElementById('messa-domenicale-con-turno').checked = !!m.conTurno;
-  setTurniFormMode(true);
-  document.querySelector('.turni-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function cancelMessaDomenicaleEdit() {
-  editingMessaDomenicaleId = null;
-  document.getElementById('messaDomenicaleForm').reset();
-  document.getElementById('messa-domenicale-edit-id').value = '';
-  document.getElementById('messa-domenicale-day').value = '0';
-  document.getElementById('messa-domenicale-ora').value = '10:00';
-  document.getElementById('messa-domenicale-con-turno').checked = true;
-  setTurniFormMode(false);
+  showToast('I gruppi si generano dalle Messe con squadra — configura in Struttura liturgica');
 }
 
 function toggleMessaDomenicaleTurno(id) {
@@ -9624,13 +12267,13 @@ function getLiturgicalSeasonBounds(anno) {
   let pasquaEnd = findDateWithEventKey(anno, k => k === 'Pentecost' || /^Pentecost$/i.test(k));
   if (!pasquaEnd && pasquaStart) pasquaEnd = addDaysToDateStr(pasquaStart, 49);
 
-  let defuntiStart = findDateWithEventKey(anno, k => /AllSaints/i.test(k) && /vigil/i.test(k))
-    || findDateWithEventKey(anno, k => k === 'AllSaints' || /AllSaints$/i.test(k));
-  let defuntiEnd = findDateWithEventKey(anno, k => /AllSouls/i.test(k) && !/vigil/i.test(k))
-    || findDateWithEventKey(anno, k => /AllSouls/i.test(k));
-  if (!defuntiStart) defuntiStart = `${anno}-10-31`;
-  if (!defuntiEnd) defuntiEnd = `${anno}-11-02`;
-  if (defuntiEnd < defuntiStart) defuntiEnd = defuntiStart;
+  let defuntiStart = getFestivitaDateForAnno('AllSaints', anno) || `${anno}-11-01`;
+  let defuntiEnd = getFestivitaDateForAnno('AllSouls', anno) || `${anno}-11-02`;
+  if (defuntiEnd < defuntiStart) {
+    const tmp = defuntiStart;
+    defuntiStart = defuntiEnd;
+    defuntiEnd = tmp;
+  }
 
   const bounds = {
     nataleRanges: [
@@ -9654,6 +12297,23 @@ function getStrutturaForContext(ctxOrDate) {
   return [];
 }
 
+/**
+ * Priorità modelli: stagione / festivo sui feriali; le domeniche usano sempre il domenicale
+ * (il template «ferie del tempo» non si applica alla domenica).
+ * @param {'natalizio'|'pasquale'|'defunti'|'festivo'} preferredKind
+ * @param {{ allowDomenicale?: boolean, isSunday?: boolean }} [opts]
+ */
+function resolveStrutturaKindPreferNonDomenicale(preferredKind, opts = {}) {
+  const allowDomenicale = opts.allowDomenicale !== false;
+  const isSunday = !!opts.isSunday;
+  // Domenica: mai il modello feriale di stagione
+  if (isSunday && hasStrutturaConfig('domenicale')) return 'domenicale';
+  if (preferredKind && hasStrutturaConfig(preferredKind)) return preferredKind;
+  if (preferredKind !== 'festivo' && hasStrutturaConfig('festivo')) return 'festivo';
+  if (allowDomenicale && hasStrutturaConfig('domenicale')) return 'domenicale';
+  return preferredKind || 'festivo';
+}
+
 function dateInRange(dateStr, range) {
   if (!range?.start || !range?.end) return false;
   return dateStr >= range.start && dateStr <= range.end;
@@ -9663,7 +12323,41 @@ function dateInRange(dateStr, range) {
  * Contesto liturgico per risolvere la struttura messe.
  * @returns {{ stagione, strutturaKind, preset, label }}
  */
+function getLiturgicalDayOverride(dateStr) {
+  return state.gruppiConfig?.giorniLiturgici?.[dateStr] || null;
+}
+
+function getLiturgicalDayEvent(dateStr) {
+  const events = calState.data?.byDate?.[dateStr] || [];
+  const primary = primaryEvent(events) || events[0] || null;
+  const override = getLiturgicalDayOverride(dateStr);
+  if (!override) return primary;
+  const tipoValue = ['solennita', 'festa', 'memoria', 'memoria-facoltativa', 'feriale'].includes(override.tipo) ? override.tipo : (primary?.tipo || 'feriale');
+  const tipo = tipoValue === 'memoria-facoltativa' ? 'memoria' : tipoValue;
+  const grado = tipoValue === 'memoria-facoltativa' ? 'm' : tipo === 'solennita' ? 'S' : tipo === 'festa' ? 'F' : tipo === 'memoria' ? 'M' : 'm';
+  const tipoLabel = tipoValue === 'memoria-facoltativa' ? 'Memoria facoltativa' : tipo === 'solennita' ? 'Solennità' : tipo === 'festa' ? 'Festa' : tipo === 'memoria' ? 'Memoria' : 'Feriale';
+  return {
+    ...(primary || {}),
+    nome: String(override.nome || primary?.nome || 'Giorno liturgico'),
+    tipo,
+    grado,
+    tipoLabel
+  };
+}
+
 function getLiturgicalContext(dateStr) {
+  const override = getLiturgicalDayOverride(dateStr);
+  if (override) {
+    const primary = getLiturgicalDayEvent(dateStr);
+    const kind = STRUTTURA_KINDS[override.strutturaKind] ? override.strutturaKind : null;
+    return {
+      stagione: kind,
+      strutturaKind: kind,
+      preset: null,
+      label: sanitizeAwayStrutturaName(primary?.nome, dateStr, 'Giorno liturgico'),
+      primary
+    };
+  }
   const preset = detectFestivityPreset(dateStr);
   const specialPreset = preset && preset !== 'solennita' ? preset : null;
   const anno = dateStr.slice(0, 4);
@@ -9672,11 +12366,24 @@ function getLiturgicalContext(dateStr) {
   const keys = getEventKeysForDate(dateStr);
 
   if (specialPreset) {
+    const natalizioPresets = ['christmasVigil', 'christmasDay', 'stephen', 'newYearEve', 'newYearDay', 'epiphanyVigil', 'epiphanyDay'];
+    const pasqualePresets = ['easterVigil', 'easterDay', 'holyThurs', 'goodFri'];
+    const defuntiPresets = ['allSaints', 'allSouls'];
+    let strutturaKind = null;
+    let stagione = null;
+    if (natalizioPresets.includes(specialPreset)) {
+      stagione = 'natalizio';
+      strutturaKind = resolveStrutturaKindPreferNonDomenicale('natalizio', { allowDomenicale: false });
+    } else if (pasqualePresets.includes(specialPreset)) {
+      stagione = 'pasquale';
+      strutturaKind = resolveStrutturaKindPreferNonDomenicale('pasquale', { allowDomenicale: false });
+    } else if (defuntiPresets.includes(specialPreset)) {
+      stagione = 'defunti';
+      strutturaKind = resolveStrutturaKindPreferNonDomenicale('defunti', { allowDomenicale: false });
+    }
     return {
-      stagione: specialPreset === 'christmasVigil' || specialPreset === 'christmasDay' ? 'natalizio'
-        : (specialPreset === 'easterVigil' || specialPreset === 'holyThurs' || specialPreset === 'goodFri' ? 'pasquale' : null),
-      strutturaKind: specialPreset === 'christmasVigil' || specialPreset === 'christmasDay' ? 'natalizio'
-        : (specialPreset === 'easterVigil' ? 'pasquale' : null),
+      stagione,
+      strutturaKind,
       preset: specialPreset,
       label: getFestivityPresetMeta(specialPreset).label,
       primary
@@ -9685,67 +12392,85 @@ function getLiturgicalContext(dateStr) {
 
   if (bounds.nataleRanges.some(r => dateInRange(dateStr, r))
     || keys.some(k => /Christmas|Epiphany|Baptism|Nativity/i.test(k) && !/Weekday|SundayAfter/i.test(k))) {
-    // Escludi ferie ambigue: solo range o chiavi forti
     if (bounds.nataleRanges.some(r => dateInRange(dateStr, r))) {
+      const isSun = isSundayDate(dateStr);
+      const kind = resolveStrutturaKindPreferNonDomenicale('natalizio', {
+        allowDomenicale: isSun,
+        isSunday: isSun
+      });
       return {
         stagione: 'natalizio',
-        strutturaKind: hasStrutturaConfig('natalizio') ? 'natalizio' : (isSundayDate(dateStr) ? 'domenicale' : 'festivo'),
+        strutturaKind: kind,
         preset: null,
-        label: 'Tempo natalizio',
+        label: sanitizeAwayStrutturaName(primary?.nome, dateStr, isSun ? 'Domenica' : 'Celebrazione'),
         primary
       };
     }
   }
 
   if (bounds.pasqua && dateInRange(dateStr, bounds.pasqua)) {
+    const isSun = isSundayDate(dateStr);
+    const kind = resolveStrutturaKindPreferNonDomenicale('pasquale', {
+      allowDomenicale: isSun,
+      isSunday: isSun
+    });
     return {
       stagione: 'pasquale',
-      strutturaKind: hasStrutturaConfig('pasquale') ? 'pasquale' : (isSundayDate(dateStr) ? 'domenicale' : 'festivo'),
+      strutturaKind: kind,
       preset: null,
-      label: 'Tempo pasquale',
+      label: sanitizeAwayStrutturaName(primary?.nome, dateStr, isSun ? 'Domenica' : 'Celebrazione'),
       primary
     };
   }
 
-  if (dateInRange(dateStr, bounds.defunti)
-    || keys.some(k => /AllSaints|AllSouls/i.test(k))) {
+  // Anche nella finestra defunti: se è solo il giorno LitCal “vuoto” (festa spostata), non usare modello stagione
+  if (dateInRange(dateStr, bounds.defunti) && !isFestivityDisplacedFromDate(dateStr)) {
+    const isSun = isSundayDate(dateStr);
+    const kind = resolveStrutturaKindPreferNonDomenicale('defunti', {
+      allowDomenicale: isSun,
+      isSunday: isSun
+    });
     return {
       stagione: 'defunti',
-      strutturaKind: hasStrutturaConfig('defunti') ? 'defunti' : 'festivo',
+      strutturaKind: kind,
       preset: null,
-      label: 'Defunti / Tutti i Santi',
+      label: sanitizeAwayStrutturaName(primary?.nome, dateStr, isSun ? 'Domenica' : 'Celebrazione'),
       primary
     };
   }
 
-  if (primary?.tipo === 'solennita' || primary?.tipo === 'festa') {
-    if (!isSundayDate(dateStr) || primary?.tipo === 'solennita') {
-      // Domenica che è solennità (Cristo Re, ecc.): usa festivo se configurato, senno domenicale
-      if (isSundayDate(dateStr)) {
-        return {
-          stagione: null,
-          strutturaKind: hasStrutturaConfig('festivo') ? 'festivo' : 'domenicale',
-          preset: 'solennita',
-          label: getStrutturaMeta(hasStrutturaConfig('festivo') ? 'festivo' : 'domenicale').label,
-          primary
-        };
-      }
-      return {
-        stagione: null,
-        strutturaKind: 'festivo',
-        preset: 'solennita',
-        label: 'Festivo generico',
-        primary
-      };
-    }
-  }
-
+  // Domeniche fuori da tempi speciali → sempre domenicale ordinario
+  // (Avvento, Cristo Re, tempo ordinario: non usare il modello festivo)
   if (isSundayDate(dateStr)) {
+    const dayEvent = getLiturgicalDayEvent(dateStr) || primary;
     return {
       stagione: null,
       strutturaKind: 'domenicale',
       preset: null,
-      label: 'Domenicale ordinario',
+      label: sanitizeAwayStrutturaName(dayEvent?.nome, dateStr, 'Domenica'),
+      primary: dayEvent || primary
+    };
+  }
+
+  // Festa LitCal spostata dalla comunità: non attivare orario festivo qui
+  if (isFestivityDisplacedFromDate(dateStr)) {
+    return {
+      stagione: null,
+      strutturaKind: null,
+      preset: null,
+      label: sanitizeAwayStrutturaName(primary?.nome, dateStr, null),
+      primary,
+      displaced: true
+    };
+  }
+
+  if (primary?.tipo === 'solennita' || primary?.tipo === 'festa') {
+    const kind = resolveStrutturaKindPreferNonDomenicale('festivo', { allowDomenicale: false });
+    return {
+      stagione: null,
+      strutturaKind: kind,
+      preset: 'solennita',
+      label: sanitizeAwayStrutturaName(primary?.nome, dateStr, 'Celebrazione'),
       primary
     };
   }
@@ -9760,8 +12485,19 @@ function getLiturgicalContext(dateStr) {
 }
 
 function buildSyntheticFestivaExtra(dateStr, ctx) {
-  const nota = ctx.primary?.nome || ctx.label || 'Celebrazione';
-  return {
+  const eventKey = getPrimaryFestivityEventKey(dateStr);
+  const nota = sanitizeAwayStrutturaName(
+    resolveCorrezioneCelebrationLabel(
+      { group: null, slots: [] },
+      eventKey,
+      (ctx.preset && ctx.preset !== 'solennita' ? getFestivityPresetMeta(ctx.preset).label : null)
+        || ctx.label
+        || 'Celebrazione'
+    ),
+    dateStr,
+    'Celebrazione'
+  );
+  const extra = {
     uuid: 'SYN-' + dateStr,
     data: dateStr,
     nota,
@@ -9769,9 +12505,14 @@ function buildSyntheticFestivaExtra(dateStr, ctx) {
     usaOrarioDomenicale: true,
     strutturaKind: ctx.strutturaKind || undefined,
     preset: ctx.preset || undefined,
+    eventKey: eventKey || undefined,
     source: 'struttura',
     synthetic: true
   };
+  const modello = getFestivitaModello(eventKey);
+  if (modello) applyFestivitaModelloToExtra(extra, modello);
+  else if (ctx.preset) applyPresetToFestivaExtra(extra, ctx.preset);
+  return extra;
 }
 
 /** Solennità feriali (Natale, Assunzione, …) — Pasqua resta domenica. */
@@ -9780,8 +12521,9 @@ function isSolennitaFestivaDay(dateStr) {
   // Vigilia di una domenica (Avvento1_vigil, Lent2_vigil, Cristo Re…) → già coperta
   // dal turno domenicale; non creare una festività separata. Eccezione: Veglia Pasquale.
   if (isVigiliaDomenicaleLiturgica(dateStr)) return false;
-  const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events);
+  // Festa ambrosiana spostata dalla comunità su un altro giorno civile
+  if (isFestivityDisplacedFromDate(dateStr)) return false;
+  const primary = getLiturgicalDayEvent(dateStr);
   return primary?.tipo === 'solennita';
 }
 
@@ -9804,6 +12546,108 @@ function getFestivitaEscluse() {
   return state.gruppiConfig.festivitaEscluse || [];
 }
 
+function isEscludiFerialiIntrasettimanaliEnabled() {
+  ensureGruppiConfig();
+  return !!state.gruppiConfig.escludiFerialiIntrasettimanali;
+}
+
+/** Lun–sab: consentiti solo tempi speciali e solennità (se il flag è attivo). */
+function isGiornoIntrasettimanaleConsentito(dateStr) {
+  if (!dateStr) return false;
+  const ctx = getLiturgicalContext(dateStr);
+  if (['natalizio', 'pasquale', 'defunti'].includes(ctx.stagione)) return true;
+  if (['natalizio', 'pasquale', 'defunti'].includes(ctx.strutturaKind)) return true;
+  if (ctx.preset && ctx.preset !== 'solennita') return true;
+  const primary = ctx.primary || getLiturgicalDayEvent(dateStr);
+  if (primary?.tipo === 'solennita') return true;
+  return false;
+}
+
+function isGiornoIntrasettimanaleEscluso(dateStr) {
+  if (!isEscludiFerialiIntrasettimanaliEnabled()) return false;
+  if (!dateStr || isSundayDate(dateStr)) return false;
+  const day = new Date(dateStr + 'T12:00:00').getDay();
+  if (day < 1 || day > 6) return false;
+  return !isGiornoIntrasettimanaleConsentito(dateStr);
+}
+
+function syncEscludiFerialiIntrasettimanaliUi() {
+  const el = document.getElementById('cal-escludi-feriali');
+  if (el) el.checked = isEscludiFerialiIntrasettimanaliEnabled();
+}
+
+function pruneAutoFestivitaIntrasettimanaliEscluse() {
+  if (!Array.isArray(state.messeExtra)) return 0;
+  const before = state.messeExtra.length;
+  state.messeExtra = state.messeExtra.filter(extra => {
+    if (!extra?.data || !isExtraFestiva(extra)) return true;
+    if (extra.source !== 'auto') return true;
+    if (extra.orarioPersonalizzato) return true;
+    if (!isGiornoIntrasettimanaleEscluso(extra.data)) return true;
+    return false;
+  });
+  return before - state.messeExtra.length;
+}
+
+/** Rimuove festività auto sul giorno LitCal quando la festa è stata spostata dalla comunità. */
+function pruneDisplacedFestivitaExtras(anno) {
+  if (!Array.isArray(state.messeExtra)) return 0;
+  anno = String(anno);
+  const before = state.messeExtra.length;
+  state.messeExtra = state.messeExtra.filter(extra => {
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return true;
+    const info = getDisplacedFestivityInfo(extra.data);
+    if (info) {
+      const ek = extra.eventKey || FESTIVITA_EVENTKEY_BY_PRESET[extra.preset];
+      // Togli il record della festa LitCal spostata (anche se aveva slot salvati)
+      if (!ek || ek === info.eventKey) return false;
+    }
+    const eventKey = extra.eventKey || FESTIVITA_EVENTKEY_BY_PRESET[extra.preset];
+    if (eventKey) {
+      const effective = getFestivitaDateForAnno(eventKey, extra.data.slice(0, 4));
+      if (effective && effective !== extra.data) {
+        // Festa sul giorno sbagliato rispetto alla data comunità
+        if (extra.source === 'auto' || !extra.orarioPersonalizzato) return false;
+        // Anche personalizzato se coincide con la festa spostata
+        if (ekMatchesDisplacedFeast(extra, eventKey, effective)) return false;
+      }
+    }
+    if (extra.source !== 'auto' || extra.orarioPersonalizzato) return true;
+    if (isFestivityDisplacedFromDate(extra.data)) return false;
+    return true;
+  });
+  return before - state.messeExtra.length;
+}
+
+function ekMatchesDisplacedFeast(extra, eventKey, effective) {
+  if (!extra?.data || !eventKey || !effective) return false;
+  return effective !== extra.data;
+}
+
+async function onEscludiFerialiIntrasettimanaliChange() {
+  if (!requireAdminAction('Solo l\'admin può modificare questa opzione')) {
+    syncEscludiFerialiIntrasettimanaliUi();
+    return;
+  }
+  ensureGruppiConfig();
+  const el = document.getElementById('cal-escludi-feriali');
+  state.gruppiConfig.escludiFerialiIntrasettimanali = !!el?.checked;
+  const pruned = pruneAutoFestivitaIntrasettimanaliEscluse();
+  saveData();
+  void persistConfig();
+  try {
+    const anno = getStrutturaFestivitaAnno();
+    await ensureCalendarioForPastoralYear(anno);
+    syncFestivitaAnno(anno);
+  } catch (_) { /* calendario non disponibile */ }
+  void renderStrutturaCorrezioniPanel();
+  void renderStrutturaApplicaPanel();
+  if (typeof renderMesseAgenda === 'function') renderMesseAgenda();
+  showToast(el?.checked
+    ? ('Feriali lun–sab esclusi' + (pruned ? ` · ${pruned} auto rimosse` : '') + ' · restano tempi speciali e solennità')
+    : 'Feriali lun–sab di nuovo inclusi');
+}
+
 function getEventKeysForDate(dateStr) {
   const events = calState.data?.byDate?.[dateStr] || [];
   return events.map(e => e.eventKey).filter(Boolean);
@@ -9818,6 +12662,20 @@ function isFestivitaEsclusa(dateStr) {
     if (ex?.data && ex.data === dateStr) return true;
     return false;
   });
+}
+
+/** Toglie «senza servizio» per questa data (e eventKey liturgici del giorno). */
+function clearFestivitaEsclusaForDate(dateStr) {
+  ensureGruppiConfig();
+  if (!dateStr || !Array.isArray(state.gruppiConfig.festivitaEscluse)) return false;
+  const before = state.gruppiConfig.festivitaEscluse.length;
+  const keys = new Set(getEventKeysForDate(dateStr));
+  state.gruppiConfig.festivitaEscluse = state.gruppiConfig.festivitaEscluse.filter(ex => {
+    if (ex?.data && ex.data === dateStr) return false;
+    if (ex?.eventKey && keys.has(ex.eventKey)) return false;
+    return true;
+  });
+  return state.gruppiConfig.festivitaEscluse.length !== before;
 }
 
 function findFestivitaEsclusaIndex({ eventKey, data } = {}) {
@@ -9835,7 +12693,7 @@ function addFestivitaEsclusa(dateStr, { nome, permanent = true } = {}) {
     state.gruppiConfig.festivitaEscluse = [];
   }
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const eventKey = permanent ? (primary?.eventKey || null) : null;
   const label = nome || primary?.nome || dateStr;
   const idx = permanent
@@ -9862,82 +12720,181 @@ function ripristinaFestivitaEsclusa(eventKeyOrData) {
   );
   saveData();
   void persistConfig();
-  showToast('Festività ripristinata — puoi sincronizzarla di nuovo');
+  showToast('Di nuovo in agenda (con servizio)');
+  void renderStrutturaCorrezioniPanel();
   if (strutturaMesseKind === 'festivo') {
     renderMesseDomenicaliList();
     updateMesseDomenicaliSummary();
   }
+  void applicaStruttureAnno({ quiet: true });
 }
 
 /**
- * Rimuove la festività dall'agenda e la esclude dalle sync future
- * (es. S. Carlo, vigilia di Cristo Re se non le celebrate).
+ * Toglie le messe del giorno per quest’anno (senza servizio).
+ * Il modello resta; in Correzioni si possono ripristinare.
  */
 function escludiFestivita(uuidOrDate) {
-  if (!requireAdminAction('Solo l\'admin può escludere festività')) return;
+  if (!requireAdminAction('Solo l\'admin può modificare le messe')) return;
   let extra = null;
   let dateStr = null;
   if (typeof uuidOrDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(uuidOrDate)) {
     dateStr = uuidOrDate;
-    extra = getMessaExtraForDate(dateStr);
+    extra = getMessaExtraForDate(dateStr) || ensureFestivaExtraMaterialized(dateStr);
   } else {
     extra = (state.messeExtra || []).find(m => m.uuid === uuidOrDate);
     dateStr = extra?.data;
   }
-  if (!dateStr) {
-    showToast('Festività non trovata');
+  if (!dateStr || !extra) {
+    showToast('Giorno non trovato');
     return;
   }
   const nome = extra?.nota || primaryEvent(calState.data?.byDate?.[dateStr] || [])?.nome || dateStr;
-  if (!confirm(`Non celebrate «${nome}»?\n\nVerrà tolta dall'agenda e non verrà più aggiunta con Sync.`)) return;
+  if (!confirm(`Togliere tutte le messe di «${nome}» per quest’anno?\n\nIl giorno resta senza servizio finché non le ripristini in Correzioni.`)) return;
 
-  addFestivitaEsclusa(dateStr, { nome });
-  if (extra?.uuid) {
-    state.messeExtra = (state.messeExtra || []).filter(m => m.uuid !== extra.uuid);
-    delete ensureMesseIndicazioni()[dateStr];
-  }
+  extra.slots = [];
+  extra.orarioPersonalizzato = true;
+  extra.tipo = 'festiva';
+  extra.usaOrarioDomenicale = true;
+  clearFestivitaEsclusaForDate(dateStr);
   saveData();
   void persistConfig();
-  showToast('Esclusa dalle festività');
-  if (messeState.selectedDate === dateStr) messeState.selectedDate = null;
-  if (strutturaMesseKind === 'festivo') {
-    renderMesseDomenicaliList();
-    updateMesseDomenicaliSummary();
-  }
+  showToast('Nessuna messa · senza servizio per quest’anno');
+  void renderStrutturaCorrezioniPanel();
+  if (messeState.selectedDate === dateStr) renderMessaDetail(dateStr);
   loadMesseAgenda();
 }
 
-/** Preset orario per festività speciali (Triduo, Natale, solennità tipiche). */
+/** Preset orario per festività speciali (Triduo, Natale, Defunti, Capodanno, Epifania…). */
 const FESTIVITY_PRESETS = {
   solennita: {
     id: 'solennita',
     label: 'Orario festivo',
-    hint: 'Struttura tipica delle feste importanti'
+    hint: 'Giorno singolo senza vigilia (8.30 / 10 / 11.15)'
+  },
+  solennitaConVigilia: {
+    id: 'solennitaConVigilia',
+    label: 'Festivo con vigilia',
+    hint: 'Vigilia 18.00 + orario festivo del giorno'
   },
   christmasVigil: {
     id: 'christmasVigil',
+    label: 'Vigilia e Notte di Natale',
+    hint: '24 dic: vigilia + messe della notte'
+  },
+  christmasVigilEve: {
+    id: 'christmasVigilEve',
     label: 'Vigilia di Natale',
-    hint: 'Messa della vigilia + Messa della notte'
+    hint: '24 dic ore 18'
+  },
+  christmasNight: {
+    id: 'christmasNight',
+    label: 'Notte di Natale',
+    hint: '24 dic — messe della notte'
   },
   christmasDay: {
     id: 'christmasDay',
     label: 'Natale (giorno)',
-    hint: 'Solo le messe del giorno di festa (senza vigilia)'
+    hint: 'Orario festivo del 25 dicembre'
+  },
+  stephen: {
+    id: 'stephen',
+    label: 'Santo Stefano',
+    hint: 'Orario festivo del 26 dicembre'
   },
   holyThurs: {
     id: 'holyThurs',
     label: 'Giovedì Santo',
-    hint: 'Cena del Signore — una celebrazione serale'
+    hint: 'Lavanda dei Piedi + Cena Domini'
+  },
+  holyThursLavanda: {
+    id: 'holyThursLavanda',
+    label: 'Lavanda dei Piedi',
+    hint: 'Giovedì Santo'
+  },
+  holyThursCena: {
+    id: 'holyThursCena',
+    label: 'Cena Domini',
+    hint: 'Giovedì Santo'
   },
   goodFri: {
     id: 'goodFri',
     label: 'Venerdì Santo',
-    hint: 'Nessuna messa (Passione del Signore)'
+    hint: 'Passione e Via Crucis'
+  },
+  goodFriPassione: {
+    id: 'goodFriPassione',
+    label: 'Passione del Signore',
+    hint: 'Venerdì Santo'
+  },
+  goodFriViaCrucis: {
+    id: 'goodFriViaCrucis',
+    label: 'Via Crucis',
+    hint: 'Venerdì Santo'
   },
   easterVigil: {
     id: 'easterVigil',
     label: 'Veglia Pasquale',
-    hint: 'Una celebrazione nella Notte Santa'
+    hint: 'Sabato Santo — Notte Santa'
+  },
+  easterDay: {
+    id: 'easterDay',
+    label: 'Pasqua',
+    hint: 'Orario festivo della Domenica di Risurrezione'
+  },
+  allSaints: {
+    id: 'allSaints',
+    label: 'Tutti i Santi',
+    hint: 'Vigilia + orario festivo + vespri al cimitero'
+  },
+  allSaintsVigil: {
+    id: 'allSaintsVigil',
+    label: 'Vigilia di Tutti i Santi',
+    hint: 'Sera precedente'
+  },
+  allSaintsDay: {
+    id: 'allSaintsDay',
+    label: 'Tutti i Santi — messe',
+    hint: 'Messe del giorno'
+  },
+  allSaintsVespers: {
+    id: 'allSaintsVespers',
+    label: 'Vespri e processione',
+    hint: 'Cimitero'
+  },
+  allSouls: {
+    id: 'allSouls',
+    label: 'Commemorazione dei Defunti',
+    hint: 'Vigilia + messe del giorno (anche cimitero)'
+  },
+  allSoulsVigil: {
+    id: 'allSoulsVigil',
+    label: 'Vespri dei Defunti',
+    hint: '1 novembre (pomeriggio, vigilia civile del 2 nov)'
+  },
+  allSoulsDay: {
+    id: 'allSoulsDay',
+    label: 'Defunti — messe',
+    hint: 'Messe del giorno'
+  },
+  newYearEve: {
+    id: 'newYearEve',
+    label: '31 dicembre',
+    hint: 'Messa vigiliare con Te Deum'
+  },
+  newYearDay: {
+    id: 'newYearDay',
+    label: '1° gennaio',
+    hint: 'Ottava di Natale — orario festivo'
+  },
+  epiphanyVigil: {
+    id: 'epiphanyVigil',
+    label: 'Vigilia dell’Epifania',
+    hint: '5 gen ore 18 Santuario'
+  },
+  epiphanyDay: {
+    id: 'epiphanyDay',
+    label: 'Epifania',
+    hint: '6 gen — messe del giorno'
   }
 };
 
@@ -9952,25 +12909,133 @@ function festivityHasEventKey(dateStr, ...keys) {
   return events.some(e => set.has(e.eventKey));
 }
 
+function festivityHasEventKeyMatch(dateStr, regex) {
+  const events = calState.data?.byDate?.[dateStr] || [];
+  return events.some(e => regex.test(String(e.eventKey || '')));
+}
+
 function detectFestivityPreset(dateStr) {
+  // 1) Correzione civile comunità (una sola data effettiva)
+  const fromOverride = detectFestivityPresetFromCivilOverride(dateStr);
+  if (fromOverride) return fromOverride;
+
+  // 2) Tutti i Santi / Defunti: date civili 1 e 2 nov (battono LitCal spostato)
+  const fromDefuntiCivil = detectDefuntiCivilPreset(dateStr);
+  if (fromDefuntiCivil) return fromDefuntiCivil;
+
+  // 3) Giorno liturgico ambrosiano — solo se non spostato altrove
+  const fromLit = detectFestivityPresetFromAmbrosian(dateStr);
+  if (fromLit) {
+    const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
+    const effective = eventKey
+      ? getFestivitaDateForAnno(eventKey, dateStr.slice(0, 4))
+      : null;
+    if (!effective || effective === dateStr) return fromLit;
+  }
+
+  // 4) Fallback date civili di default
+  return detectFestivityPresetFromCivilDefault(dateStr) || 'solennita';
+}
+
+/** 1 nov = Tutti i Santi, 2 nov = Defunti (rispetto alle date effettive comunità). */
+function detectDefuntiCivilPreset(dateStr) {
+  if (!dateStr || dateStr.length < 10) return null;
+  const anno = dateStr.slice(0, 4);
+  const md = dateStr.slice(5);
+  if (md === '11-01' && getFestivitaDateForAnno('AllSaints', anno) === dateStr) return 'allSaints';
+  if (md === '11-02' && getFestivitaDateForAnno('AllSouls', anno) === dateStr) return 'allSouls';
+  return null;
+}
+
+function detectFestivityPresetFromAmbrosian(dateStr) {
   if (festivityHasEventKey(dateStr, 'HolyThurs')) return 'holyThurs';
   if (festivityHasEventKey(dateStr, 'GoodFri')) return 'goodFri';
   if (festivityHasEventKey(dateStr, 'EasterVigil')) return 'easterVigil';
+  if (festivityHasEventKey(dateStr, 'Easter')) return 'easterDay';
+  if (festivityHasEventKeyMatch(dateStr, /AllSaints.*vigil|AllSaints_vigil/i)) return 'allSaints';
+  if (festivityHasEventKeyMatch(dateStr, /AllSouls/i) && !festivityHasEventKeyMatch(dateStr, /AllSaints/i)) return 'allSouls';
+  if (festivityHasEventKeyMatch(dateStr, /AllSaints/i)) return 'allSaints';
   if (festivityHasEventKey(dateStr, 'Christmas_vigil')) return 'christmasVigil';
   if (festivityHasEventKey(dateStr, 'Christmas')) return 'christmasDay';
+  if (festivityHasEventKeyMatch(dateStr, /Stephen|StStephen|SantoStefano/i)) return 'stephen';
+  if (festivityHasEventKeyMatch(dateStr, /Epiphany.*vigil|Epiphany_vigil/i)) return 'epiphanyVigil';
+  if (festivityHasEventKey(dateStr, 'Epiphany') || festivityHasEventKeyMatch(dateStr, /^Epiphany$/i)) return 'epiphanyDay';
+  if (festivityHasEventKeyMatch(dateStr, /MaryMother|MotherOfGod|Circumcision|NewYear|OctaveChristmas/i)) {
+    return 'newYearDay';
+  }
+  return null;
+}
+
+function detectFestivityPresetFromCivilOverride(dateStr) {
+  const anno = dateStr.slice(0, 4);
+  for (const [presetId, eventKey] of Object.entries(FESTIVITA_EVENTKEY_BY_PRESET)) {
+    if (getFestivitaDateOverrideOnly(eventKey, anno) === dateStr) return presetId;
+  }
+  return null;
+}
+
+/**
+ * True se LitCal ha la festa qui ma la comunità la celebra altrove,
+ * e questo giorno non è già la data civile di un’altra festa (es. 2 nov Defunti).
+ */
+function isFestivityDisplacedFromDate(dateStr) {
+  const fromLit = detectFestivityPresetFromAmbrosian(dateStr);
+  if (!fromLit) return false;
+  const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
+  if (!eventKey) return false;
+  const anno = dateStr.slice(0, 4);
+  const effective = getFestivitaDateForAnno(eventKey, anno);
+  if (!effective || effective === dateStr) return false;
+  // Qui cade un’altra festa comunità (1/2 nov): non scartare il giorno
+  if (detectDefuntiCivilPreset(dateStr)) return false;
+  for (const ek of Object.keys(FESTIVITA_DEFAULT_MD)) {
+    if (ek === eventKey) continue;
+    if (getFestivitaDateForAnno(ek, anno) === dateStr) return false;
+  }
+  return true;
+}
+
+function detectFestivityPresetFromCivilDefault(dateStr) {
+  const anno = dateStr.slice(0, 4);
   const md = dateStr.slice(5);
-  if (md === '12-24') return 'christmasVigil';
-  if (md === '12-25') return 'christmasDay';
-  return 'solennita';
+  const byMd = {
+    '12-24': 'christmasVigil',
+    '12-25': 'christmasDay',
+    '12-26': 'stephen',
+    '12-31': 'newYearEve',
+    '01-01': 'newYearDay',
+    '01-05': 'epiphanyVigil',
+    '01-06': 'epiphanyDay',
+    '11-01': 'allSaints',
+    '11-02': 'allSouls'
+  };
+  // AllSaints/AllSouls: gestiti da detectDefuntiCivilPreset; non annullare per ambrosiano altrove
+  for (const [presetId, eventKey] of Object.entries(FESTIVITA_EVENTKEY_BY_PRESET)) {
+    if (eventKey === 'AllSaints' || eventKey === 'AllSouls') continue;
+    if (getFestivitaDateOverrideOnly(eventKey, anno)) continue;
+    if (getAmbrosianFestivitaDate(eventKey, anno)) continue;
+    if (getDefaultFestivitaDate(eventKey, anno) === dateStr) return presetId;
+  }
+  const presetId = byMd[md];
+  if (!presetId) return null;
+  const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[presetId];
+  if (eventKey === 'AllSaints' || eventKey === 'AllSouls') {
+    return detectDefuntiCivilPreset(dateStr);
+  }
+  if (eventKey) {
+    if (getFestivitaDateOverrideOnly(eventKey, anno)) return null;
+    if (getAmbrosianFestivitaDate(eventKey, anno)) return null;
+  }
+  return presetId;
 }
 
 function newFestivaSlotId(prefix = 'fest') {
   return prefix + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-function makeFestivaPresetSlot({ ora, sede = 'santuario', dayOffset = 0, vigilia = false, conTurno = true }) {
+function makeFestivaPresetSlot({ ora, sede = 'santuario', dayOffset = 0, vigilia = false, conTurno = true, titolo }) {
   const off = dayOffset === -1 ? -1 : 0;
-  return {
+  const slot = {
     id: newFestivaSlotId(),
     dayOffset: off,
     ora: ora || '10:00',
@@ -9978,6 +13043,34 @@ function makeFestivaPresetSlot({ ora, sede = 'santuario', dayOffset = 0, vigilia
     vigilia: !!vigilia || off === -1,
     conTurno: !!conTurno
   };
+  if (titolo) slot.titolo = titolo;
+  return slot;
+}
+
+function cloneFestiveDayPresetSlots(titolo) {
+  return renumberFestivaSlots(
+    DEFAULT_MESSE_FESTIVE_GIORNO.map(s => makeFestivaPresetSlot({
+      ora: s.ora,
+      sede: s.sede,
+      dayOffset: s.dayOffset,
+      vigilia: s.vigilia,
+      conTurno: s.conTurno,
+      titolo
+    }))
+  );
+}
+
+function cloneVigiliaFestivoPresetSlots(titoloGiorno) {
+  return renumberFestivaSlots(
+    DEFAULT_MESSE_CON_VIGILIA.map(s => makeFestivaPresetSlot({
+      ora: s.ora,
+      sede: s.sede,
+      dayOffset: s.dayOffset,
+      vigilia: s.vigilia,
+      conTurno: s.conTurno,
+      titolo: s.dayOffset === -1 ? 'Vigilia' : titoloGiorno
+    }))
+  );
 }
 
 /**
@@ -9987,28 +13080,111 @@ function makeFestivaPresetSlot({ ora, sede = 'santuario', dayOffset = 0, vigilia
 function buildFestivityPresetSlots(presetId) {
   switch (presetId) {
     case 'holyThurs':
+      return [
+        ...buildFestivityPresetSlots('holyThursLavanda'),
+        ...buildFestivityPresetSlots('holyThursCena')
+      ];
+    case 'holyThursLavanda':
       return renumberFestivaSlots([
-        makeFestivaPresetSlot({ ora: '20:00', conTurno: true })
+        makeFestivaPresetSlot({ ora: '17:00', sede: 'mantegazza', conTurno: true, titolo: 'Lavanda dei Piedi' })
+      ]);
+    case 'holyThursCena':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '21:00', conTurno: true, titolo: 'Cena Domini' })
       ]);
     case 'goodFri':
-      return [];
+      return [
+        ...buildFestivityPresetSlots('goodFriPassione'),
+        ...buildFestivityPresetSlots('goodFriViaCrucis')
+      ];
+    case 'goodFriPassione':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '15:00', conTurno: false, titolo: 'Passione del Signore' }),
+        makeFestivaPresetSlot({ ora: '15:00', sede: 'mantegazza', conTurno: false, titolo: 'Passione del Signore' })
+      ]);
+    case 'goodFriViaCrucis':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '21:00', sede: 'mantegazza', conTurno: false, titolo: 'Via Crucis' })
+      ]);
     case 'easterVigil':
       return renumberFestivaSlots([
-        makeFestivaPresetSlot({ ora: '21:00', vigilia: true, conTurno: true })
+        makeFestivaPresetSlot({ ora: '21:00', vigilia: true, conTurno: true, titolo: 'Veglia Pasquale' })
       ]);
+    case 'easterDay':
+      return cloneFestiveDayPresetSlots('Pasqua');
     case 'christmasVigil':
+      return [
+        ...buildFestivityPresetSlots('christmasVigilEve'),
+        ...buildFestivityPresetSlots('christmasNight')
+      ];
+    case 'christmasVigilEve':
       return renumberFestivaSlots([
-        makeFestivaPresetSlot({ ora: '18:00', vigilia: true, conTurno: true }),
-        makeFestivaPresetSlot({ ora: '23:30', vigilia: true, conTurno: true })
+        makeFestivaPresetSlot({ ora: '18:00', vigilia: true, conTurno: true, titolo: 'Vigilia' })
       ]);
-    case 'christmasDay': {
-      const daySlots = cloneOrarioFestivoSlots().filter(s => s.dayOffset !== -1);
-      if (daySlots.length) return renumberFestivaSlots(daySlots);
-      return renumberFestivaSlots(cloneOrarioDomenicaleSlots().filter(s => s.dayOffset !== -1));
-    }
+    case 'christmasNight':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '22:00', sede: 'mantegazza', vigilia: true, conTurno: true, titolo: 'Notte' }),
+        makeFestivaPresetSlot({ ora: '00:00', vigilia: true, conTurno: true, titolo: 'Notte' })
+      ]);
+    case 'christmasDay':
+      return cloneFestiveDayPresetSlots('Natale');
+    case 'stephen':
+      return cloneFestiveDayPresetSlots('Santo Stefano');
+    case 'allSaints':
+      return [
+        ...buildFestivityPresetSlots('allSaintsVigil'),
+        ...buildFestivityPresetSlots('allSaintsDay')
+      ];
+    case 'allSaintsVigil':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '18:00', dayOffset: -1, vigilia: true, conTurno: true, titolo: 'Vigilia Tutti i Santi' })
+      ]);
+    case 'allSaintsDay':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '08:30', sede: 'vanzago', conTurno: true, titolo: 'Tutti i Santi' }),
+        makeFestivaPresetSlot({ ora: '10:00', sede: 'mantegazza', conTurno: false, titolo: 'Tutti i Santi' }),
+        makeFestivaPresetSlot({ ora: '11:15', conTurno: true, titolo: 'Tutti i Santi' })
+      ]);
+    case 'allSaintsVespers':
+      // Legacy: vespri spostati sui Defunti (1 nov)
+      return buildFestivityPresetSlots('allSoulsVigil');
+    case 'allSouls':
+      return [
+        ...buildFestivityPresetSlots('allSoulsVigil'),
+        ...buildFestivityPresetSlots('allSoulsDay')
+      ];
+    case 'allSoulsVigil':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '15:00', dayOffset: -1, conTurno: false, titolo: 'Vespri e processione al Cimitero' })
+      ]);
+    case 'allSoulsDay':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '08:30', sede: 'vanzago', conTurno: true, titolo: 'Defunti' }),
+        makeFestivaPresetSlot({ ora: '10:00', sede: 'mantegazza', conTurno: false, titolo: 'Defunti' }),
+        makeFestivaPresetSlot({ ora: '11:15', sede: 'cimitero', conTurno: true, titolo: 'Defunti' }),
+        makeFestivaPresetSlot({ ora: '18:00', sede: 'mantegazza', conTurno: false, titolo: 'Defunti' })
+      ]);
+    case 'newYearEve':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '18:00', conTurno: true, titolo: 'Messa vigiliare con Te Deum' })
+      ]);
+    case 'newYearDay':
+      return cloneFestiveDayPresetSlots('1° gennaio');
+    case 'epiphanyVigil':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '18:00', vigilia: true, conTurno: true, titolo: 'Vigilia Epifania' })
+      ]);
+    case 'epiphanyDay':
+      return renumberFestivaSlots([
+        makeFestivaPresetSlot({ ora: '08:30', sede: 'vanzago', conTurno: true, titolo: 'Epifania' }),
+        makeFestivaPresetSlot({ ora: '11:15', conTurno: true, titolo: 'Epifania' })
+      ]);
+    case 'solennitaConVigilia':
+      return cloneVigiliaFestivoPresetSlots('Solennità');
     case 'solennita':
-    default:
+    default: {
       return null;
+    }
   }
 }
 
@@ -10016,7 +13192,304 @@ function getFestivityPresetMeta(presetId) {
   return FESTIVITY_PRESETS[presetId] || FESTIVITY_PRESETS.solennita;
 }
 
+/** Date civili di default per i modelli con eventKey (MM-DD). */
+const FESTIVITA_DEFAULT_MD = {
+  AllSaints: '11-01',
+  AllSouls: '11-02',
+  Christmas_vigil: '12-24',
+  Christmas: '12-25',
+  Stephen: '12-26',
+  NewYearEve: '12-31',
+  MaryMotherOfGod: '01-01',
+  Epiphany_vigil: '01-05',
+  Epiphany: '01-06'
+};
+
+const FESTIVITA_EVENTKEY_BY_PRESET = {
+  allSaints: 'AllSaints',
+  allSouls: 'AllSouls',
+  christmasVigil: 'Christmas_vigil',
+  christmasDay: 'Christmas',
+  stephen: 'Stephen',
+  newYearEve: 'NewYearEve',
+  newYearDay: 'MaryMotherOfGod',
+  epiphanyVigil: 'Epiphany_vigil',
+  epiphanyDay: 'Epiphany'
+};
+
+const FESTIVITA_AMBROSIAN_MATCHERS = {
+  AllSaints: k => /AllSaints/i.test(k) && !/AllSouls/i.test(k),
+  AllSouls: k => /AllSouls/i.test(k),
+  // Solo la vigilia di Natale: evita SundayAfterChristmas_vigil / Christmas2_vigil (es. sab 3 gen)
+  Christmas_vigil: k => k === 'Christmas_vigil' || /^Christmas_vigil$/i.test(k),
+  Christmas: k => k === 'Christmas' || /^Christmas$/i.test(k),
+  Stephen: k => /Stephen|StStephen|SantoStefano/i.test(k),
+  NewYearEve: k => /NewYearEve|Dec31|TeDeum/i.test(k),
+  MaryMotherOfGod: k => /MaryMother|MotherOfGod|Circumcision|OctaveChristmas/i.test(k),
+  Epiphany_vigil: k => k === 'Epiphany_vigil' || /^Epiphany_vigil$/i.test(k),
+  Epiphany: k => k === 'Epiphany' || /^Epiphany$/i.test(k)
+};
+
+function getDefaultFestivitaDate(eventKey, anno) {
+  const md = FESTIVITA_DEFAULT_MD[eventKey];
+  if (!md) return null;
+  const y = parseInt(anno, 10);
+  return `${y}-${md}`;
+}
+
+function getFestivitaDateOverridesMap() {
+  ensureGruppiConfig();
+  if (!state.gruppiConfig.festivitaDateOverrides || typeof state.gruppiConfig.festivitaDateOverrides !== 'object') {
+    state.gruppiConfig.festivitaDateOverrides = {};
+  }
+  return state.gruppiConfig.festivitaDateOverrides;
+}
+
+/** Solo correzione esplicita (senza default). */
+function getFestivitaDateOverrideOnly(eventKey, anno) {
+  if (!eventKey) return null;
+  anno = String(anno);
+  const override = getFestivitaDateOverridesMap()[eventKey]?.[anno];
+  return override && /^\d{4}-\d{2}-\d{2}$/.test(override) ? override : null;
+}
+
+/** Data dal calendario ambrosiano LitCal per l’anno civile. */
+function getAmbrosianFestivitaDate(eventKey, anno) {
+  if (!eventKey || !calState.data?.byDate) return null;
+  anno = String(anno);
+  const matcher = FESTIVITA_AMBROSIAN_MATCHERS[eventKey];
+  const md = FESTIVITA_DEFAULT_MD[eventKey];
+  // Preferisci la data civile tipica (es. 12-24) se presente nel calendario
+  if (md) {
+    const preferred = `${anno}-${md}`;
+    const keys = getEventKeysForDate(preferred);
+    if (keys.length && (matcher ? keys.some(matcher) : keys.includes(eventKey))) {
+      return preferred;
+    }
+  }
+  if (!matcher) {
+    return findDateWithEventKey(anno, k => k === eventKey);
+  }
+  // Preferisci il giorno principale (non solo vigilia) per AllSaints
+  if (eventKey === 'AllSaints') {
+    return findDateWithEventKey(anno, k => /AllSaints/i.test(k) && !/vigil/i.test(k) && !/AllSouls/i.test(k))
+      || findDateWithEventKey(anno, k => /AllSaints/i.test(k) && !/AllSouls/i.test(k));
+  }
+  if (eventKey === 'AllSouls') {
+    return findDateWithEventKey(anno, k => /AllSouls/i.test(k) && !/vigil/i.test(k))
+      || findDateWithEventKey(anno, k => /AllSouls/i.test(k));
+  }
+  // Natale/Epifania: cerca vicino al default civile, non la prima occorrenza dell’anno
+  if (eventKey === 'Christmas_vigil' || eventKey === 'Christmas' || eventKey === 'Stephen'
+    || eventKey === 'Epiphany_vigil' || eventKey === 'Epiphany' || eventKey === 'NewYearEve') {
+    return findDateWithEventKeyNearMd(anno, md, matcher);
+  }
+  return findDateWithEventKey(anno, matcher);
+}
+
+/** Prima data che matcha vicino a MM-DD (stesso mese), altrimenti qualsiasi nell’anno. */
+function findDateWithEventKeyNearMd(anno, md, predicate) {
+  anno = String(anno);
+  const byDate = calState.data?.byDate || {};
+  const dates = Object.keys(byDate).filter(d => d.startsWith(anno)).sort();
+  const month = md ? md.slice(0, 2) : null;
+  const sameMonth = month ? dates.filter(d => d.slice(5, 7) === month) : dates;
+  for (const list of [sameMonth, dates]) {
+    for (const d of list) {
+      const keys = (byDate[d] || []).map(e => e.eventKey).filter(Boolean);
+      if (keys.some(predicate)) return d;
+    }
+  }
+  return null;
+}
+
+/**
+ * Data effettiva per UI/bounds:
+ * correzione civile → (per Defunti: civile fisso 1/2 nov) → ambrosiano → default civile
+ */
+function getFestivitaDateForAnno(eventKey, anno) {
+  if (!eventKey) return null;
+  anno = String(anno);
+  const override = getFestivitaDateOverrideOnly(eventKey, anno);
+  if (override) return override;
+  // Tutti i Santi / Defunti: in parrocchia si segue il calendario civile (31 ott / 1 / 2 nov)
+  if (eventKey === 'AllSaints' || eventKey === 'AllSouls') {
+    return getDefaultFestivitaDate(eventKey, anno)
+      || getAmbrosianFestivitaDate(eventKey, anno);
+  }
+  return getAmbrosianFestivitaDate(eventKey, anno)
+    || getDefaultFestivitaDate(eventKey, anno);
+}
+
+/** Se AllSaints era stato salvato per errore sul giorno della vigilia (31 ott), ripristina. */
+function sanitizeDefuntiDateOverrides(anno) {
+  anno = String(anno);
+  const civilSaints = getDefaultFestivitaDate('AllSaints', anno);
+  const overrideSaints = getFestivitaDateOverrideOnly('AllSaints', anno);
+  if (civilSaints && overrideSaints && overrideSaints === addDaysToDateStr(civilSaints, -1)) {
+    clearFestivitaDateForAnno('AllSaints', anno);
+  }
+}
+
+function setFestivitaDateForAnno(eventKey, dateStr) {
+  if (!eventKey || !dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const anno = dateStr.slice(0, 4);
+  const map = getFestivitaDateOverridesMap();
+  if (!map[eventKey] || typeof map[eventKey] !== 'object') map[eventKey] = {};
+  const ambrosian = getAmbrosianFestivitaDate(eventKey, anno);
+  const def = getDefaultFestivitaDate(eventKey, anno);
+  // Se coincide con ambrosiano o default, togli override
+  if ((ambrosian && dateStr === ambrosian) || (!ambrosian && def && dateStr === def)) {
+    delete map[eventKey][anno];
+    if (!Object.keys(map[eventKey]).length) delete map[eventKey];
+  } else {
+    map[eventKey][anno] = dateStr;
+  }
+  clearLiturgicalSeasonCache();
+  return true;
+}
+
+function clearFestivitaDateForAnno(eventKey, anno) {
+  if (!eventKey) return;
+  anno = String(anno);
+  const map = getFestivitaDateOverridesMap();
+  if (!map[eventKey]) return;
+  delete map[eventKey][anno];
+  if (!Object.keys(map[eventKey]).length) delete map[eventKey];
+  clearLiturgicalSeasonCache();
+}
+
+function formatShortFestivitaDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+function formatFestivitaDayMonthLabel(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'long'
+  });
+}
+
+function formatFestivitaDateHint(eventKey, anno) {
+  const dateStr = getFestivitaDateForAnno(eventKey, anno);
+  if (!dateStr) return '';
+  const overridden = !!getFestivitaDateOverrideOnly(eventKey, anno);
+  const ambrosian = getAmbrosianFestivitaDate(eventKey, anno);
+  const label = formatShortFestivitaDate(dateStr);
+  if (overridden) return `${label} · correzione civile`;
+  if (ambrosian && ambrosian === dateStr) return `${label} · ambrosiano`;
+  return `${label} · civile`;
+}
+
+/**
+ * Offset civile della celebrazione rispetto al giorno liturgico (eventKey).
+ * Vigilia/vespri con messe dayOffset -1 → giorno civile precedente.
+ */
+function getCelebrationCivilDayOffset(group, slots) {
+  if (!group) return 0;
+  const key = group.celebrationKey || null;
+  if (key === 'vigilia' || key === 'vespri') return -1;
+  const list = Array.isArray(slots) ? slots : [];
+  if (list.length && list.every(s => s.dayOffset === -1)) return -1;
+  // Preset vigiliare senza slot ancora caricati
+  if (/Vigil$/i.test(group.presetId || '') || /Vigil$/i.test(group.dayPreset || '')) {
+    if (key === 'vigilia' || key === 'vespri' || key === 'notte') return -1;
+  }
+  return 0;
+}
+
+function shiftFestivitaDateStr(dateStr, days) {
+  if (!dateStr || !days) return dateStr || null;
+  return addDaysToDateStr(dateStr, days);
+}
+
+/** Meta date per card Modelli: ambrosiano + civile/correzione (opz. giorno civile celebrazione). */
+function getFestivitaModelloDateMeta(eventKey, pastoralStartY, civilDayOffset = 0) {
+  if (!eventKey) return null;
+  const anno = resolveFestivitaAnnoForEventKey(eventKey, pastoralStartY);
+  const ambrosianAnchor = getAmbrosianFestivitaDate(eventKey, anno);
+  const overrideAnchor = getFestivitaDateOverrideOnly(eventKey, anno);
+  const civilDefaultAnchor = getDefaultFestivitaDate(eventKey, anno);
+  const effectiveAnchor = overrideAnchor || (
+    (eventKey === 'AllSaints' || eventKey === 'AllSouls')
+      ? (civilDefaultAnchor || ambrosianAnchor)
+      : (ambrosianAnchor || civilDefaultAnchor)
+  );
+  const off = civilDayOffset === -1 ? -1 : 0;
+  const ambrosian = shiftFestivitaDateStr(ambrosianAnchor, off);
+  const override = shiftFestivitaDateStr(overrideAnchor, off);
+  const civilDefault = shiftFestivitaDateStr(civilDefaultAnchor, off);
+  const effective = shiftFestivitaDateStr(effectiveAnchor, off);
+  let source = 'civile';
+  if (overrideAnchor) source = 'correzione';
+  else if (effectiveAnchor && ambrosianAnchor && effectiveAnchor === ambrosianAnchor) source = 'ambrosiano';
+  else if (effectiveAnchor && civilDefaultAnchor && effectiveAnchor === civilDefaultAnchor) source = 'civile';
+  else if (ambrosianAnchor) source = 'ambrosiano';
+  return {
+    anno,
+    civilDayOffset: off,
+    anchorEffective: effectiveAnchor,
+    ambrosian,
+    override,
+    civilDefault,
+    effective,
+    ambrosianLabel: ambrosian ? formatShortFestivitaDate(ambrosian) : 'non in calendario',
+    effectiveLabel: effective ? formatShortFestivitaDate(effective) : '—',
+    source
+  };
+}
+
+/** Anno civile della festa rispetto all’anno pastorale (set–ago). */
+function resolveFestivitaAnnoForEventKey(eventKey, pastoralStartY) {
+  const md = FESTIVITA_DEFAULT_MD[eventKey];
+  const startY = parseInt(pastoralStartY, 10);
+  if (!md || !Number.isFinite(startY)) return String(pastoralStartY || new Date().getFullYear());
+  const month = parseInt(md.slice(0, 2), 10);
+  return String(month >= 9 ? startY : startY + 1);
+}
+
+function findEventKeyForDateOverride(dateStr) {
+  if (!dateStr) return null;
+  const anno = dateStr.slice(0, 4);
+  for (const eventKey of Object.keys(FESTIVITA_DEFAULT_MD)) {
+    if (getFestivitaDateOverrideOnly(eventKey, anno) === dateStr) return eventKey;
+  }
+  // Anche data effettiva (ambrosiano/default) per il selettore calendario
+  for (const eventKey of Object.keys(FESTIVITA_DEFAULT_MD)) {
+    if (getFestivitaDateForAnno(eventKey, anno) === dateStr) return eventKey;
+  }
+  return null;
+}
+
 function getPrimaryFestivityEventKey(dateStr) {
+  // 1) correzione civile comunità
+  const fromOverride = findEventKeyForDateOverride(dateStr);
+  if (fromOverride && getFestivitaDateOverrideOnly(fromOverride, dateStr.slice(0, 4)) === dateStr) {
+    return fromOverride;
+  }
+  // 2) Defunti civili (1/2 nov) prima del LitCal spostato
+  const defuntiPreset = detectDefuntiCivilPreset(dateStr);
+  if (defuntiPreset) return FESTIVITA_EVENTKEY_BY_PRESET[defuntiPreset] || null;
+  // 3) giorno liturgico ambrosiano (se non spostato)
+  const fromLit = detectFestivityPresetFromAmbrosian(dateStr);
+  if (fromLit) {
+    const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
+    const effective = eventKey
+      ? getFestivitaDateForAnno(eventKey, dateStr.slice(0, 4))
+      : null;
+    if (eventKey && (!effective || effective === dateStr)) return eventKey;
+  }
+  // 4) data effettiva (ambrosiano/default) per il selettore calendario
+  for (const eventKey of Object.keys(FESTIVITA_DEFAULT_MD)) {
+    if (getFestivitaDateForAnno(eventKey, dateStr.slice(0, 4)) === dateStr) return eventKey;
+  }
   const events = calState.data?.byDate?.[dateStr] || [];
   const primary = primaryEvent(events) || events[0];
   return primary?.eventKey || null;
@@ -10027,20 +13500,67 @@ function getFestivitaModelli() {
   return state.gruppiConfig.festivitaModelli || [];
 }
 
+/** Modello giorno completo: unisce tutte le celebrazioni (o legacy monolitico). */
 function getFestivitaModello(eventKey) {
   if (!eventKey) return null;
-  return getFestivitaModelli().find(m => m.eventKey === eventKey) || null;
+  const groups = getStrutturaGiornoGroupsForEventKey(eventKey);
+  const celebrationGroups = groups.filter(g => g.celebrationKey);
+  if (celebrationGroups.length) {
+    const slots = [];
+    let anyCustom = false;
+    let allDisabled = true;
+    let strutturaKind = null;
+    let dayPreset = celebrationGroups[0].dayPreset || celebrationGroups[0].presetId;
+    celebrationGroups.forEach(g => {
+      const celeb = getFestivitaModelloCelebrazione(eventKey, g.celebrationKey);
+      if (celeb?.disabled && !celeb._fromLegacy) {
+        anyCustom = true;
+        if (celeb.strutturaKind) strutturaKind = celeb.strutturaKind;
+        if (celeb.preset) dayPreset = celeb.preset;
+        return; // comunità: non celebriamo questa parte
+      }
+      allDisabled = false;
+      if (celeb && Array.isArray(celeb.slots) && !celeb._fromLegacy) {
+        anyCustom = true;
+        if (celeb.strutturaKind) strutturaKind = celeb.strutturaKind;
+        if (celeb.preset) dayPreset = celeb.preset;
+        slots.push(...(celeb.slots || []));
+      } else {
+        const defaults = buildFestivityPresetSlots(g.presetId);
+        if (Array.isArray(defaults)) slots.push(...defaults);
+      }
+    });
+    if (!anyCustom) {
+      return getFestivitaModelli().find(m => m.eventKey === eventKey && !m.celebrationKey) || null;
+    }
+    return {
+      eventKey,
+      preset: dayPreset,
+      strutturaKind,
+      slots: renumberFestivaSlots(cloneFestivaSlotsForModello(slots) || []),
+      disabled: allDisabled || undefined,
+      nota: celebrationGroups.map(g => g.label).join(' + ')
+    };
+  }
+  const mono = getFestivitaModelli().find(m => m.eventKey === eventKey && !m.celebrationKey)
+    || getFestivitaModelli().find(m => m.eventKey === eventKey)
+    || null;
+  return mono;
 }
 
 function cloneFestivaSlotsForModello(slots) {
   if (!Array.isArray(slots)) return null;
-  return slots.map(s => ({
-    dayOffset: s.dayOffset === -1 ? -1 : 0,
-    ora: s.ora || '10:00',
-    sede: s.sede || 'santuario',
-    vigilia: !!s.vigilia || s.dayOffset === -1,
-    conTurno: !!s.conTurno
-  }));
+  return slots.map(s => {
+    const row = {
+      dayOffset: s.dayOffset === -1 ? -1 : 0,
+      ora: s.ora || '10:00',
+      sede: s.sede || 'santuario',
+      vigilia: !!s.vigilia || s.dayOffset === -1,
+      conTurno: !!s.conTurno
+    };
+    if (s.titolo) row.titolo = String(s.titolo).trim();
+    return row;
+  });
 }
 
 /** Salva orario/preset della festa per gli anni successivi (chiave LitCal). */
@@ -10080,28 +13600,34 @@ function applyFestivitaModelloToExtra(extra, modello) {
   }
   extra.inheritedFrom = modello.updatedFrom || null;
   if (Array.isArray(modello.slots)) {
-    extra.slots = renumberFestivaSlots(modello.slots.map(s => ({
-      id: newFestivaSlotId(),
-      dayOffset: s.dayOffset === -1 ? -1 : 0,
-      ora: s.ora || '10:00',
-      sede: s.sede || 'santuario',
-      vigilia: !!s.vigilia || s.dayOffset === -1,
-      conTurno: !!s.conTurno
-    })));
+    extra.slots = renumberFestivaSlots(modello.slots.map(s => {
+      const row = {
+        id: newFestivaSlotId(),
+        dayOffset: s.dayOffset === -1 ? -1 : 0,
+        ora: s.ora || '10:00',
+        sede: s.sede || 'santuario',
+        vigilia: !!s.vigilia || s.dayOffset === -1,
+        conTurno: !!s.conTurno
+      };
+      if (s.titolo) row.titolo = String(s.titolo).trim();
+      return row;
+    }));
   } else {
     const built = buildFestivityPresetSlots(preset);
     if (Array.isArray(built)) extra.slots = built;
     else delete extra.slots;
   }
+  if (isVigilOnlySlotList(extra.slots)) extra.vigilOnly = true;
+  else delete extra.vigilOnly;
   return true;
 }
 
-/** Se manca il modello, lo crea dalle festività già personalizzate quest’anno. */
+/** Se manca il modello, lo crea dalle festività già personalizzate in quest’anno pastorale. */
 function backfillFestivitaModelliFromExtras(anno) {
   anno = String(anno);
   let n = 0;
   (state.messeExtra || []).forEach(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return;
     if (!hasCustomFestivaSlots(extra) && !(extra.preset && extra.preset !== 'solennita')) return;
     const key = getPrimaryFestivityEventKey(extra.data);
     if (!key || getFestivitaModello(key)) return;
@@ -10119,20 +13645,66 @@ function applyPresetToFestivaExtra(extra, presetId) {
   extra.usaOrarioDomenicale = true;
   delete extra.inheritedFrom;
   const slots = buildFestivityPresetSlots(id);
-  if (Array.isArray(slots)) extra.slots = slots;
-  else delete extra.slots;
+  if (Array.isArray(slots)) {
+    extra.slots = slots;
+    if (isVigilOnlySlotList(slots)) extra.vigilOnly = true;
+    else delete extra.vigilOnly;
+  } else {
+    delete extra.slots;
+    delete extra.vigilOnly;
+  }
+}
+
+/** True se tutte le messe sono della vigilia (giorno civile precedente), nessuna del giorno. */
+function isVigilOnlySlotList(slots) {
+  if (!Array.isArray(slots) || !slots.length) return false;
+  return slots.every(s => s.dayOffset === -1);
+}
+
+function festivaConcreteSlotsOnCivilDate(extra, civilDateStr) {
+  if (!extra?.data || !civilDateStr) return [];
+  return getFestivaSlots(extra.data).filter(s => s.data === civilDateStr);
+}
+
+/**
+ * Il giorno liturgico si attiva solo se c’è almeno una messa del giorno (dayOffset 0).
+ * Solo vigilia → non applicare orario festivo / non mostrare il giorno come celebrato.
+ */
+function festivityDayIsActivatedBySlots(slots) {
+  if (!Array.isArray(slots)) return true; // template stagione/festivo implicito
+  if (!slots.length) return false;
+  return slots.some(s => s.dayOffset !== -1);
+}
+
+function resolveFestivityScheduleSlots(dateStr) {
+  const eventKey = getPrimaryFestivityEventKey(dateStr);
+  const modello = getFestivitaModello(eventKey);
+  if (modello?.disabled) return [];
+  if (modello && Array.isArray(modello.slots)) return cloneFestivaSlotsForModello(modello.slots) || [];
+  const preset = detectFestivityPreset(dateStr);
+  if (preset && preset !== 'solennita') {
+    const built = buildFestivityPresetSlots(preset);
+    if (Array.isArray(built)) return built;
+  }
+  return null;
 }
 
 function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
   const events = calState.data?.byDate?.[dateStr] || [];
   const primary = primaryEvent(events) || events[0];
-  const eventKey = primary?.eventKey || null;
+  const eventKey = getPrimaryFestivityEventKey(dateStr);
   const preset = detectFestivityPreset(dateStr);
   const ctx = getLiturgicalContext(dateStr);
+  const presetLabel = preset && preset !== 'solennita' ? getFestivityPresetMeta(preset).label : null;
+  const communityLabel = resolveCorrezioneCelebrationLabel(
+    { group: null, slots: [] },
+    eventKey,
+    presetLabel || primary?.nome || ctx.label || 'Festività'
+  );
   const extra = {
     uuid: newMessaExtraUuid('MES-FEST'),
     data: dateStr,
-    nota: primary?.nome || ctx.label || 'Festività',
+    nota: communityLabel,
     tipo: 'festiva',
     usaOrarioDomenicale: true,
     preset,
@@ -10142,8 +13714,19 @@ function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
     createdAt: new Date().toISOString()
   };
   const modello = getFestivitaModello(eventKey);
-  if (modello) applyFestivitaModelloToExtra(extra, modello);
-  else applyPresetToFestivaExtra(extra, preset);
+  if (modello) {
+    applyFestivitaModelloToExtra(extra, modello);
+  } else {
+    applyPresetToFestivaExtra(extra, preset);
+  }
+  // Solo vigilia: non riempire con orario festivo del giorno
+  const schedule = Array.isArray(extra.slots) ? extra.slots : resolveFestivityScheduleSlots(dateStr);
+  if (isVigilOnlySlotList(schedule)) {
+    extra.slots = renumberFestivaSlots(cloneFestivaSlotsForModello(schedule) || []);
+    extra.vigilOnly = true;
+  } else {
+    delete extra.vigilOnly;
+  }
   return extra;
 }
 
@@ -10166,14 +13749,22 @@ function getFestivaTemplateSlots(extra) {
         sede: m.sede || 'santuario',
         vigilia: !!m.vigilia || m.dayOffset === -1,
         conTurno: !!m.conTurno,
-        turnoNum: m.conTurno ? (m.turnoNum || null) : undefined
+        turnoNum: m.conTurno ? (m.turnoNum || null) : undefined,
+        titolo: m.titolo ? String(m.titolo).trim() : undefined
       }))
-      .sort((a, b) => a.dayOffset - b.dayOffset || String(a.ora).localeCompare(String(b.ora)));
+      .sort((a, b) => a.dayOffset - b.dayOffset || compareOraSlot(a.ora, b.ora));
   }
+  // Solo vigilia configurata: non cadere sull’orario festivo del giorno
+  if (extra?.vigilOnly) return [];
   if (extra?.preset && extra.preset !== 'solennita') {
     const built = buildFestivityPresetSlots(extra.preset);
-    if (Array.isArray(built)) return built;
+    if (Array.isArray(built)) {
+      if (isVigilOnlySlotList(built)) return built;
+      return built;
+    }
   }
+  const schedule = extra?.data ? resolveFestivityScheduleSlots(extra.data) : null;
+  if (isVigilOnlySlotList(schedule)) return schedule;
   const kind = extra?.strutturaKind || 'festivo';
   if (hasStrutturaConfig(kind)) return cloneStrutturaSlots(kind);
   if (hasStrutturaConfig('festivo')) return cloneStrutturaSlots('festivo');
@@ -10190,14 +13781,17 @@ function renumberFestivaSlots(slots) {
 }
 
 /** Slot concreti per una festività (stessa logica della domenica, ancorati al giorno di festa). */
-function getFestivaSlots(festivaDateStr) {
-  const extra = getMessaExtraForDate(festivaDateStr);
+function getFestivaSlots(festivaDateStr, opts = {}) {
+  const extra = opts.extra || getMessaExtraForDate(festivaDateStr);
   const template = getFestivaTemplateSlots(extra);
-  const weekOffset = isRotazioneAttiva() ? getRotationWeekOffset(festivaDateStr) : null;
+  const anchor = extra?.data || festivaDateStr;
+  const weekOffset = isRotazioneAttiva() ? getRotationWeekOffset(anchor) : null;
+  const civilFilter = opts.civilDate || null;
   return template.map(slot => {
-    const data = addDaysToDateStr(festivaDateStr, slot.dayOffset);
+    const data = addDaysToDateStr(anchor, slot.dayOffset);
     const turno = slot.conTurno ? slot.turnoNum : null;
-    const gruppo = turno ? getGruppoIdForTurno(turno, festivaDateStr) : null;
+    const gruppo = turno ? getGruppoIdForTurno(turno, anchor) : null;
+    const titolo = slot.titolo ? String(slot.titolo).trim() : null;
     return {
       data,
       ora: slot.ora,
@@ -10208,21 +13802,32 @@ function getFestivaSlots(festivaDateStr) {
       gruppo,
       gruppoLabel: gruppo ? getGruppoLabel(gruppo) : null,
       conChierichetti: !!slot.conTurno,
-      domenicaRef: festivaDateStr,
-      festivaRef: festivaDateStr,
+      domenicaRef: anchor,
+      festivaRef: anchor,
       rotazioneSettimana: weekOffset,
-      label: `${slot.ora} ${SEDI_LABEL[slot.sede] || slot.sede}`,
+      titolo,
+      label: titolo
+        ? `${titolo} · ${slot.ora} ${SEDI_LABEL[slot.sede] || slot.sede}`
+        : `${slot.ora} ${SEDI_LABEL[slot.sede] || slot.sede}`,
       slotId: slot.id
     };
+  }).filter(s => !civilFilter || s.data === civilFilter);
+}
+
+function getFestivaTurniSlots(festivaDateStr, opts = {}) {
+  return getFestivaSlots(festivaDateStr, opts).filter(s => s.conChierichetti);
+}
+
+function getFestivaSlotsForMassInfo(dateStr, massInfo) {
+  if (massInfo?.type !== 'festiva' || !massInfo.extra) return getFestivaSlots(dateStr);
+  return getFestivaSlots(massInfo.extra.data || dateStr, {
+    extra: massInfo.extra,
+    civilDate: massInfo.civilDate || dateStr
   });
 }
 
-function getFestivaTurniSlots(festivaDateStr) {
-  return getFestivaSlots(festivaDateStr).filter(s => s.conChierichetti);
-}
-
-function countAssignedFestivaSlots(festivaDateStr) {
-  return getFestivaTurniSlots(festivaDateStr).filter(isSlotCoperto).length;
+function countAssignedFestivaSlots(festivaDateStr, opts = {}) {
+  return getFestivaTurniSlots(festivaDateStr, opts).filter(isSlotCoperto).length;
 }
 
 function getFestivaTurniCount(extra) {
@@ -10240,6 +13845,8 @@ function newMessaExtraUuid(prefix = 'MES') {
  */
 function syncFestivitaAnno(anno) {
   anno = String(anno);
+  clearCorrezioniCivilDayCache();
+  if (!isCurrentUserAdmin()) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   if (!calState.data?.byDate) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   const hasAnySeason = ['natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
   if (!hasOrarioFestivoConfig() && !hasAnySeason) {
@@ -10252,31 +13859,55 @@ function syncFestivitaAnno(anno) {
   // Rimuovi festività auto create per sbaglio sulle vigilie domenicali
   const before = state.messeExtra.length;
   state.messeExtra = state.messeExtra.filter(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return true;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return true;
     if (extra.source !== 'auto') return true;
     if (!isVigiliaDomenicaleLiturgica(extra.data)) return true;
     removed++;
     return false;
   });
   if (state.messeExtra.length !== before) removed = before - state.messeExtra.length;
+  removed += pruneAutoFestivitaIntrasettimanaliEscluse();
+  sanitizeDefuntiDateOverrides(anno);
+  removed += pruneDisplacedFestivitaExtras(anno);
+  // Rimuovi festività auto obsolete: domeniche ora domenicali, o giorni senza più bisogno di persist
+  {
+    const beforeObs = state.messeExtra.length;
+    state.messeExtra = state.messeExtra.filter(extra => {
+      if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return true;
+      if (extra.source !== 'auto' || extra.orarioPersonalizzato) return true;
+      if (isFestivityDisplacedFromDate(extra.data)) return false;
+      const eventKey = extra.eventKey || FESTIVITA_EVENTKEY_BY_PRESET[extra.preset];
+      if (eventKey) {
+        const effective = getFestivitaDateForAnno(eventKey, extra.data.slice(0, 4));
+        if (effective && effective !== extra.data) return false;
+      }
+      const ctx = getLiturgicalContext(extra.data);
+      if (isSundayDate(extra.data) && ctx.strutturaKind === 'domenicale') return false;
+      const needsPersist = (ctx.preset && ctx.preset !== 'solennita')
+        || isSolennitaFestivaDay(extra.data)
+        || (ctx.strutturaKind === 'festivo' && !isSundayDate(extra.data) && hasStrutturaConfig('festivo'));
+      return needsPersist;
+    });
+    removed += beforeObs - state.messeExtra.length;
+  }
   backfillFestivitaModelliFromExtras(anno);
   Object.keys(calState.data.byDate).forEach(dateStr => {
-    if (!dateStr.startsWith(anno)) return;
+    if (!dateInStrutturaPastoralYear(dateStr, anno)) return;
     if (isFestivitaEsclusa(dateStr)) return;
+    if (isGiornoIntrasettimanaleEscluso(dateStr)) return;
     if (getMessaExtraForDate(dateStr)) return;
     const ctx = getLiturgicalContext(dateStr);
     const needsPersist = (ctx.preset && ctx.preset !== 'solennita')
       || isSolennitaFestivaDay(dateStr)
       || (ctx.strutturaKind === 'festivo' && !isSundayDate(dateStr) && hasStrutturaConfig('festivo'));
     if (!needsPersist) return;
-    // Serve una struttura risolvibile
     const kind = ctx.strutturaKind;
     if (kind && !hasStrutturaConfig(kind) && !hasOrarioFestivoConfig() && !hasStrutturaConfig('domenicale')) return;
     state.messeExtra.push(buildFestivaExtraRecord(dateStr, { source: 'auto' }));
     added++;
   });
   (state.messeExtra || []).forEach(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return;
     if (isFestivitaEsclusa(extra.data)) return;
     const ctx = getLiturgicalContext(extra.data);
     if (!extra.strutturaKind && ctx.strutturaKind) {
@@ -10287,19 +13918,47 @@ function syncFestivitaAnno(anno) {
       if (!extra.preset) extra.preset = detectFestivityPreset(extra.data);
       return;
     }
+    const detected = detectFestivityPreset(extra.data);
+    if (detected && detected !== 'solennita' && extra.preset !== detected) {
+      extra.preset = detected;
+      updated++;
+    }
+    if (ctx.strutturaKind && extra.strutturaKind !== ctx.strutturaKind) {
+      extra.strutturaKind = ctx.strutturaKind;
+      updated++;
+    }
     const eventKey = getPrimaryFestivityEventKey(extra.data);
+    if (eventKey && extra.eventKey !== eventKey) {
+      extra.eventKey = eventKey;
+      updated++;
+    }
+    const communityNota = sanitizeAwayStrutturaName(
+      resolveCorrezioneCelebrationLabel(
+        { group: null, slots: [] },
+        eventKey || extra.eventKey,
+        (ctx.preset && ctx.preset !== 'solennita' ? getFestivityPresetMeta(ctx.preset).label : null)
+          || ctx.label
+          || extra.nota
+      ),
+      extra.data,
+      'Celebrazione'
+    );
+    if (communityNota && extra.nota !== communityNota) {
+      extra.nota = communityNota;
+      updated++;
+    }
     const modello = getFestivitaModello(eventKey);
     if (modello) {
+      const beforeModello = JSON.stringify(extra);
       applyFestivitaModelloToExtra(extra, modello);
-      updated++;
+      if (JSON.stringify(extra) !== beforeModello) updated++;
       return;
     }
-    if (extra.preset) return;
-    const detected = detectFestivityPreset(extra.data);
+    if (extra.preset && extra.preset !== 'solennita' && hasCustomFestivaSlots(extra)) return;
     if (!hasCustomFestivaSlots(extra) && detected !== 'solennita') {
       applyPresetToFestivaExtra(extra, detected);
       updated++;
-    } else {
+    } else if (!extra.preset) {
       extra.preset = detected;
       updated++;
     }
@@ -10308,21 +13967,120 @@ function syncFestivitaAnno(anno) {
 }
 
 function getMessaInfo(dateStr) {
+  // Festa LitCal sul giorno ma celebrata altrove: niente orario festivo qui (come in Correzioni)
+  if (isFestivityDisplacedFromDate(dateStr)) {
+    const extraHere = getMessaExtraForDate(dateStr);
+    if (extraHere && !isExtraFestiva(extraHere) && extraHere.tipo === 'straordinaria') {
+      return { type: 'extra', extra: extraHere, context: getLiturgicalContext(dateStr) };
+    }
+    // Vigilia di un’altra festa communauté sul giorno dopo può comunque cadere qui
+    const nextDate = addDaysToDateStr(dateStr, 1);
+    const nextExtra = getMessaExtraForDate(nextDate);
+    if (nextExtra && isExtraFestiva(nextExtra) && !isFestivitaEsclusa(nextDate)
+      && !isFestivityDisplacedFromDate(nextDate)) {
+      const vigilSlots = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
+      if (vigilSlots.length) {
+        return {
+          type: 'festiva',
+          extra: nextExtra,
+          context: getLiturgicalContext(nextDate),
+          civilDate: dateStr,
+          fromVigilOf: nextDate
+        };
+      }
+    }
+    if (isSundayDate(dateStr) && hasStrutturaConfig('domenicale')) {
+      const ctx = getLiturgicalContext(dateStr);
+      // Solo se il contesto domenicale non è stato azzerato: se displaced ha azzerato kind, usa domenicale
+      return { type: 'domenica', context: ctx.strutturaKind === 'domenicale' ? ctx : { ...ctx, strutturaKind: 'domenicale' } };
+    }
+    return null;
+  }
+
   const extra = getMessaExtraForDate(dateStr);
   if (extra) {
+    if (isExtraFestiva(extra)
+      && isGiornoIntrasettimanaleEscluso(dateStr)
+      && extra.source === 'auto'
+      && !extra.orarioPersonalizzato) {
+      return null;
+    }
     if (isExtraFestiva(extra)) {
+      // Extra della festa sul giorno sbagliato rispetto alla data effettiva comunità
+      const ek = extra.eventKey || FESTIVITA_EVENTKEY_BY_PRESET[extra.preset];
+      if (ek) {
+        const effective = getFestivitaDateForAnno(ek, dateStr.slice(0, 4));
+        if (effective && effective !== dateStr) {
+          // Può essere ancora valido se sono solo messe vigiliari del giorno dopo
+          const onThisCivilDay = festivaConcreteSlotsOnCivilDate(extra, dateStr);
+          if (!onThisCivilDay.length) return null;
+        }
+      }
       const ctx = getLiturgicalContext(dateStr);
       if (!extra.strutturaKind && ctx.strutturaKind) extra.strutturaKind = ctx.strutturaKind;
+      const template = getFestivaTemplateSlots(extra);
+      const onThisCivilDay = festivaConcreteSlotsOnCivilDate(extra, dateStr);
+      // Solo messe non del giorno (es. sola vigilia la sera prima): non attivare il giorno liturgico
+      if (!onThisCivilDay.length && isVigilOnlySlotList(template)) {
+        return null;
+      }
+      if (!onThisCivilDay.length && template.length > 0 && !template.some(s => s.dayOffset !== -1)) {
+        return null;
+      }
       return { type: 'festiva', extra, context: ctx };
     }
     return { type: 'extra', extra, context: getLiturgicalContext(dateStr) };
   }
 
+  // Vigilia civile: messe del giorno liturgico successivo (solo-vigilia o dayOffset -1)
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  const nextExtra = getMessaExtraForDate(nextDate);
+  if (nextExtra && isExtraFestiva(nextExtra) && !isFestivitaEsclusa(nextDate)
+    && !isFestivityDisplacedFromDate(nextDate)) {
+    const vigilSlots = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
+    if (vigilSlots.length) {
+      return {
+        type: 'festiva',
+        extra: nextExtra,
+        context: getLiturgicalContext(nextDate),
+        civilDate: dateStr,
+        fromVigilOf: nextDate
+      };
+    }
+  }
+
   const ctx = getLiturgicalContext(dateStr);
   if (isFestivitaEsclusa(dateStr)) return null;
+  if (isGiornoIntrasettimanaleEscluso(dateStr)) return null;
+
+  // Ai cerimoniere mostriamo solo domeniche e celebrazioni già confermate
+  // dall'admin come Messe extra; i giorni liturgici senza Messa restano admin-only.
+  if (!isCurrentUserAdmin() && !isSundayDate(dateStr)) return null;
 
   if (ctx.preset && ctx.preset !== 'solennita') {
-    return { type: 'festiva', extra: buildSyntheticFestivaExtra(dateStr, ctx), context: ctx };
+    const syn = buildSyntheticFestivaExtra(dateStr, ctx);
+    const template = getFestivaTemplateSlots(syn);
+    if (isVigilOnlySlotList(template) || !festivityDayIsActivatedBySlots(template)) {
+      return null;
+    }
+    if (!festivaConcreteSlotsOnCivilDate(syn, dateStr).length) return null;
+    return { type: 'festiva', extra: syn, context: ctx };
+  }
+
+  // Sintetico: vigilia da preset del giorno successivo
+  const nextCtx = getLiturgicalContext(nextDate);
+  if (nextCtx.preset && nextCtx.preset !== 'solennita' && !isFestivityDisplacedFromDate(nextDate)) {
+    const synNext = buildSyntheticFestivaExtra(nextDate, nextCtx);
+    const vigilSlots = festivaConcreteSlotsOnCivilDate(synNext, dateStr);
+    if (vigilSlots.length) {
+      return {
+        type: 'festiva',
+        extra: synNext,
+        context: nextCtx,
+        civilDate: dateStr,
+        fromVigilOf: nextDate
+      };
+    }
   }
 
   if (ctx.strutturaKind === 'domenicale' && hasStrutturaConfig('domenicale')) {
@@ -10348,6 +14106,16 @@ function getMesseDatesForYear(anno) {
   (state.messeExtra || []).forEach(m => {
     if (m.data && m.data.startsWith(anno)) set.add(m.data);
   });
+  // Stessi giorni civili di Correzioni (con messe) per gli anni pastorali che toccano l’anno civile
+  const y = parseInt(anno, 10);
+  [String(y - 1), String(y)].forEach(pastoralStart => {
+    try {
+      getCorrezioniCivilDaysForAnno(pastoralStart).forEach(day => {
+        if (!day?.data || !day.data.startsWith(anno)) return;
+        if ((day.slots || []).length) set.add(day.data);
+      });
+    } catch (_) { /* calendario non pronto */ }
+  });
   // Giorni con struttura (tempi + festivi) — scan anno civile
   const start = new Date(parseInt(anno, 10), 0, 1);
   const end = new Date(parseInt(anno, 10), 11, 31);
@@ -10357,7 +14125,7 @@ function getMesseDatesForYear(anno) {
     const info = getMessaInfo(dateStr);
     if (info) set.add(dateStr);
   }
-  return [...set].sort();
+  return [...set].filter(dateStr => !!getMessaInfo(dateStr)).sort();
 }
 
 function getTurniForDate(dateStr) {
@@ -10377,19 +14145,23 @@ async function loadMesseAgenda() {
   try {
     const anno = getMesseAnno();
     await ensureCalendarioForYear(anno);
-    const syncResult = syncFestivitaAnno(anno);
-    updateMesseFestivoBanner(syncResult.needsConfig);
-    if (syncResult.added > 0 || syncResult.updated > 0 || syncResult.removed > 0) {
-      saveDataLocal();
-      if (isCurrentUserAdmin()) void persistConfig();
-      if (syncResult.removed > 0 && syncResult.added === 0 && syncResult.updated === 0) {
-        showToast(syncResult.removed === 1
-          ? 'Rimossa 1 vigilia domenicale dal sync'
-          : `Rimosse ${syncResult.removed} vigilie domenicali dal sync`);
-      } else if (syncResult.added === 1) showToast('Aggiunta 1 festività con orario festivo');
-      else if (syncResult.added > 1) showToast(`Aggiunte ${syncResult.added} festività con orario festivo`);
-      else if (syncResult.updated > 0) showToast('Aggiornati i preset delle festività');
+    // Allinea extras ai modelli/Correzioni (anni pastorali che toccano l’anno civile)
+    if (isCurrentUserAdmin()) {
+      const y = parseInt(anno, 10);
+      let touched = false;
+      [String(y - 1), String(y)].forEach(py => {
+        try {
+          const sync = syncFestivitaAnno(py);
+          if (sync.added || sync.updated || sync.removed) touched = true;
+        } catch (_) { /* ignore */ }
+      });
+      if (touched) {
+        saveData();
+        void persistConfig();
+      }
     }
+    clearCorrezioniCivilDayCache();
+    updateMesseFestivoBanner(false);
     updateMesseAgendaSummary();
     renderMesseAgenda();
 
@@ -10442,20 +14214,31 @@ function onMesseYearChange() {
 }
 
 function getMessaAgendaTitle(dateStr, massInfo, primary) {
-  if ((massInfo?.type === 'extra' || massInfo?.type === 'festiva') && massInfo.extra?.nota) {
+  const fromCorrezioni = getMessaCivilDayTitleFromCorrezioni(dateStr);
+  if (fromCorrezioni && !isStrutturaDisplayName(fromCorrezioni)) return fromCorrezioni;
+  if (massInfo?.fromVigilOf) {
+    const groups = getStrutturaGiornoGroupsForEventKey(massInfo.extra?.eventKey || getPrimaryFestivityEventKey(massInfo.fromVigilOf))
+      .filter(g => g.celebrationKey === 'vigilia' || g.celebrationKey === 'vespri');
+    if (groups.length === 1) {
+      const lab = getStrutturaGiornoDisplayLabel(groups[0]);
+      if (lab && !isStrutturaDisplayName(lab)) return lab;
+    }
+  }
+  if ((massInfo?.type === 'extra' || massInfo?.type === 'festiva') && massInfo.extra?.nota
+    && !isStrutturaDisplayName(massInfo.extra.nota)) {
     return massInfo.extra.nota;
   }
-  if (primary?.nome) return primary.nome;
-  if (massInfo?.type === 'festiva') return 'Festività';
-  if (massInfo?.type === 'extra') return 'Messa straordinaria';
-  return 'Domenica';
+  return sanitizeAwayStrutturaName(primary?.nome, dateStr,
+    massInfo?.type === 'festiva' ? 'Festività'
+      : massInfo?.type === 'extra' ? 'Messa straordinaria'
+        : 'Domenica');
 }
 
 function buildMessaAgendaItem(dateStr) {
   const todayStr = getTodayStr();
   const massInfo = getMessaInfo(dateStr);
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const turni = getTurniForAgendaDate(dateStr);
   const d = new Date(dateStr + 'T12:00:00');
   const isToday = dateStr === todayStr;
@@ -10471,7 +14254,12 @@ function buildMessaAgendaItem(dateStr) {
     : getTurniPerDomenica();
   const assignedSlots = isDomenica
     ? countAssignedSlots(dateStr)
-    : (isFestiva ? countAssignedFestivaSlots(dateStr) : turni.length);
+    : (isFestiva
+      ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
+        extra: massInfo.extra,
+        civilDate: massInfo.civilDate || dateStr
+      })
+      : turni.length);
   const coverageComplete = (isDomenica || isFestiva) && nTurni > 0 && assignedSlots >= nTurni;
   const litColor = primary?.colore || '';
 
@@ -10482,27 +14270,28 @@ function buildMessaAgendaItem(dateStr) {
   if (litColor) classes.push(`lit-${litColor}`);
 
   const metaParts = [];
-  const overrideKind = massInfo?.extra?.strutturaKind;
-  const strutturaLabel = (overrideKind ? getStrutturaMeta(overrideKind).label : null)
-    || massInfo?.context?.label
-    || null;
-  if (isDomenica) metaParts.push(strutturaLabel || 'Domenica');
-  else if (isFestiva) metaParts.push(strutturaLabel || 'Festività');
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
-  const metaLine = metaParts.join(' · ');
+  const slots = isDomenica ? getMesseOrdinarieSlots(dateStr)
+    : (isFestiva ? getFestivaSlots(massInfo.extra?.data || dateStr, {
+      extra: massInfo.extra,
+      civilDate: massInfo.civilDate || dateStr
+    }) : []);
+  if (slots.length) {
+    metaParts.push(slots.map(slot => `${slot.ora || ''} ${SEDI_LABEL[slot.sede] || slot.sede || ''}`.trim()).join(' · '));
+  } else if (isExtra && massInfo.extra?.ora) {
+    metaParts.push(`${massInfo.extra.ora} · ${SEDI_LABEL[massInfo.extra.sede] || massInfo.extra.sede || ''}`);
+  }
+  const metaLine = metaParts.filter(Boolean).join(' · ');
 
   const badges = [];
   if (litColor) {
     const litLabel = litColor.charAt(0).toUpperCase() + litColor.slice(1);
     badges.push(`<span class="messe-agenda-badge lit-${litColor}" title="Colore liturgico">${esc(litLabel)}</span>`);
   }
-  if (strutturaLabel && (isFestiva || isDomenica)) {
-    badges.push(`<span class="messe-agenda-badge is-struttura" title="Struttura usata">${esc(strutturaLabel)}</span>`);
-  }
   if (isFestiva) {
     const personalized = hasCustomFestivaSlots(massInfo.extra);
     const emptySlots = personalized && !(massInfo.extra.slots || []).length;
-    badges.push(`<span class="messe-agenda-badge is-festiva">${emptySlots ? 'Nessuna celebrazione' : (personalized ? 'Orario personalizzato' : 'Da struttura')}</span>`);
+    badges.push(`<span class="messe-agenda-badge is-festiva">${emptySlots ? 'Nessuna celebrazione' : (personalized ? 'Orario personalizzato' : 'Da modello')}</span>`);
   } else if (isExtra) {
     badges.push('<span class="messe-agenda-badge is-extra">Straordinaria</span>');
   }
@@ -10534,6 +14323,16 @@ function renderMesseAgenda() {
   const container = document.getElementById('messe-agenda');
   const anno = parseInt(getMesseAnno(), 10);
   const today = getTodayStr();
+  clearCorrezioniCivilDayCache();
+  document.querySelectorAll('[data-messe-view]').forEach(btn => {
+    const active = btn.dataset.messeView === messeState.view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  if (messeState.view === 'calendario') {
+    renderMesseMonth();
+    return;
+  }
   let dates = getMesseDatesForYear(anno);
 
   if (!messeState.showPast) {
@@ -10565,6 +14364,70 @@ function renderMesseAgenda() {
     `;
   });
 
+  container.innerHTML = html;
+}
+
+function setMesseView(view) {
+  messeState.view = view === 'calendario' ? 'calendario' : 'agenda';
+  localStorage.setItem('messe_view', messeState.view);
+  document.querySelectorAll('[data-messe-view]').forEach(btn => {
+    const active = btn.dataset.messeView === messeState.view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  renderMesseAgenda();
+}
+
+function shiftMesseMonth(delta) {
+  const date = new Date(parseInt(getMesseAnno(), 10), messeState.month + delta, 1);
+  document.getElementById('anno-messe').value = String(date.getFullYear());
+  messeState.month = date.getMonth();
+  void ensureCalendarioForYear(String(date.getFullYear())).then(() => loadMesseAgenda());
+}
+
+function renderMesseMonth() {
+  const container = document.getElementById('messe-agenda');
+  const year = parseInt(getMesseAnno(), 10);
+  const month = messeState.month;
+  const today = getTodayStr();
+  const dates = getMesseDatesForYear(year).filter(dateStr =>
+    dateStr.slice(5, 7) === String(month + 1).padStart(2, '0')
+      && (messeState.showPast || dateStr >= today)
+  );
+  const firstOffset = getMondayFirstOffset(new Date(year, month, 1));
+  const days = new Date(year, month + 1, 0).getDate();
+  let html = `<div class="messe-calendar-shell"><div class="messe-calendar-nav">
+    <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(-1)" aria-label="Mese precedente">‹</button>
+    <h4>${MONTHS[month]} ${year}</h4>
+    <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(1)" aria-label="Mese successivo">›</button>
+  </div><div class="calendar-weekdays">${WEEKDAYS.map(day => `<span>${day}</span>`).join('')}</div><div class="calendar-grid messe-calendar-grid">`;
+  for (let i = 0; i < firstOffset; i++) html += '<div class="calendar-day empty"></div>';
+  for (let day = 1; day <= days; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const hasMass = dates.includes(dateStr);
+    const info = hasMass ? getMessaInfo(dateStr) : null;
+    const liturgicalDay = getLiturgicalDayEvent(dateStr);
+    const title = hasMass ? getMessaAgendaTitle(dateStr, info, liturgicalDay) : '';
+    const classes = ['calendar-day', 'messe-calendar-day'];
+    if (liturgicalDay) {
+      if (liturgicalDay.tipo === 'solennita') classes.push('solemnity');
+      else if (liturgicalDay.tipo === 'festa') classes.push('festa');
+      else if (liturgicalDay.tipo === 'memoria') classes.push('memoria');
+      if (liturgicalDay.colore === 'verde') classes.push('col-verde');
+      else if (liturgicalDay.colore === 'viola') classes.push('col-viola');
+      else if (liturgicalDay.colore === 'rosso') classes.push('col-rosso');
+      else if (liturgicalDay.colore === 'bianco') classes.push('col-bianco');
+    }
+    if (hasMass) classes.push('has-messa');
+    if (dateStr === today) classes.push('today');
+    if (dateStr === messeState.selectedDate) classes.push('selected');
+    html += `<button type="button" class="${classes.join(' ')}" ${hasMass ? `onclick="selectMessaDay('${dateStr}', true)"` : 'disabled'} aria-label="${day}${hasMass ? `, ${esc(title)}` : ''}">
+      <span class="day-num">${day}</span>${hasMass ? `<span class="messe-calendar-dot" aria-hidden="true"></span><span class="messe-calendar-title">${esc(title)}</span>` : ''}
+    </button>`;
+  }
+  html += '</div>';
+  if (!dates.length) html += '<p class="empty-state">Nessuna Messa in questo mese.</p>';
+  html += '</div>';
   container.innerHTML = html;
 }
 
@@ -10713,7 +14576,7 @@ function renderMessaDetail(dateStr) {
   const container = document.getElementById('messa-detail');
   const massInfo = getMessaInfo(dateStr);
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
@@ -10725,12 +14588,12 @@ function renderMessaDetail(dateStr) {
     container.innerHTML = `
       <p class="day-detail-date">${esc(dateLabel)}</p>
       <p class="day-detail-empty empty-state-inline">${esclusa
-        ? 'Festività esclusa: non la celebrate (non rientra in agenda con Sync).'
+        ? 'Senza messe per quest’anno (senza servizio). Puoi ripristinarle in Correzioni o aggiungere una messa straordinaria.'
         : 'Non è una messa in agenda (solo domeniche, festività e eccezioni).'}</p>
       <div class="messa-actions">
-        ${esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="ripristinaEAggiungiFestivita(${jsStr(dateStr)})">Ripristina e aggiungi</button>` : ''}
+        ${esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="openCorrezioneOrari(${jsStr(dateStr)})">Modifica in Correzioni</button>` : ''}
         ${canFest && !esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="addFestivitaFromDate(${jsStr(dateStr)})">Aggiungi come festività</button>` : ''}
-        <button type="button" class="btn ${canFest ? 'btn-secondary' : 'btn-primary'}" onclick="prefillMessaExtra(${jsStr(dateStr)})">Aggiungi messa straordinaria</button>
+        <button type="button" class="btn ${canFest || esclusa ? 'btn-secondary' : 'btn-primary'}" onclick="prefillMessaExtra(${jsStr(dateStr)})">Aggiungi messa straordinaria</button>
       </div>
     `;
     return;
@@ -10740,10 +14603,10 @@ function renderMessaDetail(dateStr) {
   let badgeLabel = 'Domenica';
   if (massInfo.type === 'festiva') {
     badgeClass = 'festiva';
-    badgeLabel = massInfo.extra?.nota ? esc(massInfo.extra.nota) : 'Festività';
+    badgeLabel = esc(getMessaAgendaTitle(dateStr, massInfo, primary) || massInfo.extra?.nota || 'Festività');
   } else if (massInfo.type === 'extra') {
     badgeClass = 'eccezione';
-    badgeLabel = massInfo.extra?.nota ? esc(massInfo.extra.nota) : 'Messa straordinaria';
+    badgeLabel = esc(getMessaAgendaTitle(dateStr, massInfo, primary) || massInfo.extra?.nota || 'Messa straordinaria');
   }
 
   const notaMessaHtml = renderMessaNotaFieldHtml(dateStr, {
@@ -10754,10 +14617,13 @@ function renderMessaDetail(dateStr) {
   let sectionTitle = 'Messe di servizio';
   if (massInfo.type === 'domenica' || massInfo.type === 'festiva') {
     const allSlots = massInfo.type === 'festiva'
-      ? getFestivaSlots(dateStr)
+      ? getFestivaSlotsForMassInfo(dateStr, massInfo)
       : getMesseOrdinarieSlots(dateStr);
     const assigned = massInfo.type === 'festiva'
-      ? countAssignedFestivaSlots(dateStr)
+      ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
+        extra: massInfo.extra,
+        civilDate: massInfo.civilDate || dateStr
+      })
       : countAssignedSlots(dateStr);
     const nCelebrazioni = allSlots.length;
     const nTurni = massInfo.type === 'festiva'
@@ -10819,8 +14685,8 @@ function renderMessaDetail(dateStr) {
 
   const actions = [];
   if (massInfo.type === 'festiva' && canManage && massInfo.extra?.uuid) {
-    actions.push(`<button type="button" class="btn btn-secondary" onclick="escludiFestivita(${jsStr(massInfo.extra.uuid)})">Non la celebriamo</button>`);
-    actions.push(`<button type="button" class="btn btn-ghost" onclick="removeMessaExtra(${jsStr(massInfo.extra.uuid)})">Rimuovi solo quest'anno</button>`);
+    actions.push(`<button type="button" class="btn btn-secondary" onclick="openCorrezioneOrari(${jsStr(dateStr)})">Modifica messe</button>`);
+    actions.push(`<button type="button" class="btn btn-ghost" onclick="removeMessaExtra(${jsStr(massInfo.extra.uuid)})">Togli messe quest’anno</button>`);
   }
   if (massInfo.type === 'extra' && massInfo.extra?.uuid) {
     if (canManage) {
@@ -10851,7 +14717,7 @@ function renderFestivaPresetChips(extra) {
     const meta = getStrutturaMeta(kind);
     const active = current === kind;
     const configured = hasStrutturaConfig(kind);
-    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima in Messe → Strutture' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
+    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima in Struttura liturgica' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
   }).join('');
   return `
     <div class="festiva-preset-block">
@@ -10861,10 +14727,10 @@ function renderFestivaPresetChips(extra) {
   `;
 }
 
-function applyStrutturaToFestivaExtra(uuid, kind) {
+function applyStrutturaToFestivaExtra(uuid, kind, opts = {}) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
   if (!STRUTTURA_KINDS[kind] || !hasStrutturaConfig(kind)) {
-    showToast('Configura prima questa struttura in Messe → Strutture');
+    showToast('Configura prima questa struttura in Struttura liturgica');
     return;
   }
   if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
@@ -10890,31 +14756,36 @@ function applyStrutturaToFestivaExtra(uuid, kind) {
   extra.orarioPersonalizzato = false;
   delete extra.inheritedFrom;
   delete extra.preset;
-  // Nessuno snapshot: l’orario segue la struttura scelta (badge «Da struttura»)
+  // Nessuno snapshot: l’orario segue la struttura scelta
   delete extra.slots;
-  saveFestivitaModelloFromExtra(extra);
+  // Da Correzioni: solo quest’anno — non sovrascrivere i Modelli
+  if (!opts.yearOnly) {
+    saveFestivitaModelloFromExtra(extra);
+  }
   saveData();
   void persistConfig();
-  showToast(`Struttura «${getStrutturaMeta(kind).label}» applicata`);
-  if (extra.data) {
+  if (!opts.quiet) showToast(`Modello «${getStrutturaMeta(kind).shortLabel || getStrutturaMeta(kind).label}» applicato`);
+  if (extra.data && !opts.quiet) {
     renderMessaDetail(extra.data);
     renderMesseAgenda();
-  } else {
+  } else if (!opts.quiet) {
     renderMesseAgenda();
   }
 }
 
 function renderFestivaOrarioActions(extra) {
   if (!extra?.uuid) return '';
-  const personalized = hasCustomFestivaSlots(extra);
+  const dateStr = extra.data || '';
+  const kind = extra.strutturaKind || getLiturgicalContext(dateStr).strutturaKind || 'festivo';
+  const annoBit = extra.orarioPersonalizzato ? ' · sedi di quest’anno' : '';
   return `
     <div class="festiva-orario-actions">
       ${renderFestivaPresetChips(extra)}
-      ${personalized
-        ? `<button type="button" class="btn btn-ghost" onclick="ripristinaOrarioFestiva(${jsStr(extra.uuid)})">Ripristina preset</button>
-           <button type="button" class="btn btn-secondary" onclick="editFestivaSlots(${jsStr(extra.uuid)})">Modifica orari</button>`
-        : `<button type="button" class="btn btn-secondary" onclick="personalizzaOrarioFestiva(${jsStr(extra.uuid)})">Personalizza orari</button>
-           ${!hasOrarioFestivoConfig() ? `<button type="button" class="btn btn-ghost" onclick="goConfiguraOrarioFestivo()">Configura orario festivo</button>` : ''}`}
+      <p class="liturgy-meta">Struttura nei <strong>Modelli</strong>. Per quest’anno: modifica messe in <strong>Correzioni</strong> (senza messe = senza servizio)${annoBit}.</p>
+      <div class="messa-actions" style="flex-wrap:wrap;gap:8px;justify-content:flex-start">
+        <button type="button" class="btn btn-secondary" onclick="openCorrezioneOrari(${jsStr(dateStr)})">Modifica messe</button>
+        <button type="button" class="btn btn-ghost" onclick="void showSection('strutture-messe').then(() => { setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind(${jsStr(kind)}); })">Modello</button>
+      </div>
     </div>
   `;
 }
@@ -10946,12 +14817,7 @@ function addFestivitaFromDate(dateStr) {
     return;
   }
   if (isFestivitaEsclusa(dateStr)) {
-    const events = calState.data?.byDate?.[dateStr] || [];
-    const primary = primaryEvent(events) || events[0];
-    const key = primary?.eventKey || dateStr;
-    state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
-      ex.eventKey !== key && ex.data !== dateStr
-    );
+    clearFestivitaEsclusaForDate(dateStr);
   }
   const extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
   state.messeExtra.push(extra);
@@ -10967,13 +14833,7 @@ function addFestivitaFromDate(dateStr) {
 
 function ripristinaEAggiungiFestivita(dateStr) {
   if (!requireAdminAction('Solo l\'admin può gestire le festività')) return;
-  const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
-  const key = primary?.eventKey || dateStr;
-  ensureGruppiConfig();
-  state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
-    ex.eventKey !== key && ex.data !== dateStr
-  );
+  clearFestivitaEsclusaForDate(dateStr);
   addFestivitaFromDate(dateStr);
 }
 
@@ -11000,39 +14860,31 @@ function convertExtraToFestiva(uuid) {
 
 function personalizzaOrarioFestiva(uuid) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
-  if (!hasOrarioFestivoConfig()) {
-    showToast('Indica prima le celebrazioni tipiche delle feste in Struttura messe');
-    goConfiguraOrarioFestivo();
+  let extra = (state.messeExtra || []).find(m => m.uuid === uuid);
+  if (!extra && String(uuid || '').startsWith('SYN-')) {
+    const dateStr = String(uuid).slice(4);
+    extra = ensureFestivaExtraMaterialized(dateStr);
+  }
+  if (!extra?.data) {
+    showToast('Impossibile personalizzare questa celebrazione');
     return;
   }
-  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
-  if (!extra) return;
-  extra.tipo = 'festiva';
-  extra.usaOrarioDomenicale = true;
-  if (!Array.isArray(extra.slots)) {
-    const presetSlots = buildFestivityPresetSlots(extra.preset || detectFestivityPreset(extra.data));
-    extra.slots = Array.isArray(presetSlots)
-      ? presetSlots
-      : renumberFestivaSlots(cloneOrarioFestivoSlots());
-  }
-  saveData();
-  void persistConfig();
-  showToast('Orario personalizzato — puoi modificarlo');
-  editFestivaSlots(uuid);
+  openCorrezioneOrari(extra.data);
 }
 
 function ripristinaOrarioFestiva(uuid) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
   const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
-  if (!extra) return;
-  if (!confirm('Ripristinare il preset di questa festività? Le modifiche andranno perse anche per gli anni successivi.')) return;
-  const preset = detectFestivityPreset(extra.data);
-  applyPresetToFestivaExtra(extra, preset);
-  extra.orarioPersonalizzato = true;
-  saveFestivitaModelloFromExtra(extra);
+  if (!extra?.data) return;
+  if (!confirm('Ripristinare le sedi dal modello per quest’anno?')) return;
+  const eventKey = getPrimaryFestivityEventKey(extra.data);
+  const modello = getFestivitaModello(eventKey);
+  if (modello) applyFestivitaModelloToExtra(extra, modello);
+  else applyPresetToFestivaExtra(extra, detectFestivityPreset(extra.data));
+  extra.orarioPersonalizzato = false;
   saveData();
   void persistConfig();
-  showToast('Ripristinato preset «' + getFestivityPresetMeta(preset).label + '»');
+  showToast('Ripristinato dal modello');
   if (extra.data) {
     renderMessaDetail(extra.data);
     renderMesseAgenda();
@@ -11040,73 +14892,18 @@ function ripristinaOrarioFestiva(uuid) {
 }
 
 function editFestivaSlots(uuid) {
-  if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
-  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
-  if (!extra) return;
-  if (!Array.isArray(extra.slots)) {
-    const presetSlots = buildFestivityPresetSlots(extra.preset || detectFestivityPreset(extra.data));
-    extra.slots = Array.isArray(presetSlots)
-      ? presetSlots.slice()
-      : renumberFestivaSlots(cloneOrarioFestivoSlots());
-  }
-  const container = document.getElementById('messa-detail');
-  if (!container) return;
-  const slots = getFestivaTemplateSlots(extra);
-  const rows = slots.map((s, idx) => `
-    <div class="festiva-slot-edit" data-idx="${idx}">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Giorno</label>
-          <select data-field="dayOffset">
-            <option value="-1"${s.dayOffset === -1 ? ' selected' : ''}>Vigilia (giorno prima)</option>
-            <option value="0"${s.dayOffset !== -1 ? ' selected' : ''}>Giorno di festa</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Ora</label>
-          <input type="time" data-field="ora" value="${esc(s.ora)}">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Sede</label>
-          <select data-field="sede">
-            <option value="santuario"${s.sede === 'santuario' ? ' selected' : ''}>Santuario</option>
-            <option value="vanzago"${s.sede === 'vanzago' ? ' selected' : ''}>Vanzago</option>
-            <option value="mantegazza"${s.sede === 'mantegazza' ? ' selected' : ''}>Mantegazza</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select data-field="conTurno">
-            <option value="1"${s.conTurno ? ' selected' : ''}>Con squadra</option>
-            <option value="0"${!s.conTurno ? ' selected' : ''}>Libera</option>
-          </select>
-        </div>
-      </div>
-      <button type="button" class="btn btn-ghost btn-icon" title="Elimina" onclick="removeFestivaSlotRow(this)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-    </div>
-  `).join('');
-
-  container.innerHTML = `
-    <span class="messa-type-badge festiva">${esc(extra.nota || 'Festività')}</span>
-    <p class="day-detail-date">${esc(extra.data)}</p>
-    <p class="liturgy-meta">Modifica l'orario di questa festività. La vigilia è il giorno precedente.</p>
-    <div id="festiva-slots-editor" data-uuid="${esc(extra.uuid)}">
-      ${rows || '<p class="empty-state">Nessuna celebrazione</p>'}
-    </div>
-    <div class="messa-actions" style="flex-wrap:wrap;gap:8px">
-      <button type="button" class="btn btn-ghost" onclick="addFestivaSlotRow()">+ Celebrazione</button>
-      <button type="button" class="btn btn-secondary" onclick="renderMessaDetail(${jsStr(extra.data)})">Annulla</button>
-      <button type="button" class="btn btn-primary" onclick="saveFestivaSlotsEditor(${jsStr(extra.uuid)})">Salva orari</button>
-    </div>
-  `;
+  editFestivaSlotsInStruttura(uuid);
 }
 
 function removeFestivaSlotRow(btn) {
+  const editor = btn.closest('#festiva-slots-editor') || document.getElementById('festiva-slots-editor');
   btn.closest('.festiva-slot-edit')?.remove();
+  if (editor && !editor.querySelector('.festiva-slot-edit') && !editor.querySelector('.empty-state')) {
+    const p = document.createElement('p');
+    p.className = 'empty-state';
+    p.textContent = 'Nessuna messa';
+    editor.appendChild(p);
+  }
 }
 
 function addFestivaSlotRow() {
@@ -11114,29 +14911,37 @@ function addFestivaSlotRow() {
   if (!editor) return;
   const empty = editor.querySelector('.empty-state');
   if (empty) empty.remove();
+  const civilMode = editor.dataset.mount === 'anno-civile';
+  const civilDate = editor.dataset.civilDate || '';
+  const hostUuid = editor.dataset.hostUuid || '';
   const wrap = document.createElement('div');
   wrap.className = 'festiva-slot-edit';
+  if (civilMode) {
+    wrap.dataset.sourceUuid = hostUuid;
+    wrap.dataset.sourceDate = civilDate;
+  }
   wrap.innerHTML = `
-      <div class="form-row">
+      <div class="form-group festiva-slot-title">
+        <label>Titolo / celebrazione <span class="form-optional">(opzionale)</span></label>
+        <input type="text" data-field="titolo" maxlength="80" value="" placeholder="Es. Vigilia, Lavanda dei Piedi">
+      </div>
+      <div class="form-row festiva-slot-grid${civilMode ? ' is-civil-mode' : ''}">
+        ${civilMode ? '' : `
         <div class="form-group">
           <label>Giorno</label>
           <select data-field="dayOffset">
             <option value="-1">Vigilia (giorno prima)</option>
             <option value="0" selected>Giorno di festa</option>
           </select>
-        </div>
+        </div>`}
         <div class="form-group">
           <label>Ora</label>
           <input type="time" data-field="ora" value="10:00">
         </div>
-      </div>
-      <div class="form-row">
         <div class="form-group">
           <label>Sede</label>
           <select data-field="sede">
-            <option value="santuario">Santuario</option>
-            <option value="vanzago">Vanzago</option>
-            <option value="mantegazza">Mantegazza</option>
+            ${sedeOptionsHtml('santuario')}
           </select>
         </div>
         <div class="form-group">
@@ -11155,16 +14960,21 @@ function addFestivaSlotRow() {
 
 function saveFestivaSlotsEditor(uuid) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
-  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
-  if (!extra) return;
   const editor = document.getElementById('festiva-slots-editor');
   if (!editor) return;
+  if (editor.dataset.mount === 'anno') {
+    saveCorrezioneAnno(uuid);
+    return;
+  }
+  const extra = (state.messeExtra || []).find(m => m.uuid === uuid);
+  if (!extra) return;
   const slots = [...editor.querySelectorAll('.festiva-slot-edit')].map((row, i) => {
     const dayOffset = parseInt(row.querySelector('[data-field="dayOffset"]')?.value, 10) === -1 ? -1 : 0;
     const ora = row.querySelector('[data-field="ora"]')?.value || '10:00';
     const sede = row.querySelector('[data-field="sede"]')?.value || 'santuario';
     const conTurno = row.querySelector('[data-field="conTurno"]')?.value === '1';
-    return {
+    const titolo = (row.querySelector('[data-field="titolo"]')?.value || '').trim();
+    const slot = {
       id: 'fest-slot-' + i + '-' + Date.now().toString(36),
       dayOffset,
       ora,
@@ -11172,6 +14982,8 @@ function saveFestivaSlotsEditor(uuid) {
       vigilia: dayOffset === -1,
       conTurno
     };
+    if (titolo) slot.titolo = titolo;
+    return slot;
   });
   if (!slots.length) {
     if (!confirm('Salvare senza celebrazioni? (es. Venerdì Santo)')) return;
@@ -11186,33 +14998,48 @@ function saveFestivaSlotsEditor(uuid) {
   saveFestivitaModelloFromExtra(extra);
   saveData();
   void persistConfig();
-  showToast(slots.length
-    ? 'Orari salvati (vale anche per gli anni successivi)'
-    : 'Nessuna celebrazione — salvato anche per gli anni successivi');
-  renderMesseDetail(extra.data);
+  void applicaStruttureAnno({ quiet: true });
+  const mountedInStruttura = editor.dataset.mount === 'struttura';
+  if (mountedInStruttura) {
+    closeStrutturaCorrezioniEditor();
+  } else if (extra.data) {
+    renderMessaDetail(extra.data);
+  }
   renderMesseAgenda();
 }
 
 function removeMessaExtra(uuid) {
   const removed = (state.messeExtra || []).find(m => m.uuid === uuid);
-  const label = isExtraFestiva(removed) ? 'festività' : 'messa straordinaria';
+  if (!removed) return;
+
+  // Festività: svuota le messe dell’anno (senza servizio) senza toccare il modello
+  if (isExtraFestiva(removed)) {
+    if (!requireAdminAction('Solo l\'admin può modificare le messe')) return;
+    if (!confirm('Togliere tutte le messe per quest’anno?\n\nIl giorno resta senza servizio finché non le ripristini in Correzioni.')) return;
+    removed.slots = [];
+    removed.orarioPersonalizzato = true;
+    removed.tipo = 'festiva';
+    removed.usaOrarioDomenicale = true;
+    clearFestivitaEsclusaForDate(removed.data);
+    saveData();
+    void persistConfig();
+    showToast('Nessuna messa · senza servizio per quest’anno');
+    if (messeState.selectedDate === removed.data) renderMessaDetail(removed.data);
+    void renderStrutturaCorrezioniPanel();
+    loadMesseAgenda();
+    return;
+  }
+
+  const label = 'messa straordinaria';
   if (!confirm(`Rimuovere questa ${label} dall'agenda?`)) return;
   state.messeExtra = state.messeExtra.filter(m => m.uuid !== uuid);
   if (removed?.data) {
     delete ensureMesseIndicazioni()[removed.data];
   }
-  // Solo quest'anno: evita che Sync la rimetta subito
-  if (isExtraFestiva(removed) && removed.data) {
-    addFestivitaEsclusa(removed.data, { nome: removed.nota, permanent: false });
-  }
   saveData();
   void persistConfig();
-  showToast(isExtraFestiva(removed) ? 'Festività rimossa (solo quest\'anno)' : 'Messa straordinaria rimossa');
+  showToast('Messa straordinaria rimossa');
   messeState.selectedDate = null;
-  if (strutturaMesseKind === 'festivo') {
-    renderMesseDomenicaliList();
-    updateMesseDomenicaliSummary();
-  }
   loadMesseAgenda();
 }
 
@@ -11245,37 +15072,11 @@ function toggleMessaExtraOrarioFields() {
 }
 
 async function syncFestivitaAnnoManual() {
-  if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
-  const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
-  if (!hasAny) {
-    showToast('Configura almeno una struttura in Messe → Strutture');
-    void showSection('messe').then(() => {
-      showMesseLocalPanel('strutture');
-      setStrutturaMesseKind('festivo');
-    });
-    return;
-  }
-  const anno = getMesseAnno();
-  await ensureCalendarioForYear(anno);
-  const { added, updated, removed } = syncFestivitaAnno(anno);
-  if (added > 0 || updated > 0 || removed > 0) {
-    saveData();
-    void persistConfig();
-    if (added > 0) {
-      showToast(added === 1 ? 'Aggiunta 1 festività' : `Aggiunte ${added} festività`);
-    } else if (removed > 0) {
-      showToast(removed === 1
-        ? 'Rimossa 1 vigilia domenicale errata'
-        : `Rimosse ${removed} vigilie domenicali errate`);
-    } else {
-      showToast('Aggiornati i preset delle festività');
-    }
-  } else {
-    showToast('Nessuna nuova solennità da aggiungere');
-  }
-  updateMesseFestivoBanner(false);
-  renderMesseAgenda();
-  if (messeState.selectedDate) renderMessaDetail(messeState.selectedDate);
+  syncStrutturaAnnoSelects(getStrutturaPastoralStartForDate());
+  void showSection('strutture-messe').then(() => {
+    setStrutturaLiturgicaTab('applica');
+    void applicaStruttureAnno();
+  });
 }
 
 function updateMesseFestivoBanner(needsConfig) {
@@ -11286,8 +15087,8 @@ function updateMesseFestivoBanner(needsConfig) {
 }
 
 function goConfiguraOrarioFestivo() {
-  void showSection('messe').then(() => {
-    showMesseLocalPanel('strutture');
+  void showSection('strutture-messe').then(() => {
+    setStrutturaLiturgicaTab('modelli');
     setStrutturaMesseKind('festivo');
   });
 }
@@ -11635,6 +15436,7 @@ function calDayAriaLabel(day, month, primary) {
 
 function renderCalMonth() {
   if (!calState.data?.byDate) return;
+  syncEscludiFerialiIntrasettimanaliUi();
 
   const anno = parseInt(getCalAnno(), 10);
   const month = calState.month;
@@ -11656,7 +15458,7 @@ function renderCalMonth() {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${anno}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const events = byDate[dateStr] || [];
-    const primary = primaryEvent(events);
+    const primary = getLiturgicalDayEvent(dateStr);
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === calState.selectedDate;
 
@@ -11716,7 +15518,12 @@ function ensureCalDaySelected() {
 
 function renderDayDetail(dateStr) {
   const container = document.getElementById('day-detail');
-  const events = calState.data?.byDate?.[dateStr] || [];
+  const sourceEvents = calState.data?.byDate?.[dateStr] || [];
+  const sourcePrimary = primaryEvent(sourceEvents) || sourceEvents[0];
+  const primary = getLiturgicalDayEvent(dateStr);
+  const events = getLiturgicalDayOverride(dateStr) && primary
+    ? [primary, ...sourceEvents.filter(event => event !== sourcePrimary)]
+    : sourceEvents;
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
@@ -11724,9 +15531,10 @@ function renderDayDetail(dateStr) {
   const massBtn = massInfo
     ? `<button type="button" class="btn btn-secondary" style="margin-top:16px" onclick="showMassDetails('${dateStr}')">Vedi in agenda messe</button>`
     : '';
+  const adminEditor = renderLiturgicalDayAdmin(dateStr, primary);
 
   if (!events.length) {
-    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty empty-state-inline">Nessuna celebrazione registrata per questa data.</p>${massBtn}`;
+    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty empty-state-inline">Nessuna celebrazione registrata per questa data.</p>${massBtn}${adminEditor}`;
     return;
   }
 
@@ -11745,7 +15553,109 @@ function renderDayDetail(dateStr) {
       `).join('')}
     </div>
     ${massBtn}
+    ${adminEditor}
   `;
+}
+
+function renderLiturgicalDayAdmin(dateStr, primary) {
+  if (!isCurrentUserAdmin()) return '';
+  const override = getLiturgicalDayOverride(dateStr) || {};
+  const kindOptions = Object.values(STRUTTURA_KINDS).map(meta =>
+    `<option value="${meta.id}" ${(override.strutturaKind || getLiturgicalContext(dateStr).strutturaKind) === meta.id ? 'selected' : ''}>${esc(meta.label)}</option>`
+  ).join('');
+  const type = override.tipo || (primary?.grado === 'm' ? 'memoria-facoltativa' : primary?.tipo) || 'feriale';
+  const assignedKey = findEventKeyForDateOverride(dateStr) || '';
+  const festivityOptions = Object.entries(FESTIVITA_DEFAULT_MD).map(([key, md]) => {
+    const group = Object.values(STRUTTURA_GIORNI_SPECIALI).flat().find(g => g.eventKey === key);
+    const label = group?.label || key;
+    return `<option value="${esc(key)}" ${assignedKey === key ? 'selected' : ''}>${esc(label)} (default ${esc(md)})</option>`;
+  }).join('');
+  return `<div class="liturgical-day-admin">
+    <h4>Configurazione del giorno</h4>
+    <div class="form-group"><label for="liturgical-day-name">Giorno liturgico</label><input id="liturgical-day-name" type="text" value="${esc(override.nome || primary?.nome || '')}" placeholder="Es. Domenica delle Palme" maxlength="160"></div>
+    <div class="form-row">
+      <div class="form-group"><label for="liturgical-day-type">Tipo</label><select id="liturgical-day-type">
+        <option value="solennita" ${type === 'solennita' ? 'selected' : ''}>Solennità</option><option value="festa" ${type === 'festa' ? 'selected' : ''}>Festa</option><option value="memoria" ${type === 'memoria' ? 'selected' : ''}>Memoria</option><option value="memoria-facoltativa" ${type === 'memoria-facoltativa' ? 'selected' : ''}>Memoria facoltativa</option><option value="feriale" ${type === 'feriale' ? 'selected' : ''}>Feriale</option>
+      </select></div>
+      <div class="form-group"><label for="liturgical-day-structure">Struttura Messa</label><select id="liturgical-day-structure" required>${kindOptions}</select></div>
+    </div>
+    <div class="form-group">
+      <label for="liturgical-day-festivity">Modello festa su questa data</label>
+      <select id="liturgical-day-festivity">
+        <option value="">— non assegnato —</option>
+        ${festivityOptions}
+      </select>
+      <p class="form-hint">Sposta qui Tutti i Santi, Defunti, Natale… per quest’anno (indipendente da LitCal).</p>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-primary" onclick="saveLiturgicalDay('${dateStr}')">Salva giorno</button><button type="button" class="btn btn-secondary" onclick="openCorrezioneOrari('${dateStr}')">Modifica messe</button>${override.nome || override.strutturaKind || assignedKey ? `<button type="button" class="btn btn-ghost" onclick="clearLiturgicalDay('${dateStr}')">Ripristina fonte</button>` : ''}</div>
+  </div>`;
+}
+
+async function saveLiturgicalDay(dateStr) {
+  if (!requireAdminAction('Solo l’admin può modificare il calendario liturgico')) return;
+  const nome = document.getElementById('liturgical-day-name')?.value.trim();
+  const tipo = document.getElementById('liturgical-day-type')?.value;
+  const strutturaKind = document.getElementById('liturgical-day-structure')?.value;
+  const festivityKey = document.getElementById('liturgical-day-festivity')?.value || '';
+  if (!nome || !STRUTTURA_KINDS[strutturaKind] || !['solennita', 'festa', 'memoria', 'memoria-facoltativa', 'feriale'].includes(tipo)) {
+    showToast('Indica giorno liturgico, tipo e struttura');
+    return;
+  }
+  ensureGruppiConfig();
+  state.gruppiConfig.giorniLiturgici[dateStr] = { nome, tipo, strutturaKind, updatedAt: new Date().toISOString() };
+
+  const anno = dateStr.slice(0, 4);
+  // Rimuovi eventuali override che puntavano a questa data, poi assegna il nuovo
+  Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+    const map = getFestivitaDateOverridesMap();
+    if (map[key]?.[anno] === dateStr && key !== festivityKey) {
+      clearFestivitaDateForAnno(key, anno);
+    }
+  });
+  if (festivityKey && FESTIVITA_DEFAULT_MD[festivityKey]) {
+    setFestivitaDateForAnno(festivityKey, dateStr);
+  } else if (!festivityKey) {
+    Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+      if (getFestivitaDateOverridesMap()[key]?.[anno] === dateStr) {
+        clearFestivitaDateForAnno(key, anno);
+      }
+    });
+  }
+
+  saveDataLocal();
+  const saved = await persistConfig();
+  if (!saved) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  clearLiturgicalSeasonCache();
+  try {
+    const sync = syncFestivitaAnno(getPastoralStartForDateStr(dateStr));
+    if (sync.added || sync.updated || sync.removed) saveData();
+  } catch (_) { /* ignore */ }
+  renderCalMonth();
+  renderDayDetail(dateStr);
+  renderMesseAgenda();
+  void renderStrutturaCorrezioniPanel();
+  showToast(saved ? 'Giorno liturgico aggiornato' : 'Modifica salvata sul dispositivo; sincronizzazione in attesa');
+}
+
+async function clearLiturgicalDay(dateStr) {
+  if (!requireAdminAction('Solo l’admin può modificare il calendario liturgico')) return;
+  ensureGruppiConfig();
+  delete state.gruppiConfig.giorniLiturgici[dateStr];
+  const anno = dateStr.slice(0, 4);
+  Object.keys(FESTIVITA_DEFAULT_MD).forEach(key => {
+    if (getFestivitaDateOverridesMap()[key]?.[anno] === dateStr) {
+      clearFestivitaDateForAnno(key, anno);
+    }
+  });
+  saveDataLocal();
+  const saved = await persistConfig();
+  if (!saved) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  clearLiturgicalSeasonCache();
+  renderCalMonth();
+  renderDayDetail(dateStr);
+  renderMesseAgenda();
+  void renderStrutturaCorrezioniPanel();
+  showToast(saved ? 'Giorno ripristinato alla fonte liturgica' : 'Ripristino salvato sul dispositivo; sincronizzazione in attesa');
 }
 
 async function renderProssimeCelebrazioni() {
@@ -11796,7 +15706,7 @@ function showMassDetails(dateStr) {
 }
 
 // ── Form handlers ───────────────────────────────────────────
-document.getElementById('messaExtraForm').addEventListener('submit', e => {
+document.getElementById('messaExtraForm').addEventListener('submit', async e => {
   e.preventDefault();
 
   const data = document.getElementById('messa-extra-data').value;
@@ -11816,7 +15726,7 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
   }
 
   if (usaOrarioDomenicale && !hasOrarioFestivoConfig()) {
-    showToast('Prima configura l\'orario festivo in Turni → Struttura messe');
+    showToast('Prima configura l\'orario festivo in Struttura liturgica');
     goConfiguraOrarioFestivo();
     return;
   }
@@ -11825,6 +15735,8 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
     showToast('Le domeniche sono già in agenda con l\'orario settimanale');
     return;
   }
+
+  const restoredServizio = isFestivitaEsclusa(data) && clearFestivitaEsclusaForDate(data);
 
   const entry = {
     uuid: newMessaExtraUuid(usaOrarioDomenicale ? 'MES-FEST' : 'MES'),
@@ -11841,15 +15753,33 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
   }
   state.messeExtra.push(entry);
 
-  saveData();
-  void persistConfig();
-  showToast(usaOrarioDomenicale ? 'Festività aggiunta' : 'Messa straordinaria aggiunta');
+  saveDataLocal();
+  // Se abbiamo tolto «senza servizio», persistConfig salva anche festivitaEscluse
+  const saved = restoredServizio ? await persistConfig() : await persistMesseExtra();
+  if (!saved && navigator.onLine !== false && apiOnline) {
+    state.messeExtra = state.messeExtra.filter(item => item.uuid !== entry.uuid);
+    if (restoredServizio) {
+      // best-effort: non ripristiniamo l’esclusione; l’utente può ri-escludere
+    }
+    saveDataLocal();
+    return;
+  }
+  if (!saved) {
+    localStorage.setItem(MESSE_EXTRA_PENDING_KEY, '1');
+    if (restoredServizio) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  }
+  showToast(!saved
+    ? 'Messa salvata sul dispositivo; verrà sincronizzata al ritorno della rete'
+    : (usaOrarioDomenicale
+      ? (restoredServizio ? 'Festività aggiunta · di nuovo in servizio' : 'Festività aggiunta')
+      : (restoredServizio ? 'Messa straordinaria aggiunta · giorno di nuovo in servizio' : 'Messa straordinaria aggiunta')));
   e.target.reset();
   toggleMessaExtraOrarioFields();
   closeMesseExtraPanel();
   closeMesseSheet();
   document.getElementById('anno-messe').value = data.slice(0, 4);
   messeState.selectedDate = data;
+  void renderStrutturaCorrezioniPanel();
   loadMesseAgenda().then(() => selectMessaDay(data, true));
 });
 
@@ -11945,6 +15875,7 @@ document.getElementById('messaDomenicaleForm').addEventListener('submit', e => {
   const isDom = strutturaMesseKind === 'domenicale';
   const list = getStrutturaMesseMutable();
   const editId = document.getElementById('messa-domenicale-edit-id').value;
+  const titolo = (document.getElementById('messa-domenicale-titolo')?.value || '').trim();
   const dayOffset = parseInt(document.getElementById('messa-domenicale-day').value, 10);
   const ora = document.getElementById('messa-domenicale-ora').value;
   const sede = document.getElementById('messa-domenicale-sede').value;
@@ -11979,20 +15910,26 @@ document.getElementById('messaDomenicaleForm').addEventListener('submit', e => {
     m.sede = sede;
     m.vigilia = vigilia || (dayOffset === -1 && conTurno);
     m.conTurno = conTurno;
-    cancelMessaDomenicaleEdit();
+    if (titolo) m.titolo = titolo;
+    else delete m.titolo;
+    cancelMessaDomenicaleEdit({ keepModal: true });
+    closeStrutturaModelloModal();
     afterGruppiConfigChange();
     updateMesseFestivoBanner(!hasOrarioFestivoConfig());
     showToast('Celebrazione aggiornata');
   } else {
-    list.push({
+    const row = {
       id: 'st-' + strutturaMesseKind.slice(0, 3) + '-' + Date.now(),
       dayOffset,
       ora,
       sede,
       vigilia: vigilia || (dayOffset === -1 && conTurno),
       conTurno
-    });
-    cancelMessaDomenicaleEdit();
+    };
+    if (titolo) row.titolo = titolo;
+    list.push(row);
+    cancelMessaDomenicaleEdit({ keepModal: true });
+    closeStrutturaModelloModal();
     afterGruppiConfigChange();
     updateMesseFestivoBanner(!hasOrarioFestivoConfig());
     showToast('Celebrazione aggiunta');
