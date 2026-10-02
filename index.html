@@ -34,7 +34,7 @@
     </div>
     <div id="auth-error" class="auth-error" role="alert"></div>
     <p id="auth-bootstrap-hint" class="auth-hint" style="display:none">
-      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi da Anagrafica → Cerimonieri e Don.
+      Primo avvio: crea l'account del responsabile (cerimoniere o Don). Potrai aggiungere altri colleghi dalla pagina Cerimonieri.
     </p>
     <p id="auth-info-hint" class="auth-hint" style="display:none" role="status"></p>
     <div id="auth-google-block" class="auth-google-block" hidden>
@@ -121,13 +121,13 @@
         </span>
         Registro
       </button>
-      <button class="nav-item is-group-start" data-section="messe" onclick="showSection('messe')">
+      <button class="nav-item" data-section="messe" onclick="showSection('messe')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg>
         </span>
         Messe
       </button>
-      <button class="nav-item" data-section="calendario" onclick="showSection('calendario')">
+      <button class="nav-item nav-admin-only" data-section="calendario" onclick="showSection('calendario')" hidden>
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
         </span>
@@ -137,7 +137,11 @@
         <span class="nav-item-icon" aria-hidden="true">ⓘ</span>
         Info sull’app
       </button>
-      <button class="nav-item is-group-start" data-section="gruppi" onclick="showSection('gruppi')">
+      <button class="nav-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
+        <span class="nav-item-icon" aria-hidden="true">⚙</span>
+        Strutture Messe
+      </button>
+      <button class="nav-item" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </span>
@@ -149,11 +153,15 @@
         </span>
         Turni
       </button>
-      <button class="nav-item is-group-start" data-section="anagrafica" onclick="showSection('anagrafica')">
+      <button class="nav-item" data-section="anagrafica" onclick="showSection('anagrafica')">
         <span class="nav-item-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg>
         </span>
         Anagrafica
+      </button>
+      <button class="nav-item nav-admin-only" data-section="cerimonieri" onclick="showSection('cerimonieri')" hidden>
+        <span class="nav-item-icon" aria-hidden="true">♙</span>
+        Cerimonieri
       </button>
       <button class="nav-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
         <span class="nav-item-icon" aria-hidden="true">
@@ -251,7 +259,6 @@
       <section id="anagrafica" class="section">
         <div class="section-tabs" role="tablist">
           <button type="button" class="section-tab active" id="tab-anag-chierichetti" onclick="switchAnagraficaTab('chierichetto')">Chierichetti</button>
-          <button type="button" class="section-tab" id="tab-anag-cerimonieri" onclick="switchAnagraficaTab('cerimoniere')">Cerimonieri e Don</button>
         </div>
 
         <div id="anag-panel-chierichetti" class="split-grid">
@@ -510,6 +517,14 @@
         </div>
       </section>
 
+      <section id="cerimonieri" class="section">
+        <div class="panel-head calendario-page-intro">
+          <h3>Cerimonieri e sacerdoti</h3>
+          <p>Account, ruoli e accessi alle funzioni dell’app.</p>
+        </div>
+        <div id="cerimonieri-page-slot"></div>
+      </section>
+
       <!-- Turni -->
       <section id="turni" class="section">
         <div class="section-tabs" role="tablist">
@@ -528,9 +543,9 @@
             </div>
             <div class="panel-body">
               <div class="turni-structure-hint">
-                <strong>Le strutture si gestiscono in Messe → Strutture.</strong>
+                <strong>Le strutture si configurano nella pagina Strutture Messe.</strong>
                 <span>Qui vengono usate solo le Messe contrassegnate “Con squadra” per assegnare e ruotare i gruppi.</span>
-                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('messe'); setTimeout(() => showMesseLocalPanel('strutture'), 0)">Apri Strutture</button>
+                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('strutture-messe')">Apri Strutture</button>
               </div>
               <p class="rotazione-status-text" id="rotazione-anteprima-text">Apri una finestra da Gestione per attivare la rotazione automatica.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
@@ -992,9 +1007,9 @@
             <p>Le Messe effettivamente celebrate dalla parrocchia, con turni, appelli e presenze</p>
           </div>
           <div class="panel-body">
-            <div class="messe-local-tabs" role="tablist" aria-label="Celebrazioni locali">
-              <button type="button" class="section-tab active" onclick="showMesseLocalPanel('agenda')">Agenda</button>
-              <button type="button" class="section-tab" onclick="showMesseLocalPanel('strutture')">Strutture</button>
+            <div class="messe-local-tabs messe-view-tabs" role="tablist" aria-label="Vista delle Messe">
+              <button type="button" class="section-tab" data-messe-view="agenda" aria-pressed="true" onclick="setMesseView('agenda')">Agenda</button>
+              <button type="button" class="section-tab" data-messe-view="calendario" aria-pressed="false" onclick="setMesseView('calendario')">Calendario</button>
             </div>
             <div class="cal-legend messe-legend" aria-label="Legenda agenda messe">
               <span><i class="lit-verde"></i> Verde</span>
@@ -1100,9 +1115,16 @@
                 </div>
               </div>
             </div>
-            <div id="messe-strutture-slot" class="messe-strutture-slot" hidden></div>
           </div>
         </div>
+      </section>
+
+      <section id="strutture-messe" class="section">
+        <div class="panel-head calendario-page-intro">
+          <h3>Strutture Messe</h3>
+          <p>Modelli ricorrenti delle celebrazioni e configurazione dei turni.</p>
+        </div>
+        <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
       </section>
 
       <!-- Calendario liturgico ambrosiano -->
@@ -1214,7 +1236,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano in <strong>Messe → Strutture</strong>.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano nella pagina <strong>Strutture Messe</strong>, riservata all’admin.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
@@ -1357,9 +1379,13 @@
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg></span>
         Messe
       </button>
-      <button type="button" class="mobile-more-item" data-section="calendario" onclick="showSection('calendario')">
+      <button type="button" class="mobile-more-item nav-admin-only" data-section="calendario" onclick="showSection('calendario')" hidden>
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
         Calendario
+      </button>
+      <button type="button" class="mobile-more-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
+        <span class="mobile-more-ico" aria-hidden="true">⚙</span>
+        Strutture Messe
       </button>
       <button type="button" class="mobile-more-item" data-section="info" onclick="showSection('info')">
         <span class="mobile-more-ico" aria-hidden="true">ⓘ</span>
@@ -1376,6 +1402,10 @@
       <button type="button" class="mobile-more-item" data-section="anagrafica" onclick="showSection('anagrafica')">
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 2v4"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h4"/></svg></span>
         Anagrafica
+      </button>
+      <button type="button" class="mobile-more-item nav-admin-only" data-section="cerimonieri" onclick="showSection('cerimonieri')" hidden>
+        <span class="mobile-more-ico" aria-hidden="true">♙</span>
+        Cerimonieri
       </button>
       <button type="button" class="mobile-more-item nav-admin-only" data-section="accessi" onclick="showSection('accessi')" hidden>
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>

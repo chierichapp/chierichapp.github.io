@@ -2479,6 +2479,54 @@ body.anag-sheet-open { overflow: hidden; }
   gap: 8px;
 }
 
+.messe-view-tabs { margin-bottom: 16px; }
+.messe-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 14px;
+}
+.messe-calendar-nav h4 { margin: 0; font-family: var(--font-display); }
+.messe-calendar-day {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+}
+.messe-calendar-day:disabled { cursor: default; }
+.messe-calendar-day.has-messa { cursor: pointer; border-color: var(--border-strong); }
+.messe-calendar-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  margin: 7px 0 4px;
+  border-radius: 50%;
+  background: var(--sky);
+}
+.messe-calendar-title {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+.liturgical-day-admin {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.liturgical-day-admin h4 { margin: 0 0 12px; font-family: var(--font-display); }
+.liturgical-day-admin .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 700px) {
+  .messe-calendar-title { display: none; }
+  .messe-calendar-dot { margin: 5px auto 0; }
+}
+
 .messe-agenda-item {
   display: grid;
   grid-template-columns: 56px 1fr;

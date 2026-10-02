@@ -3,18 +3,23 @@ const isSupabase = !!(window.CHIERICH_CONFIG?.supabaseUrl && window.CHIERICH_CON
   && !String(window.CHIERICH_CONFIG.supabaseUrl).includes('YOUR_PROJECT'));
 const isGAS = !isSupabase && typeof google !== 'undefined' && google.script && google.script.host;
 const STORAGE_KEY = 'chierichetti_data';
+const MESSE_EXTRA_PENDING_KEY = 'chierichapp_messe_extra_pending';
+const LITURGICAL_CONFIG_PENDING_KEY = 'chierichapp_liturgical_config_pending';
+const CALENDAR_CACHE_PREFIX = 'chierichapp_calendario_';
 const DATA_SCHEMA_VERSION = 6;
 
 const PAGE_META = {
   dashboard:  { title: 'Oggi',       subtitle: 'Prossima messa, turni e scorciatoie' },
   presenze:   { title: 'Appello',    subtitle: 'Segna presenti e assenti al servizio' },
   registro:   { title: 'Registro',   subtitle: 'Storico presenze per anno pastorale' },
-  messe:      { title: 'Messe',      subtitle: 'Agenda locale e strutture delle Messe' },
+  messe:      { title: 'Messe',      subtitle: 'Agenda e calendario delle celebrazioni' },
   turni:      { title: 'Turni',      subtitle: 'Messe di servizio e rotazione squadre' },
   gruppi:     { title: 'Gruppi',     subtitle: 'Squadre di turno e assegnazioni' },
-  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti, ex e account Cerimonieri/Don' },
+  anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti ed ex' },
+  cerimonieri:{ title: 'Cerimonieri', subtitle: 'Gestione degli account e dei ruoli' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
-  calendario: { title: 'Calendario', subtitle: 'Calendario liturgico ambrosiano' },
+  calendario: { title: 'Calendario liturgico', subtitle: 'Configurazione amministrativa dei giorni liturgici' },
+  'strutture-messe': { title: 'Strutture Messe', subtitle: 'Modelli di celebrazione e turni' },
   info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -113,6 +118,7 @@ const DEFAULT_GRUPPI_CONFIG = {
   strutturaTempoPasquale: [],
   strutturaTempoDefunti: [],
   strutturaFestivoGenerico: [],
+  giorniLiturgici: {},
   festivitaEscluse: [],
   festivitaModelli: [],
   rotazione: { attiva: false, inizioFinestra: null, fineFinestra: null, storicoFinestre: [] },
@@ -185,12 +191,15 @@ const messeState = {
   selectedDate: null,
   loading: false,
   reloadQueued: false,
-  showPast: false
+  showPast: false,
+  view: localStorage.getItem('messe_view') === 'calendario' ? 'calendario' : 'agenda',
+  month: new Date().getMonth()
 };
 
 // ── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   moveStrutturaMesseToMesse();
+  moveCerimonieriToPage();
   document.getElementById('auth-login-form').addEventListener('submit', handleAuthSubmit);
   document.getElementById('cerimoniereForm').addEventListener('submit', handleCerimoniereFormSubmit);
   document.getElementById('accountForm')?.addEventListener('submit', handleAccountFormSubmit);
@@ -205,78 +214,79 @@ document.addEventListener('DOMContentLoaded', () => {
 const SECTION_ROUTES = {
   dashboard: 'oggi', presenze: 'appello', registro: 'registro', messe: 'messe',
   calendario: 'calendario', gruppi: 'gruppi', turni: 'turni',
-  anagrafica: 'anagrafica', accessi: 'accessi', info: 'info', account: 'account'
+  'strutture-messe': 'strutture-messe', anagrafica: 'anagrafica', cerimonieri: 'cerimonieri', accessi: 'accessi', info: 'info', account: 'account'
 };
 const ROUTE_SECTIONS = Object.fromEntries(Object.entries(SECTION_ROUTES).map(([section, route]) => [route, section]));
+let lastNavigationUrl = location.href;
 
 function sectionFromRoute() {
   const route = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/')[0];
   return ROUTE_SECTIONS[route] || null;
 }
 
-window.addEventListener('hashchange', () => {
+function restoreSectionFromLocation() {
+  if (lastNavigationUrl === location.href) return;
+  lastNavigationUrl = location.href;
   const section = sectionFromRoute();
   if (section && document.getElementById(section)) void showSection(section, { syncUrl: false });
+}
+
+window.addEventListener('hashchange', restoreSectionFromLocation);
+window.addEventListener('popstate', restoreSectionFromLocation);
+
+window.addEventListener('online', async () => {
+  if (!currentUser) return;
+  let pending = false;
+  if (localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1') {
+    pending = true;
+    if (!await persistMesseExtra()) return;
+  }
+  if (localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1') {
+    pending = true;
+    if (!await persistConfig()) return;
+  }
+  if (pending) {
+    setSyncBanner('');
+    const status = document.getElementById('sync-status');
+    if (status) status.textContent = isSupabase ? 'Modifiche sincronizzate con Supabase' : 'Modifiche sincronizzate';
+    refreshVisibleUi();
+  }
 });
 
 function moveStrutturaMesseToMesse() {
   const panel = document.getElementById('turni-panel-messe');
-  const target = document.getElementById('messe-strutture-slot');
+  const target = document.getElementById('strutture-messe-slot');
   const tab = document.getElementById('tab-turni-messe');
   if (!panel || !target) return;
   target.appendChild(panel);
   panel.classList.remove('turni-tab-panel');
   panel.classList.add('messe-struttura-panel');
-  panel.hidden = true;
+  panel.hidden = false;
   panel.style.removeProperty('display');
   if (tab) tab.hidden = true;
 }
 
+function moveCerimonieriToPage() {
+  const panel = document.getElementById('anag-panel-cerimonieri');
+  const target = document.getElementById('cerimonieri-page-slot');
+  if (!panel || !target) return;
+  target.appendChild(panel);
+  panel.style.removeProperty('display');
+  panel.classList.add('cerimonieri-page-panel');
+}
+
 function showMesseLocalPanel(panelName) {
-  const target = document.getElementById('messe-strutture-slot');
-  const structure = document.getElementById('turni-panel-messe');
-  const agenda = document.querySelector('#messe .messe-layout');
-  const showStructure = panelName === 'strutture';
-  if (target) {
-    target.hidden = !showStructure;
-    if (showStructure) target.style.removeProperty('display');
-    else target.style.display = 'none';
+  if (panelName === 'strutture') {
+    void showSection('strutture-messe');
+    return;
   }
-  if (structure) {
-    structure.hidden = !showStructure;
-    if (showStructure) structure.style.removeProperty('display');
-    else structure.style.display = 'none';
-  }
-  if (agenda) {
-    agenda.hidden = showStructure;
-    if (showStructure) agenda.style.display = 'none';
-    else agenda.style.removeProperty('display');
-  }
-  document.querySelectorAll('#messe .messe-legend, #messe .messe-agenda-summary, #messe .messe-festivo-banner').forEach(el => {
-    if (showStructure) {
-      el.setAttribute('data-hidden-by-strutture', '1');
-      el.style.display = 'none';
-    } else {
-      el.removeAttribute('data-hidden-by-strutture');
-      el.style.removeProperty('display');
-    }
-  });
-  document.querySelectorAll('#messe .messe-local-tabs .section-tab').forEach((btn, i) => {
-    btn.classList.toggle('active', showStructure ? i === 1 : i === 0);
-  });
-  if (showStructure) {
-    setStrutturaMesseKind(strutturaMesseKind);
-    renderMesseDomenicaliList();
-    void ensureStrutturaFestivitaLoaded();
-  } else {
-    void loadMesseAgenda();
-  }
+  setMesseView(panelName === 'calendario' ? 'calendario' : 'agenda');
 }
 
 /** @deprecated mantiene compatibilità link vecchi → Messe */
 function openCalendarioHub(tab) {
   if (tab === 'strutture') {
-    void showSection('messe').then(() => showMesseLocalPanel('strutture'));
+    void showSection('strutture-messe');
   } else if (tab === 'locale') {
     void showSection('messe').then(() => showMesseLocalPanel('agenda'));
   } else {
@@ -367,10 +377,10 @@ function setAuthMode(mode, extra = {}) {
   const hint = document.getElementById('auth-bootstrap-hint');
   if (isBootstrap && isGAS) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
+    hint.textContent = 'Primo avvio: questo Account Google diventa il primo accesso. Poi potrai autorizzare cerimonieri e Don dalla pagina Cerimonieri.';
   } else if (isBootstrap) {
     hint.style.display = '';
-    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don da Anagrafica → Cerimonieri e Don.';
+    hint.textContent = 'Primo avvio: crea l\'account del responsabile. Potrai aggiungere cerimonieri e Don dalla pagina Cerimonieri.';
   } else if (isForgot) {
     hint.style.display = '';
     hint.textContent = 'Inserisci l\'email dell\'account: ti invieremo un link per scegliere una nuova password.';
@@ -714,7 +724,7 @@ function syncAdminOnlyNav() {
   document.querySelectorAll('.nav-admin-only').forEach(el => {
     el.hidden = !canAdmin;
   });
-  if (!canAdmin && document.getElementById('accessi')?.classList.contains('active')) {
+  if (!canAdmin && ['accessi', 'calendario', 'strutture-messe', 'cerimonieri'].some(id => document.getElementById(id)?.classList.contains('active'))) {
     void showSection('dashboard');
   }
 }
@@ -1253,13 +1263,35 @@ function initApp() {
   else if (launchSection === 'account') openAccountPage();
   else showSection(launchSection || 'dashboard');
   syncMessaDomenicaleFormDay();
-  void bootstrapFromServer().then(() => {
+  void (async () => {
+    if (navigator.onLine !== false) {
+      const hasPendingWrites = localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1'
+        || localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1';
+      if (localStorage.getItem(MESSE_EXTRA_PENDING_KEY) === '1' && !await persistMesseExtra()) {
+        setSyncBanner('Messa locale in attesa di sincronizzazione', true);
+        refreshVisibleUi();
+        return;
+      }
+      if (localStorage.getItem(LITURGICAL_CONFIG_PENDING_KEY) === '1' && !await persistConfig()) {
+        setSyncBanner('Configurazione locale in attesa di sincronizzazione', true);
+        refreshVisibleUi();
+        return;
+      }
+      if (hasPendingWrites) {
+        setSyncBanner('');
+        const status = document.getElementById('sync-status');
+        if (status) status.textContent = isSupabase ? 'Modifiche sincronizzate con Supabase' : 'Modifiche sincronizzate';
+        refreshVisibleUi();
+        return;
+      }
+    }
+    await bootstrapFromServer();
     if (calState.data?.byDate) {
       if (document.getElementById('dashboard').classList.contains('active')) renderDashboard();
     } else {
       void ensureCalendarioForToday();
     }
-  });
+  })();
 }
 
 function getLaunchSection() {
@@ -1270,7 +1302,7 @@ function getLaunchSection() {
     const section = params.get('section');
     const allowed = new Set([
       'dashboard', 'presenze', 'registro', 'messe',
-      'calendario', 'gruppi', 'turni', 'anagrafica', 'account'
+      'calendario', 'strutture-messe', 'cerimonieri', 'gruppi', 'turni', 'anagrafica', 'account'
       , 'accessi', 'info'
     ]);
     if (!section || !allowed.has(section)) return null;
@@ -1374,15 +1406,19 @@ function calendarioCoversCivilYear(data, anno) {
 
 async function loadCalendarioPackYear(anno, { refresh = false } = {}) {
   anno = String(anno);
+  const cached = readCalendarioLocal(anno);
   try {
     if (isGAS) {
-      return await gasRun('getCalendarioLiturgico', anno, !!refresh);
+      const data = await gasRun('getCalendarioLiturgico', anno, !!refresh);
+      if (data?.byDate) saveCalendarioLocal(anno, data);
+      return data?.byDate ? data : cached;
     }
     if (isSupabase) {
       if (refresh) {
         const data = await fetchAmbrosianCalendarYear(anno);
         const saved = await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
         if (!saved.success) throw new Error(saved.message || 'Salvataggio in cache non riuscito');
+        saveCalendarioLocal(anno, data);
         return data;
       }
       let data = await window.ChierichSupabase.getCalendarioLiturgico(anno);
@@ -1390,16 +1426,33 @@ async function loadCalendarioPackYear(anno, { refresh = false } = {}) {
         data = await fetchAmbrosianCalendarYear(anno);
         await window.ChierichSupabase.salvaCalendarioLiturgico(anno, data);
       }
-      return data;
+      if (data?.byDate) saveCalendarioLocal(anno, data);
+      return data?.byDate ? data : cached;
     }
     const url = `${API_BASE}/api/calendario/${anno}${refresh ? '?refresh=1' : ''}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Errore HTTP ' + res.status);
-    return await res.json();
+    const data = await res.json();
+    if (data?.byDate) saveCalendarioLocal(anno, data);
+    return data?.byDate ? data : cached;
   } catch (err) {
     console.warn('[ChierichApp] loadCalendarioPackYear', anno, err);
-    return null;
+    return cached;
   }
+}
+
+function readCalendarioLocal(anno) {
+  try {
+    const raw = localStorage.getItem(CALENDAR_CACHE_PREFIX + String(anno));
+    const data = raw ? JSON.parse(raw) : null;
+    return data?.byDate && Object.keys(data.byDate).length ? data : null;
+  } catch { return null; }
+}
+
+function saveCalendarioLocal(anno, data) {
+  if (!data?.byDate) return;
+  try { localStorage.setItem(CALENDAR_CACHE_PREFIX + String(anno), JSON.stringify(data)); }
+  catch (err) { console.warn('[ChierichApp] calendario locale non salvato', err); }
 }
 
 async function ensureCalendarioForYear(anno) {
@@ -1443,7 +1496,7 @@ function isCalendarioUnavailable() {
 }
 
 function calendarioUnavailableHtml(opts = {}) {
-  const withCta = opts.withCta !== false;
+  const withCta = opts.withCta !== false && isCurrentUserAdmin();
   const cta = withCta
     ? `<div class="today-agenda-footer"><button type="button" class="btn-ghost-light" onclick="showSection('calendario')">Apri Calendario e aggiorna</button></div>`
     : '';
@@ -1760,8 +1813,8 @@ async function showSection(sectionId, options = {}) {
     if (!ok) return;
   }
 
-  if (sectionId === 'accessi' && !isCurrentUserAdmin()) {
-    showToast('Solo l\'admin può vedere il log accessi');
+  if (['accessi', 'calendario', 'strutture-messe', 'cerimonieri'].includes(sectionId) && !isCurrentUserAdmin()) {
+    showToast('Questa sezione è riservata all\'admin');
     return;
   }
 
@@ -1771,7 +1824,8 @@ async function showSection(sectionId, options = {}) {
   if (options.syncUrl !== false) {
     const route = SECTION_ROUTES[sectionId];
     if (route && location.hash !== `#/${route}`) {
-      history.replaceState({ section: sectionId }, '', `${location.pathname}${location.search}#/${route}`);
+      history.pushState({ section: sectionId }, '', `${location.pathname}${location.search}#/${route}`);
+      lastNavigationUrl = location.href;
     }
   }
 
@@ -1804,6 +1858,8 @@ async function showSection(sectionId, options = {}) {
     if (overlay) overlay.hidden = true;
   }
   if (sectionId !== 'messe') closeMesseSheet();
+  if (sectionId === 'anagrafica') anagraficaTab = 'chierichetto';
+  if (sectionId === 'cerimonieri') anagraficaTab = 'cerimoniere';
   if (sectionId !== 'gruppi') {
     closeGruppiFormSheet();
     closeGruppiEdit(true);
@@ -1814,17 +1870,23 @@ async function showSection(sectionId, options = {}) {
 
   if (sectionId === 'dashboard') renderDashboard();
   else if (sectionId === 'anagrafica') {
-    if (anagraficaTab === 'cerimoniere') {
-      loadCerimonieriAccounts().then(() => renderCerimonieri());
-    } else {
-      updateAnagraficaFormLabels();
-      renderChierichetti();
-    }
+    anagraficaTab = 'chierichetto';
+    syncAnagFab();
+    updateAnagraficaFormLabels();
+    renderChierichetti();
+  }
+  else if (sectionId === 'cerimonieri') {
+    anagraficaTab = 'cerimoniere';
+    syncAnagFab();
+    void loadCerimonieriAccounts().then(() => renderCerimonieri());
   }
   else if (sectionId === 'turni') renderTurni();
   else if (sectionId === 'gruppi') void renderGruppi();
-  else if (sectionId === 'messe') {
-    showMesseLocalPanel('agenda');
+  else if (sectionId === 'messe') loadMesseAgenda();
+  else if (sectionId === 'strutture-messe') {
+    setStrutturaMesseKind(strutturaMesseKind);
+    renderMesseDomenicaliList();
+    void ensureStrutturaFestivitaLoaded();
   }
   else if (sectionId === 'presenze') renderAppello();
   else if (sectionId === 'registro') {
@@ -2676,6 +2738,7 @@ async function persistConfig() {
     messeIndicazioni: state.messeIndicazioni || {}
   };
   try {
+    if (!isGAS && !isSupabase && !apiOnline) throw new Error('Connessione al server non disponibile');
     if (isGAS) {
       mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio configurazione non riuscito');
     } else if (isSupabase) {
@@ -2683,9 +2746,30 @@ async function persistConfig() {
     } else {
       await persistToApi('/api/config', body);
     }
+    localStorage.removeItem(LITURGICAL_CONFIG_PENDING_KEY);
     return true;
   } catch (e) {
     showToast(e.message || 'Salvataggio configurazione non riuscito');
+    return false;
+  }
+}
+
+async function persistMesseExtra() {
+  saveDataLocal();
+  const body = { messeExtra: state.messeExtra || [] };
+  try {
+    if (!isGAS && !isSupabase && !apiOnline) throw new Error('Connessione al server non disponibile');
+    if (isGAS) {
+      mutationFailed(await gasRun('salvaConfig', body), 'Salvataggio Messe straordinarie non riuscito');
+    } else if (isSupabase) {
+      mutationFailed(await window.ChierichSupabase.salvaConfig(body), 'Salvataggio Messe straordinarie non riuscito');
+    } else {
+      await persistToApi('/api/config', body);
+    }
+    localStorage.removeItem(MESSE_EXTRA_PENDING_KEY);
+    return true;
+  } catch (e) {
+    if (navigator.onLine !== false) showToast(e.message || 'Salvataggio Messe straordinarie non riuscito');
     return false;
   }
 }
@@ -3238,6 +3322,9 @@ function ensureGruppiConfig() {
   try {
     if (!state.gruppiConfig) {
       state.gruppiConfig = JSON.parse(JSON.stringify(DEFAULT_GRUPPI_CONFIG));
+    }
+    if (!state.gruppiConfig.giorniLiturgici || typeof state.gruppiConfig.giorniLiturgici !== 'object' || Array.isArray(state.gruppiConfig.giorniLiturgici)) {
+      state.gruppiConfig.giorniLiturgici = {};
     }
 
     if (Array.isArray(state.gruppiConfig.turni) && !state.gruppiConfig.turniSlot && !state.gruppiConfig.messeDomenicali) {
@@ -6190,32 +6277,22 @@ function setAnagraficaStatusFilter(status) {
 }
 
 function switchAnagraficaTab(ruolo, keepForm) {
-  anagraficaTab = ruolo;
-  document.getElementById('tab-anag-chierichetti').classList.toggle('active', ruolo === 'chierichetto');
-  document.getElementById('tab-anag-cerimonieri').classList.toggle('active', ruolo === 'cerimoniere');
-  document.getElementById('anag-panel-chierichetti').style.display = ruolo === 'chierichetto' ? '' : 'none';
-  document.getElementById('anag-panel-cerimonieri').style.display = ruolo === 'cerimoniere' ? '' : 'none';
-  syncAnagraficaStatusTabs();
-
-  if (ruolo === 'chierichetto') {
-    document.getElementById('persona-ruolo').value = 'chierichetto';
-    if (!keepForm) {
-      cancelPromoteChierichetto();
-      cancelEdit();
-    }
-    else updateAnagraficaFormLabels();
-    renderChierichetti();
-  } else {
-    closeAnagPersonMenu();
-    closeAnagPersonDetail();
-    setAnagFormOpen(false);
-    setCerFormOpen(false);
-    syncAnagFab();
-    loadCerimonieriAccounts().then(() => {
-      renderCerimonieri();
-      if (!keepForm && isCurrentUserAdmin()) cancelCerimoniereEdit();
-    });
+  if (ruolo === 'cerimoniere') {
+    anagraficaTab = 'cerimoniere';
+    void showSection('cerimonieri');
+    return;
   }
+  anagraficaTab = 'chierichetto';
+  document.getElementById('anag-panel-chierichetti').style.display = '';
+  syncAnagraficaStatusTabs();
+  document.getElementById('persona-ruolo').value = 'chierichetto';
+  if (!keepForm) {
+    cancelPromoteChierichetto();
+    cancelEdit();
+  } else {
+    updateAnagraficaFormLabels();
+  }
+  renderChierichetti();
 }
 
 function updateAnagraficaFormLabels() {
@@ -6333,16 +6410,17 @@ function syncAnagFab() {
   const fab = document.getElementById('anag-fab');
   if (!fab) return;
   const onAnag = document.getElementById('anagrafica')?.classList.contains('active');
-  const canAddCer = anagraficaTab === 'cerimoniere' && isCurrentUserAdmin();
+  const onCerimonieri = document.getElementById('cerimonieri')?.classList.contains('active');
+  const canAddCer = onCerimonieri && isCurrentUserAdmin();
   const sheetBusy = isAnagSheetOpen();
-  const show = !!(onAnag && isAnagMobile() && !sheetBusy && (anagraficaTab === 'chierichetto' || canAddCer));
+  const show = !!(isAnagMobile() && !sheetBusy && ((onAnag && anagraficaTab === 'chierichetto') || canAddCer));
   fab.hidden = !show;
   fab.classList.toggle('is-visible', show);
   fab.setAttribute('aria-label', anagraficaTab === 'cerimoniere' ? 'Aggiungi accesso' : 'Aggiungi chierichetto');
 }
 
 function onAnagFabClick() {
-  if (anagraficaTab === 'cerimoniere') startNewCerimoniere();
+  if (document.getElementById('cerimonieri')?.classList.contains('active') || anagraficaTab === 'cerimoniere') startNewCerimoniere();
   else startNewChierichetto();
 }
 
@@ -6670,10 +6748,6 @@ async function renderChierichetti() {
   const nPromossi = anagChi.filter(isChierichettoPromosso).length;
   const mobile = isAnagMobile();
   document.getElementById('tab-anag-chierichetti').textContent = `Chierichetti (${nAttivi})`;
-  const nCerAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
-  document.getElementById('tab-anag-cerimonieri').textContent = mobile
-    ? `Cer. e Don (${nCerAttivi})`
-    : `Cerimonieri e Don (${nCerAttivi})`;
 
   const statusAttivi = document.getElementById('anag-status-attivi');
   const statusEx = document.getElementById('anag-status-ex');
@@ -7276,9 +7350,6 @@ function renderCerimonieri() {
   const nAttivi = cerimonieriAccounts.filter(isPersonaAttiva).length;
   const nEx = cerimonieriAccounts.length - nAttivi;
   const nPreti = cerimonieriAccounts.filter(c => isPersonaAttiva(c) && c.ruolo === 'prete').length;
-  document.getElementById('tab-anag-cerimonieri').textContent = mobile
-    ? `Cer. e Don (${nAttivi})`
-    : `Cerimonieri e Don (${nAttivi})`;
   const cerAttiviBtn = document.getElementById('anag-cer-status-attivi');
   const cerExBtn = document.getElementById('anag-cer-status-ex');
   if (cerAttiviBtn) cerAttiviBtn.textContent = `Attivi (${nAttivi})`;
@@ -9331,7 +9402,7 @@ function editGruppoSquadra(id) {
 }
 
 function deleteGruppoSquadra() {
-  showToast('I gruppi si generano dalle messe con squadra — configura in Messe → Strutture');
+  showToast('I gruppi si generano dalle Messe con squadra — configura nella pagina Strutture Messe');
 }
 
 function editMessaDomenicale(id) {
@@ -9663,7 +9734,41 @@ function dateInRange(dateStr, range) {
  * Contesto liturgico per risolvere la struttura messe.
  * @returns {{ stagione, strutturaKind, preset, label }}
  */
+function getLiturgicalDayOverride(dateStr) {
+  return state.gruppiConfig?.giorniLiturgici?.[dateStr] || null;
+}
+
+function getLiturgicalDayEvent(dateStr) {
+  const events = calState.data?.byDate?.[dateStr] || [];
+  const primary = primaryEvent(events) || events[0] || null;
+  const override = getLiturgicalDayOverride(dateStr);
+  if (!override) return primary;
+  const tipoValue = ['solennita', 'festa', 'memoria', 'memoria-facoltativa', 'feriale'].includes(override.tipo) ? override.tipo : (primary?.tipo || 'feriale');
+  const tipo = tipoValue === 'memoria-facoltativa' ? 'memoria' : tipoValue;
+  const grado = tipoValue === 'memoria-facoltativa' ? 'm' : tipo === 'solennita' ? 'S' : tipo === 'festa' ? 'F' : tipo === 'memoria' ? 'M' : 'm';
+  const tipoLabel = tipoValue === 'memoria-facoltativa' ? 'Memoria facoltativa' : tipo === 'solennita' ? 'Solennità' : tipo === 'festa' ? 'Festa' : tipo === 'memoria' ? 'Memoria' : 'Feriale';
+  return {
+    ...(primary || {}),
+    nome: String(override.nome || primary?.nome || 'Giorno liturgico'),
+    tipo,
+    grado,
+    tipoLabel
+  };
+}
+
 function getLiturgicalContext(dateStr) {
+  const override = getLiturgicalDayOverride(dateStr);
+  if (override) {
+    const primary = getLiturgicalDayEvent(dateStr);
+    const kind = STRUTTURA_KINDS[override.strutturaKind] ? override.strutturaKind : null;
+    return {
+      stagione: kind,
+      strutturaKind: kind,
+      preset: null,
+      label: kind ? getStrutturaMeta(kind).label : (primary?.nome || 'Giorno liturgico'),
+      primary
+    };
+  }
   const preset = detectFestivityPreset(dateStr);
   const specialPreset = preset && preset !== 'solennita' ? preset : null;
   const anno = dateStr.slice(0, 4);
@@ -9781,7 +9886,7 @@ function isSolennitaFestivaDay(dateStr) {
   // dal turno domenicale; non creare una festività separata. Eccezione: Veglia Pasquale.
   if (isVigiliaDomenicaleLiturgica(dateStr)) return false;
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events);
+  const primary = getLiturgicalDayEvent(dateStr);
   return primary?.tipo === 'solennita';
 }
 
@@ -9835,7 +9940,7 @@ function addFestivitaEsclusa(dateStr, { nome, permanent = true } = {}) {
     state.gruppiConfig.festivitaEscluse = [];
   }
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const eventKey = permanent ? (primary?.eventKey || null) : null;
   const label = nome || primary?.nome || dateStr;
   const idx = permanent
@@ -10240,6 +10345,7 @@ function newMessaExtraUuid(prefix = 'MES') {
  */
 function syncFestivitaAnno(anno) {
   anno = String(anno);
+  if (!isCurrentUserAdmin()) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   if (!calState.data?.byDate) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   const hasAnySeason = ['natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
   if (!hasOrarioFestivoConfig() && !hasAnySeason) {
@@ -10290,8 +10396,9 @@ function syncFestivitaAnno(anno) {
     const eventKey = getPrimaryFestivityEventKey(extra.data);
     const modello = getFestivitaModello(eventKey);
     if (modello) {
+      const beforeModello = JSON.stringify(extra);
       applyFestivitaModelloToExtra(extra, modello);
-      updated++;
+      if (JSON.stringify(extra) !== beforeModello) updated++;
       return;
     }
     if (extra.preset) return;
@@ -10320,6 +10427,10 @@ function getMessaInfo(dateStr) {
 
   const ctx = getLiturgicalContext(dateStr);
   if (isFestivitaEsclusa(dateStr)) return null;
+
+  // Ai cerimoniere mostriamo solo domeniche e celebrazioni già confermate
+  // dall'admin come Messe extra; i giorni liturgici senza Messa restano admin-only.
+  if (!isCurrentUserAdmin() && !isSundayDate(dateStr)) return null;
 
   if (ctx.preset && ctx.preset !== 'solennita') {
     return { type: 'festiva', extra: buildSyntheticFestivaExtra(dateStr, ctx), context: ctx };
@@ -10357,7 +10468,7 @@ function getMesseDatesForYear(anno) {
     const info = getMessaInfo(dateStr);
     if (info) set.add(dateStr);
   }
-  return [...set].sort();
+  return [...set].filter(dateStr => !!getMessaInfo(dateStr)).sort();
 }
 
 function getTurniForDate(dateStr) {
@@ -10455,7 +10566,7 @@ function buildMessaAgendaItem(dateStr) {
   const todayStr = getTodayStr();
   const massInfo = getMessaInfo(dateStr);
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const turni = getTurniForAgendaDate(dateStr);
   const d = new Date(dateStr + 'T12:00:00');
   const isToday = dateStr === todayStr;
@@ -10489,6 +10600,13 @@ function buildMessaAgendaItem(dateStr) {
   if (isDomenica) metaParts.push(strutturaLabel || 'Domenica');
   else if (isFestiva) metaParts.push(strutturaLabel || 'Festività');
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
+  const slots = isDomenica ? getMesseOrdinarieSlots(dateStr)
+    : (isFestiva ? getFestivaSlots(dateStr) : []);
+  if (slots.length) {
+    metaParts.push(slots.map(slot => `${slot.ora || ''} ${SEDI_LABEL[slot.sede] || slot.sede || ''}`.trim()).join(' · '));
+  } else if (isExtra && massInfo.extra?.ora) {
+    metaParts.push(`${massInfo.extra.ora} · ${SEDI_LABEL[massInfo.extra.sede] || massInfo.extra.sede || ''}`);
+  }
   const metaLine = metaParts.join(' · ');
 
   const badges = [];
@@ -10534,6 +10652,15 @@ function renderMesseAgenda() {
   const container = document.getElementById('messe-agenda');
   const anno = parseInt(getMesseAnno(), 10);
   const today = getTodayStr();
+  document.querySelectorAll('[data-messe-view]').forEach(btn => {
+    const active = btn.dataset.messeView === messeState.view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  if (messeState.view === 'calendario') {
+    renderMesseMonth();
+    return;
+  }
   let dates = getMesseDatesForYear(anno);
 
   if (!messeState.showPast) {
@@ -10565,6 +10692,59 @@ function renderMesseAgenda() {
     `;
   });
 
+  container.innerHTML = html;
+}
+
+function setMesseView(view) {
+  messeState.view = view === 'calendario' ? 'calendario' : 'agenda';
+  localStorage.setItem('messe_view', messeState.view);
+  document.querySelectorAll('[data-messe-view]').forEach(btn => {
+    const active = btn.dataset.messeView === messeState.view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  renderMesseAgenda();
+}
+
+function shiftMesseMonth(delta) {
+  const date = new Date(parseInt(getMesseAnno(), 10), messeState.month + delta, 1);
+  document.getElementById('anno-messe').value = String(date.getFullYear());
+  messeState.month = date.getMonth();
+  void ensureCalendarioForYear(String(date.getFullYear())).then(() => loadMesseAgenda());
+}
+
+function renderMesseMonth() {
+  const container = document.getElementById('messe-agenda');
+  const year = parseInt(getMesseAnno(), 10);
+  const month = messeState.month;
+  const today = getTodayStr();
+  const dates = getMesseDatesForYear(year).filter(dateStr =>
+    dateStr.slice(5, 7) === String(month + 1).padStart(2, '0')
+      && (messeState.showPast || dateStr >= today)
+  );
+  const firstOffset = getMondayFirstOffset(new Date(year, month, 1));
+  const days = new Date(year, month + 1, 0).getDate();
+  let html = `<div class="messe-calendar-nav">
+    <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(-1)" aria-label="Mese precedente">‹</button>
+    <h4>${MONTHS[month]} ${year}</h4>
+    <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(1)" aria-label="Mese successivo">›</button>
+  </div><div class="calendar-weekdays">${WEEKDAYS.map(day => `<span>${day}</span>`).join('')}</div><div class="calendar-grid messe-calendar-grid">`;
+  for (let i = 0; i < firstOffset; i++) html += '<div class="calendar-day empty"></div>';
+  for (let day = 1; day <= days; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const hasMass = dates.includes(dateStr);
+    const info = hasMass ? getMessaInfo(dateStr) : null;
+    const title = hasMass ? getMessaAgendaTitle(dateStr, info, getLiturgicalDayEvent(dateStr)) : '';
+    const classes = ['calendar-day', 'messe-calendar-day'];
+    if (hasMass) classes.push('has-messa');
+    if (dateStr === today) classes.push('today');
+    if (dateStr === messeState.selectedDate) classes.push('selected');
+    html += `<button type="button" class="${classes.join(' ')}" ${hasMass ? `onclick="selectMessaDay('${dateStr}', true)"` : 'disabled'} aria-label="${day}${hasMass ? `, ${esc(title)}` : ''}">
+      <span class="day-num">${day}</span>${hasMass ? `<span class="messe-calendar-dot" aria-hidden="true"></span><span class="messe-calendar-title">${esc(title)}</span>` : ''}
+    </button>`;
+  }
+  html += '</div>';
+  if (!dates.length) html += '<p class="empty-state">Nessuna Messa in questo mese.</p>';
   container.innerHTML = html;
 }
 
@@ -10713,7 +10893,7 @@ function renderMessaDetail(dateStr) {
   const container = document.getElementById('messa-detail');
   const massInfo = getMessaInfo(dateStr);
   const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
+  const primary = getLiturgicalDayEvent(dateStr);
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
@@ -10851,7 +11031,7 @@ function renderFestivaPresetChips(extra) {
     const meta = getStrutturaMeta(kind);
     const active = current === kind;
     const configured = hasStrutturaConfig(kind);
-    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima in Messe → Strutture' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
+    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima nella pagina Strutture Messe' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
   }).join('');
   return `
     <div class="festiva-preset-block">
@@ -10864,7 +11044,7 @@ function renderFestivaPresetChips(extra) {
 function applyStrutturaToFestivaExtra(uuid, kind) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
   if (!STRUTTURA_KINDS[kind] || !hasStrutturaConfig(kind)) {
-    showToast('Configura prima questa struttura in Messe → Strutture');
+    showToast('Configura prima questa struttura nella pagina Strutture Messe');
     return;
   }
   if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
@@ -11248,7 +11428,7 @@ async function syncFestivitaAnnoManual() {
   if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
   const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
   if (!hasAny) {
-    showToast('Configura almeno una struttura in Messe → Strutture');
+    showToast('Configura almeno una struttura nella pagina Strutture Messe');
     void showSection('messe').then(() => {
       showMesseLocalPanel('strutture');
       setStrutturaMesseKind('festivo');
@@ -11656,7 +11836,7 @@ function renderCalMonth() {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${anno}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const events = byDate[dateStr] || [];
-    const primary = primaryEvent(events);
+    const primary = getLiturgicalDayEvent(dateStr);
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === calState.selectedDate;
 
@@ -11716,7 +11896,12 @@ function ensureCalDaySelected() {
 
 function renderDayDetail(dateStr) {
   const container = document.getElementById('day-detail');
-  const events = calState.data?.byDate?.[dateStr] || [];
+  const sourceEvents = calState.data?.byDate?.[dateStr] || [];
+  const sourcePrimary = primaryEvent(sourceEvents) || sourceEvents[0];
+  const primary = getLiturgicalDayEvent(dateStr);
+  const events = getLiturgicalDayOverride(dateStr) && primary
+    ? [primary, ...sourceEvents.filter(event => event !== sourcePrimary)]
+    : sourceEvents;
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
@@ -11724,9 +11909,10 @@ function renderDayDetail(dateStr) {
   const massBtn = massInfo
     ? `<button type="button" class="btn btn-secondary" style="margin-top:16px" onclick="showMassDetails('${dateStr}')">Vedi in agenda messe</button>`
     : '';
+  const adminEditor = renderLiturgicalDayAdmin(dateStr, primary);
 
   if (!events.length) {
-    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty empty-state-inline">Nessuna celebrazione registrata per questa data.</p>${massBtn}`;
+    container.innerHTML = `<p class="day-detail-date">${esc(dateLabel)}</p><p class="day-detail-empty empty-state-inline">Nessuna celebrazione registrata per questa data.</p>${massBtn}${adminEditor}`;
     return;
   }
 
@@ -11745,7 +11931,63 @@ function renderDayDetail(dateStr) {
       `).join('')}
     </div>
     ${massBtn}
+    ${adminEditor}
   `;
+}
+
+function renderLiturgicalDayAdmin(dateStr, primary) {
+  if (!isCurrentUserAdmin()) return '';
+  const override = getLiturgicalDayOverride(dateStr) || {};
+  const kindOptions = Object.values(STRUTTURA_KINDS).map(meta =>
+    `<option value="${meta.id}" ${(override.strutturaKind || getLiturgicalContext(dateStr).strutturaKind) === meta.id ? 'selected' : ''}>${esc(meta.label)}</option>`
+  ).join('');
+  const type = override.tipo || (primary?.grado === 'm' ? 'memoria-facoltativa' : primary?.tipo) || 'feriale';
+  return `<div class="liturgical-day-admin">
+    <h4>Configurazione del giorno</h4>
+    <div class="form-group"><label for="liturgical-day-name">Giorno liturgico</label><input id="liturgical-day-name" type="text" value="${esc(override.nome || primary?.nome || '')}" placeholder="Es. Domenica delle Palme" maxlength="160"></div>
+    <div class="form-row">
+      <div class="form-group"><label for="liturgical-day-type">Tipo</label><select id="liturgical-day-type">
+        <option value="solennita" ${type === 'solennita' ? 'selected' : ''}>Solennità</option><option value="festa" ${type === 'festa' ? 'selected' : ''}>Festa</option><option value="memoria" ${type === 'memoria' ? 'selected' : ''}>Memoria</option><option value="memoria-facoltativa" ${type === 'memoria-facoltativa' ? 'selected' : ''}>Memoria facoltativa</option><option value="feriale" ${type === 'feriale' ? 'selected' : ''}>Feriale</option>
+      </select></div>
+      <div class="form-group"><label for="liturgical-day-structure">Struttura Messa</label><select id="liturgical-day-structure" required>${kindOptions}</select></div>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-primary" onclick="saveLiturgicalDay('${dateStr}')">Salva giorno</button>${override.nome || override.strutturaKind ? `<button type="button" class="btn btn-ghost" onclick="clearLiturgicalDay('${dateStr}')">Ripristina fonte</button>` : ''}</div>
+  </div>`;
+}
+
+async function saveLiturgicalDay(dateStr) {
+  if (!requireAdminAction('Solo l’admin può modificare il calendario liturgico')) return;
+  const nome = document.getElementById('liturgical-day-name')?.value.trim();
+  const tipo = document.getElementById('liturgical-day-type')?.value;
+  const strutturaKind = document.getElementById('liturgical-day-structure')?.value;
+  if (!nome || !STRUTTURA_KINDS[strutturaKind] || !['solennita', 'festa', 'memoria', 'memoria-facoltativa', 'feriale'].includes(tipo)) {
+    showToast('Indica giorno liturgico, tipo e struttura');
+    return;
+  }
+  ensureGruppiConfig();
+  state.gruppiConfig.giorniLiturgici[dateStr] = { nome, tipo, strutturaKind, updatedAt: new Date().toISOString() };
+  saveDataLocal();
+  const saved = await persistConfig();
+  if (!saved) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  clearLiturgicalSeasonCache();
+  renderCalMonth();
+  renderDayDetail(dateStr);
+  renderMesseAgenda();
+  showToast(saved ? 'Giorno liturgico aggiornato' : 'Modifica salvata sul dispositivo; sincronizzazione in attesa');
+}
+
+async function clearLiturgicalDay(dateStr) {
+  if (!requireAdminAction('Solo l’admin può modificare il calendario liturgico')) return;
+  ensureGruppiConfig();
+  delete state.gruppiConfig.giorniLiturgici[dateStr];
+  saveDataLocal();
+  const saved = await persistConfig();
+  if (!saved) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  clearLiturgicalSeasonCache();
+  renderCalMonth();
+  renderDayDetail(dateStr);
+  renderMesseAgenda();
+  showToast(saved ? 'Giorno ripristinato alla fonte liturgica' : 'Ripristino salvato sul dispositivo; sincronizzazione in attesa');
 }
 
 async function renderProssimeCelebrazioni() {
@@ -11796,7 +12038,7 @@ function showMassDetails(dateStr) {
 }
 
 // ── Form handlers ───────────────────────────────────────────
-document.getElementById('messaExtraForm').addEventListener('submit', e => {
+document.getElementById('messaExtraForm').addEventListener('submit', async e => {
   e.preventDefault();
 
   const data = document.getElementById('messa-extra-data').value;
@@ -11816,7 +12058,7 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
   }
 
   if (usaOrarioDomenicale && !hasOrarioFestivoConfig()) {
-    showToast('Prima configura l\'orario festivo in Turni → Struttura messe');
+    showToast('Prima configura l\'orario festivo nella pagina Strutture Messe');
     goConfiguraOrarioFestivo();
     return;
   }
@@ -11841,9 +12083,17 @@ document.getElementById('messaExtraForm').addEventListener('submit', e => {
   }
   state.messeExtra.push(entry);
 
-  saveData();
-  void persistConfig();
-  showToast(usaOrarioDomenicale ? 'Festività aggiunta' : 'Messa straordinaria aggiunta');
+  saveDataLocal();
+  const saved = await persistMesseExtra();
+  if (!saved && navigator.onLine !== false && apiOnline) {
+    state.messeExtra = state.messeExtra.filter(item => item.uuid !== entry.uuid);
+    saveDataLocal();
+    return;
+  }
+  if (!saved) localStorage.setItem(MESSE_EXTRA_PENDING_KEY, '1');
+  showToast(!saved
+    ? 'Messa salvata sul dispositivo; verrà sincronizzata al ritorno della rete'
+    : (usaOrarioDomenicale ? 'Festività aggiunta' : 'Messa straordinaria aggiunta'));
   e.target.reset();
   toggleMessaExtraOrarioFields();
   closeMesseExtraPanel();
