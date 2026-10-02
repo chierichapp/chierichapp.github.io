@@ -3635,6 +3635,18 @@ body.struttura-modal-open { overflow: hidden; }
   border-style: dashed;
 }
 
+.struttura-day.is-displaced {
+  border-style: dashed;
+}
+
+.struttura-correzione-celeb.is-displaced .struttura-correzione-celeb-title {
+  color: var(--muted);
+}
+
+.struttura-correzione-celeb.is-displaced .struttura-day-empty {
+  font-style: italic;
+}
+
 .struttura-modello-intro {
   margin: 0 0 18px;
   padding: 14px 16px;

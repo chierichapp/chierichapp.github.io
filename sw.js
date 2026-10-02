@@ -2,7 +2,7 @@
  * ChierichApp — service worker
  * Shell offline + aggiornamenti; non cachea API/auth Supabase.
  */
-const CACHE_NAME = 'chierichapp-v99';
+const CACHE_NAME = 'chierichapp-v107';
 const PRECACHE = [
   './',
   './index.html',
