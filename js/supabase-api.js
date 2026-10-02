@@ -39,6 +39,18 @@
     authListenersReady = true;
   }
 
+  /** Attende la sessione persistita (evita falso “non autenticato” al primo paint). */
+  async function getSessionReliable() {
+    const sb = requireClient();
+    let { data: { session }, error } = await sb.auth.getSession();
+    if (error) throw error;
+    if (session?.user) return session;
+    await new Promise(r => setTimeout(r, 250));
+    ({ data: { session }, error } = await sb.auth.getSession());
+    if (error) throw error;
+    return session || null;
+  }
+
   function isPasswordRecovery() {
     detectRecoveryFromUrl();
     return passwordRecoveryPending;
@@ -195,7 +207,7 @@
 
   async function getAuthStatus() {
     const sb = requireClient();
-    const { data: { session } } = await sb.auth.getSession();
+    const session = await getSessionReliable();
     const { data: emptyFlag, error: emptyErr } = await sb.rpc('cerimonieri_is_empty');
     if (emptyErr) throw emptyErr;
     const needsBootstrap = !!emptyFlag;
