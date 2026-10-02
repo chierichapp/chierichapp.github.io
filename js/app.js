@@ -10991,6 +10991,20 @@ function isFestivitaEsclusa(dateStr) {
   });
 }
 
+/** Toglie «senza servizio» per questa data (e eventKey liturgici del giorno). */
+function clearFestivitaEsclusaForDate(dateStr) {
+  ensureGruppiConfig();
+  if (!dateStr || !Array.isArray(state.gruppiConfig.festivitaEscluse)) return false;
+  const before = state.gruppiConfig.festivitaEscluse.length;
+  const keys = new Set(getEventKeysForDate(dateStr));
+  state.gruppiConfig.festivitaEscluse = state.gruppiConfig.festivitaEscluse.filter(ex => {
+    if (ex?.data && ex.data === dateStr) return false;
+    if (ex?.eventKey && keys.has(ex.eventKey)) return false;
+    return true;
+  });
+  return state.gruppiConfig.festivitaEscluse.length !== before;
+}
+
 function findFestivitaEsclusaIndex({ eventKey, data } = {}) {
   const list = getFestivitaEscluse();
   return list.findIndex(ex => {
@@ -12122,12 +12136,12 @@ function renderMessaDetail(dateStr) {
     container.innerHTML = `
       <p class="day-detail-date">${esc(dateLabel)}</p>
       <p class="day-detail-empty empty-state-inline">${esclusa
-        ? 'Senza servizio all\'altare: non rientra in agenda chierichetti con Sync.'
+        ? 'Senza servizio all\'altare. Aggiungi una messa straordinaria (es. Cresime) per rimetterlo in agenda.'
         : 'Non è una messa in agenda (solo domeniche, festività e eccezioni).'}</p>
       <div class="messa-actions">
         ${esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="ripristinaEAggiungiFestivita(${jsStr(dateStr)})">Ripristina e aggiungi</button>` : ''}
         ${canFest && !esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="addFestivitaFromDate(${jsStr(dateStr)})">Aggiungi come festività</button>` : ''}
-        <button type="button" class="btn ${canFest ? 'btn-secondary' : 'btn-primary'}" onclick="prefillMessaExtra(${jsStr(dateStr)})">Aggiungi messa straordinaria</button>
+        <button type="button" class="btn ${canFest || esclusa ? 'btn-secondary' : 'btn-primary'}" onclick="prefillMessaExtra(${jsStr(dateStr)})">${esclusa ? 'Messa straordinaria (rimette in servizio)' : 'Aggiungi messa straordinaria'}</button>
       </div>
     `;
     return;
@@ -12346,12 +12360,7 @@ function addFestivitaFromDate(dateStr) {
     return;
   }
   if (isFestivitaEsclusa(dateStr)) {
-    const events = calState.data?.byDate?.[dateStr] || [];
-    const primary = primaryEvent(events) || events[0];
-    const key = primary?.eventKey || dateStr;
-    state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
-      ex.eventKey !== key && ex.data !== dateStr
-    );
+    clearFestivitaEsclusaForDate(dateStr);
   }
   const extra = buildFestivaExtraRecord(dateStr, { source: 'manual' });
   state.messeExtra.push(extra);
@@ -12367,13 +12376,7 @@ function addFestivitaFromDate(dateStr) {
 
 function ripristinaEAggiungiFestivita(dateStr) {
   if (!requireAdminAction('Solo l\'admin può gestire le festività')) return;
-  const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = primaryEvent(events) || events[0];
-  const key = primary?.eventKey || dateStr;
-  ensureGruppiConfig();
-  state.gruppiConfig.festivitaEscluse = getFestivitaEscluse().filter(ex =>
-    ex.eventKey !== key && ex.data !== dateStr
-  );
+  clearFestivitaEsclusaForDate(dateStr);
   addFestivitaFromDate(dateStr);
 }
 
@@ -13204,6 +13207,8 @@ document.getElementById('messaExtraForm').addEventListener('submit', async e => 
     return;
   }
 
+  const restoredServizio = isFestivitaEsclusa(data) && clearFestivitaEsclusaForDate(data);
+
   const entry = {
     uuid: newMessaExtraUuid(usaOrarioDomenicale ? 'MES-FEST' : 'MES'),
     data,
@@ -13220,22 +13225,32 @@ document.getElementById('messaExtraForm').addEventListener('submit', async e => 
   state.messeExtra.push(entry);
 
   saveDataLocal();
-  const saved = await persistMesseExtra();
+  // Se abbiamo tolto «senza servizio», persistConfig salva anche festivitaEscluse
+  const saved = restoredServizio ? await persistConfig() : await persistMesseExtra();
   if (!saved && navigator.onLine !== false && apiOnline) {
     state.messeExtra = state.messeExtra.filter(item => item.uuid !== entry.uuid);
+    if (restoredServizio) {
+      // best-effort: non ripristiniamo l’esclusione; l’utente può ri-escludere
+    }
     saveDataLocal();
     return;
   }
-  if (!saved) localStorage.setItem(MESSE_EXTRA_PENDING_KEY, '1');
+  if (!saved) {
+    localStorage.setItem(MESSE_EXTRA_PENDING_KEY, '1');
+    if (restoredServizio) localStorage.setItem(LITURGICAL_CONFIG_PENDING_KEY, '1');
+  }
   showToast(!saved
     ? 'Messa salvata sul dispositivo; verrà sincronizzata al ritorno della rete'
-    : (usaOrarioDomenicale ? 'Festività aggiunta' : 'Messa straordinaria aggiunta'));
+    : (usaOrarioDomenicale
+      ? (restoredServizio ? 'Festività aggiunta · di nuovo in servizio' : 'Festività aggiunta')
+      : (restoredServizio ? 'Messa straordinaria aggiunta · giorno di nuovo in servizio' : 'Messa straordinaria aggiunta')));
   e.target.reset();
   toggleMessaExtraOrarioFields();
   closeMesseExtraPanel();
   closeMesseSheet();
   document.getElementById('anno-messe').value = data.slice(0, 4);
   messeState.selectedDate = data;
+  void renderStrutturaCorrezioniPanel();
   loadMesseAgenda().then(() => selectMessaDay(data, true));
 });
 
