@@ -1089,6 +1089,16 @@ async function checkAuthAndInit() {
 
   try {
     window.ChierichSupabase.ensureAuthListeners();
+    if (typeof window.ChierichSupabase.consumeEmailLinkFromUrl === 'function') {
+      const link = await window.ChierichSupabase.consumeEmailLinkFromUrl();
+      if (link?.consumed && link.success === false) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('login');
+        showAuthError(link.message || 'Link non valido o scaduto');
+        return;
+      }
+    }
     // Breve attesa perché detectSessionInUrl / PASSWORD_RECOVERY possano settarsi
     await new Promise(r => setTimeout(r, 80));
     if (window.ChierichSupabase.isPasswordInvite()) {

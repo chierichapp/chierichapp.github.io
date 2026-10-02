@@ -1,5 +1,5 @@
 /**
- * Applica i template email Auth su Supabase (progetto hosted).
+ * Applica template email Auth + Site URL produzione su Supabase (progetto hosted).
  *
  * Uso:
  *   set SUPABASE_ACCESS_TOKEN=sbp_...
@@ -20,8 +20,11 @@ if (!token) {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (name) => readFileSync(join(root, 'supabase', 'templates', name), 'utf8');
+const SITE = 'https://chierichapp.github.io';
 
 const body = {
+  site_url: SITE,
+  uri_allow_list: `${SITE},${SITE}/,${SITE}/**,http://localhost:4173,http://localhost:4173/**`,
   mailer_subjects_confirmation: 'Conferma email — ChierichApp',
   mailer_templates_confirmation_content: load('confirmation.html'),
   mailer_subjects_recovery: 'Reimposta password — ChierichApp',
@@ -45,4 +48,5 @@ if (!res.ok) {
   process.exit(1);
 }
 
-console.log('Template email aggiornati (confirm / recovery / invite).');
+console.log('OK: Site URL →', SITE);
+console.log('OK: template email (confirm / recovery / invite) con link diretti a github.io');

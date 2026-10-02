@@ -24,7 +24,7 @@
                 Conferma questo indirizzo per attivare l’accesso a ChierichApp, riservato a cerimonieri e sacerdoti.
               </p>
               <p style="margin:0 0 24px;text-align:center;">
-                <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;font-weight:600;padding:12px 22px;border-radius:10px;">
+                <a href="https://chierichapp.github.io/?token_hash={{ .TokenHash }}&type=email" style="display:inline-block;background:#2563a8;color:#ffffff;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;font-weight:600;padding:12px 22px;border-radius:10px;">
                   Conferma email
                 </a>
               </p>
@@ -32,7 +32,7 @@
                 Se il pulsante non funziona, copia e incolla questo link nel browser:
               </p>
               <p style="margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.45;word-break:break-all;color:#2563a8;">
-                {{ .ConfirmationURL }}
+                https://chierichapp.github.io/?token_hash={{ .TokenHash }}&type=email
               </p>
             </td>
           </tr>

@@ -32,6 +32,35 @@
     return false;
   }
 
+  /** Link email con token_hash diretto su github.io (niente verify?redirect_to=localhost). */
+  async function consumeEmailLinkFromUrl() {
+    detectRecoveryFromUrl();
+    let tokenHash = '';
+    let type = '';
+    try {
+      const hash = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
+      const search = new URLSearchParams(String(global.location.search || '').replace(/^\?/, ''));
+      tokenHash = hash.get('token_hash') || search.get('token_hash') || '';
+      type = hash.get('type') || search.get('type') || '';
+    } catch { /* ignore */ }
+    if (!tokenHash || !type) return { consumed: false };
+    const otpType = type === 'invite' ? 'invite'
+      : type === 'recovery' ? 'recovery'
+      : type === 'signup' || type === 'email' ? 'email'
+      : type;
+    const sb = requireClient();
+    const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
+    if (type === 'invite') passwordInvitePending = true;
+    if (type === 'recovery' || type === 'invite') passwordRecoveryPending = true;
+    try {
+      if (global.history?.replaceState) {
+        global.history.replaceState(null, '', global.location.pathname);
+      }
+    } catch { /* ignore */ }
+    if (error) return { consumed: true, success: false, message: error.message };
+    return { consumed: true, success: true, session: data?.session || null };
+  }
+
   function ensureAuthListeners() {
     detectRecoveryFromUrl();
     if (authListenersReady) return;
@@ -1079,6 +1108,7 @@
     ricreaInvitoAccesso,
     updatePassword,
     ensureAuthListeners,
+    consumeEmailLinkFromUrl,
     isPasswordRecovery,
     isPasswordInvite,
     clearPasswordRecovery,
