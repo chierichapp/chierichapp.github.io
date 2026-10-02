@@ -5712,10 +5712,10 @@ body.struttura-modal-open { overflow: hidden; }
 }
 
 .appello-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) auto;
-  gap: 10px;
+  display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .appello-toolbar-search {
@@ -7190,8 +7190,10 @@ body.struttura-modal-open { overflow: hidden; }
   }
   .appello-shell-divider { margin-top: 10px; }
   .appello-toolbar {
+    display: flex;
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
     padding: 12px 14px 0;
   }
   .appello-toolbar #appello-parrocchia-tabs-wrap {
@@ -7200,7 +7202,11 @@ body.struttura-modal-open { overflow: hidden; }
     min-width: 0;
   }
   .appello-turno-line { padding: 8px 14px 0; }
-  .appello-workspace-search { width: 100%; min-width: 0; }
+  .appello-workspace-search {
+    width: 100%;
+    min-width: 0;
+    order: 2;
+  }
   .appello-stats { grid-template-columns: repeat(2, 1fr); }
   .appello-row {
     grid-template-columns: auto 1fr;
@@ -8065,8 +8071,17 @@ body.struttura-modal-open { overflow: hidden; }
     -webkit-overflow-scrolling: touch;
   }
   .appello-parrocchia-tabs .section-tab {
-    flex: 1 1 calc(50% - 4px);
-    min-width: calc(50% - 4px);
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 10px 6px;
+    font-size: 0.78rem;
+  }
+  /* Una sola riga: Vanzago · Mantegazza · Cerimonieri (poi Cerca sotto) */
+  .appello-parrocchia-tabs.section-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    width: 100%;
   }
 
   /* Anagrafica — lista a tutta larghezza + sheet mobile */
