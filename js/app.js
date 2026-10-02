@@ -18,8 +18,8 @@ const PAGE_META = {
   anagrafica: { title: 'Anagrafica', subtitle: 'Chierichetti ed ex' },
   cerimonieri:{ title: 'Cerimonieri', subtitle: 'Gestione degli account e dei ruoli' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
-  calendario: { title: 'Calendario liturgico', subtitle: 'Configurazione amministrativa dei giorni liturgici' },
-  'strutture-messe': { title: 'Strutture Messe', subtitle: 'Modelli di celebrazione e turni' },
+  calendario: { title: 'Struttura liturgica', subtitle: 'Calendario ambrosiano e modelli delle celebrazioni' },
+  'strutture-messe': { title: 'Struttura liturgica', subtitle: 'Calendario ambrosiano e modelli delle celebrazioni' },
   info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -263,6 +263,32 @@ function moveStrutturaMesseToMesse() {
   panel.hidden = false;
   panel.style.removeProperty('display');
   if (tab) tab.hidden = true;
+}
+
+function setStrutturaLiturgicaTab(tab) {
+  const showCalendar = tab === 'calendario';
+  const models = document.getElementById('struttura-liturgica-modelli');
+  const calendar = document.getElementById('calendario');
+  if (models) models.hidden = showCalendar;
+  if (calendar) calendar.hidden = !showCalendar;
+  const modelsTab = document.getElementById('tab-struttura-modelli');
+  const calendarTab = document.getElementById('tab-struttura-calendario');
+  if (modelsTab) {
+    modelsTab.classList.toggle('active', !showCalendar);
+    modelsTab.setAttribute('aria-pressed', String(!showCalendar));
+  }
+  if (calendarTab) {
+    calendarTab.classList.toggle('active', showCalendar);
+    calendarTab.setAttribute('aria-pressed', String(showCalendar));
+  }
+  if (showCalendar) {
+    const anno = getCalAnno();
+    if (!calState.data || calState.data.anno !== anno) void loadCalendario();
+    else {
+      renderCalMonth();
+      ensureCalDaySelected();
+    }
+  }
 }
 
 function showMesseLocalPanel(panelName) {
@@ -719,7 +745,7 @@ function syncAdminOnlyNav() {
   document.querySelectorAll('.nav-admin-only').forEach(el => {
     el.hidden = !canAdmin;
   });
-  if (!canAdmin && ['accessi', 'calendario', 'strutture-messe', 'cerimonieri'].some(id => document.getElementById(id)?.classList.contains('active'))) {
+  if (!canAdmin && ['accessi', 'strutture-messe', 'cerimonieri'].some(id => document.getElementById(id)?.classList.contains('active'))) {
     void showSection('dashboard');
   }
 }
@@ -1802,6 +1828,10 @@ async function flushAppelloIfNeeded() {
 }
 
 async function showSection(sectionId, options = {}) {
+  const openCalendarTab = sectionId === 'calendario';
+  if (sectionId === 'calendario') {
+    sectionId = 'strutture-messe';
+  }
   if (sectionId === 'cerimonieri') {
     if (!isCurrentUserAdmin()) {
       showToast('Questa sezione è riservata all\'admin');
@@ -1817,10 +1847,11 @@ async function showSection(sectionId, options = {}) {
     if (!ok) return;
   }
 
-  if (['accessi', 'calendario', 'strutture-messe'].includes(sectionId) && !isCurrentUserAdmin()) {
+  if (['accessi', 'strutture-messe'].includes(sectionId) && !isCurrentUserAdmin()) {
     showToast('Questa sezione è riservata all\'admin');
     return;
   }
+  if (openCalendarTab) setStrutturaLiturgicaTab('calendario');
 
   const next = document.getElementById(sectionId);
   if (!next) return;
@@ -1887,6 +1918,7 @@ async function showSection(sectionId, options = {}) {
   else if (sectionId === 'gruppi') void renderGruppi();
   else if (sectionId === 'messe') loadMesseAgenda();
   else if (sectionId === 'strutture-messe') {
+    if (document.getElementById('calendario')?.hidden === false) setStrutturaLiturgicaTab('calendario');
     setStrutturaMesseKind(strutturaMesseKind);
     renderMesseDomenicaliList();
     void ensureStrutturaFestivitaLoaded();
@@ -9415,7 +9447,7 @@ function editGruppoSquadra(id) {
 }
 
 function deleteGruppoSquadra() {
-  showToast('I gruppi si generano dalle Messe con squadra — configura nella pagina Strutture Messe');
+  showToast('I gruppi si generano dalle Messe con squadra — configura in Struttura liturgica');
 }
 
 function editMessaDomenicale(id) {
@@ -11032,7 +11064,7 @@ function renderFestivaPresetChips(extra) {
     const meta = getStrutturaMeta(kind);
     const active = current === kind;
     const configured = hasStrutturaConfig(kind);
-    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima nella pagina Strutture Messe' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
+    return `<button type="button" class="struttura-chip festiva-preset-chip${active ? ' active' : ''}"${!configured ? ' disabled' : ''} title="${esc(!configured ? 'Configura prima in Struttura liturgica' : (meta.hint || meta.label))}" onclick="applyStrutturaToFestivaExtra(${jsStr(extra.uuid)}, ${jsStr(kind)})">${esc(meta.shortLabel || meta.label)}</button>`;
   }).join('');
   return `
     <div class="festiva-preset-block">
@@ -11045,7 +11077,7 @@ function renderFestivaPresetChips(extra) {
 function applyStrutturaToFestivaExtra(uuid, kind) {
   if (!requireAdminAction('Solo l\'admin può modificare gli orari')) return;
   if (!STRUTTURA_KINDS[kind] || !hasStrutturaConfig(kind)) {
-    showToast('Configura prima questa struttura nella pagina Strutture Messe');
+    showToast('Configura prima questa struttura in Struttura liturgica');
     return;
   }
   if (!Array.isArray(state.messeExtra)) state.messeExtra = [];
@@ -11429,7 +11461,7 @@ async function syncFestivitaAnnoManual() {
   if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
   const hasAny = ['domenicale', 'natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
   if (!hasAny) {
-    showToast('Configura almeno una struttura nella pagina Strutture Messe');
+    showToast('Configura almeno un modello in Struttura liturgica');
     void showSection('messe').then(() => {
       showMesseLocalPanel('strutture');
       setStrutturaMesseKind('festivo');
@@ -12059,7 +12091,7 @@ document.getElementById('messaExtraForm').addEventListener('submit', async e => 
   }
 
   if (usaOrarioDomenicale && !hasOrarioFestivoConfig()) {
-    showToast('Prima configura l\'orario festivo nella pagina Strutture Messe');
+    showToast('Prima configura l\'orario festivo in Struttura liturgica');
     goConfiguraOrarioFestivo();
     return;
   }

@@ -127,19 +127,13 @@
         </span>
         Messe
       </button>
-      <button class="nav-item nav-admin-only" data-section="calendario" onclick="showSection('calendario')" hidden>
-        <span class="nav-item-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
-        </span>
-        Calendario
-      </button>
       <button class="nav-item" data-section="info" onclick="showSection('info')">
         <span class="nav-item-icon" aria-hidden="true">ⓘ</span>
         Info sull’app
       </button>
       <button class="nav-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
         <span class="nav-item-icon" aria-hidden="true">⚙</span>
-        Strutture Messe
+        Struttura liturgica
       </button>
       <button class="nav-item" data-section="gruppi" onclick="showSection('gruppi')">
         <span class="nav-item-icon" aria-hidden="true">
@@ -532,9 +526,9 @@
             </div>
             <div class="panel-body">
               <div class="turni-structure-hint">
-                <strong>Le strutture si configurano nella pagina Strutture Messe.</strong>
+                <strong>I modelli si configurano in Struttura liturgica.</strong>
                 <span>Qui vengono usate solo le Messe contrassegnate “Con squadra” per assegnare e ruotare i gruppi.</span>
-                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('strutture-messe')">Apri Strutture</button>
+                <button type="button" class="btn btn-ghost-light btn-inline-link" onclick="showSection('strutture-messe')">Apri Struttura liturgica</button>
               </div>
               <p class="rotazione-status-text" id="rotazione-anteprima-text">Apri una finestra da Gestione per attivare la rotazione automatica.</p>
               <div class="rotazione-preview" id="rotazione-preview"></div>
@@ -1110,14 +1104,17 @@
 
       <section id="strutture-messe" class="section">
         <div class="panel-head calendario-page-intro">
-          <h3>Strutture Messe</h3>
-          <p>Modelli ricorrenti delle celebrazioni e configurazione dei turni.</p>
+          <h3>Struttura liturgica</h3>
+          <p>Calendario ambrosiano e modelli delle celebrazioni locali.</p>
         </div>
-        <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
-      </section>
+        <div class="section-tabs" role="tablist" aria-label="Struttura liturgica">
+          <button type="button" class="section-tab active" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="true" onclick="setStrutturaLiturgicaTab('modelli')">Modelli delle Messe</button>
+          <button type="button" class="section-tab" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="false" onclick="setStrutturaLiturgicaTab('calendario')">Calendario liturgico</button>
+        </div>
+        <div id="struttura-liturgica-modelli" role="tabpanel" aria-labelledby="tab-struttura-modelli"><div id="strutture-messe-slot" class="messe-strutture-slot"></div></div>
 
-      <!-- Calendario liturgico ambrosiano -->
-      <section id="calendario" class="section">
+        <!-- Calendario liturgico ambrosiano -->
+        <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario" hidden>
         <div class="panel-head calendario-page-intro">
           <h3>Calendario liturgico ambrosiano</h3>
           <p>Agenda liturgica ufficiale: domeniche, feste, memorie e colori liturgici. Le celebrazioni locali si gestiscono in Messe.</p>
@@ -1190,6 +1187,7 @@
         </div>
 
         <p class="cal-source" id="cal-source"></p>
+      </div>
       </section>
 
       <!-- Accessi (log login — solo admin) -->
@@ -1225,7 +1223,7 @@
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Strutture delle celebrazioni</h3></div>
-              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano nella pagina <strong>Strutture Messe</strong>, riservata all’admin.</p></div>
+              <div class="panel-body"><p>Sono i modelli ricorrenti usati per creare le Messe locali:</p><ul><li>domenicale ordinario;</li><li>tempi natalizio, pasquale e defunti;</li><li>festivo generico (solennità e feste);</li><li>vigilia e Messe del giorno;</li><li>Messe con squadra o libere.</li></ul><p>Si configurano nella sezione <strong>Struttura liturgica</strong>, riservata all’admin.</p></div>
             </article>
             <article class="panel info-card">
               <div class="panel-head"><h3>Celebrazioni straordinarie</h3></div>
@@ -1368,13 +1366,9 @@
         <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M6 22V11l6-5 6 5v11"/><path d="M6 22h12"/><path d="M10 22v-5h4v5"/><path d="M12 11v3"/></svg></span>
         Messe
       </button>
-      <button type="button" class="mobile-more-item nav-admin-only" data-section="calendario" onclick="showSection('calendario')" hidden>
-        <span class="mobile-more-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg></span>
-        Calendario
-      </button>
       <button type="button" class="mobile-more-item nav-admin-only" data-section="strutture-messe" onclick="showSection('strutture-messe')" hidden>
         <span class="mobile-more-ico" aria-hidden="true">⚙</span>
-        Strutture Messe
+        Struttura liturgica
       </button>
       <button type="button" class="mobile-more-item" data-section="info" onclick="showSection('info')">
         <span class="mobile-more-ico" aria-hidden="true">ⓘ</span>
