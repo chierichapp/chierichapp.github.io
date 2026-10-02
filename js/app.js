@@ -1110,15 +1110,7 @@ async function checkAuthAndInit() {
         showAuthError(inviteStatus.message || 'Account non attivo o non autorizzato');
         return;
       }
-      if (inviteStatus.user.inviteAccepted === true
-        && inviteStatus.user.accountActivated === true) {
-        saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
-        window.ChierichSupabase.clearPasswordRecovery();
-        try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
-        showAppShell();
-        initApp();
-        return;
-      }
+      // Dopo link invito: sempre form attivazione / nuova password
       saveSession(inviteStatus.token || 'supabase', inviteStatus.user);
       showAuthGate();
       setAuthMode('invite');
@@ -1133,16 +1125,7 @@ async function checkAuthAndInit() {
         showAuthError(recoveryStatus.message || 'Account non attivo o non autorizzato');
         return;
       }
-      if (recoveryStatus.user.accountActivated === true
-        && recoveryStatus.user.inviteAccepted === true
-        && recoveryStatus.user.passwordChanged === true) {
-        saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
-        window.ChierichSupabase.clearPasswordRecovery();
-        try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
-        showAppShell();
-        initApp();
-        return;
-      }
+      // Dopo link recovery/invito: sempre form nuova password (anche se passwordChanged era già true)
       saveSession(recoveryStatus.token || 'supabase', recoveryStatus.user);
       showAuthGate();
       setAuthMode(recoveryStatus.user?.inviteAccepted === false ? 'invite' : 'recovery');
