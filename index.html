@@ -1171,32 +1171,21 @@
           </div>
         </div>
 
-        <!-- 3. Correzioni: esclusioni + sedi/orari di quest’anno -->
+        <!-- 3. Correzioni anno pastorale -->
         <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
-          <div class="panel struttura-correzioni-panel" id="struttura-correzioni-list-panel">
-            <div class="panel-head struttura-correzioni-head">
-              <div>
-                <h3>Correzioni anno pastorale</h3>
-                <p>Giorni liturgici con modello applicato: modifica messe, orari e sedi solo per quest’anno. Senza messe = senza servizio.</p>
-              </div>
-              <div class="struttura-applica-toolbar struttura-correzioni-year">
-                <label for="anno-struttura-correzioni">Anno</label>
-                <select id="anno-struttura-correzioni" onchange="onStrutturaCorrezioniAnnoChange()">
-                  <option value="2026" selected>2026/27</option>
-                </select>
-              </div>
+          <div class="struttura-correzioni-toolbar">
+            <div class="struttura-correzioni-toolbar-copy">
+              <h3>Correzioni</h3>
+              <p id="struttura-correzioni-sub">Giorni speciali di quest’anno · senza messe = senza servizio</p>
             </div>
-            <div class="panel-body">
-              <div id="struttura-correzioni-list"></div>
+            <div class="struttura-correzioni-toolbar-actions">
+              <label for="anno-struttura-correzioni">Anno</label>
+              <select id="anno-struttura-correzioni" onchange="onStrutturaCorrezioniAnnoChange()">
+                <option value="2026" selected>2026/27</option>
+              </select>
             </div>
           </div>
-          <div class="panel" id="struttura-correzioni-editor-panel" hidden>
-            <div class="panel-head">
-              <h3 id="struttura-correzioni-editor-title">Sedi di quest’anno pastorale</h3>
-              <p>Modifica solo per l’anno pastorale selezionato (set–ago). Il modello nei Modelli non cambia.</p>
-            </div>
-            <div class="panel-body" id="struttura-correzioni-editor"></div>
-          </div>
+          <div id="struttura-correzioni-list" class="struttura-correzioni-list"></div>
         </div>
       </section>
 

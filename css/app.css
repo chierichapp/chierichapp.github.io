@@ -3307,59 +3307,86 @@ body.struttura-modal-open { overflow: hidden; }
   max-width: 42rem;
 }
 
-.struttura-correzioni-head {
+.struttura-correzioni-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px 16px;
+  margin-bottom: 16px;
 }
 
-.struttura-correzioni-head > div:first-child {
-  flex: 1 1 16rem;
+.struttura-correzioni-toolbar-copy {
+  flex: 1 1 14rem;
   min-width: 0;
 }
 
-.struttura-correzioni-year {
-  margin: 0;
-  flex: 0 0 auto;
-}
-
-.struttura-correzioni-summary {
-  margin-bottom: 8px;
-}
-
-.struttura-correzioni-block {
-  margin-top: 22px;
-  padding-top: 4px;
-}
-
-.struttura-correzioni-block-title {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
+.struttura-correzioni-toolbar-copy h3 {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--ink);
 }
 
-.struttura-correzioni-block-lead {
-  margin: 0 0 12px;
-  font-size: 0.82rem;
+.struttura-correzioni-toolbar-copy p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.struttura-correzioni-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  flex: 0 0 auto;
+}
+
+.struttura-correzioni-toolbar-actions label {
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--muted);
 }
 
-.struttura-sedi-line {
-  display: inline-block;
-  margin-top: 2px;
-  color: var(--ink-soft, var(--ink));
+.struttura-correzioni-toolbar-actions select {
+  min-width: 6.5rem;
 }
 
-.struttura-correzione-day {
+.struttura-correzioni-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.struttura-correzioni-empty {
+  display: flex;
+  flex-direction: column;
   align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0 4px;
 }
 
-.struttura-correzione-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.struttura-correzioni-month {
+  margin: 14px 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.struttura-correzioni-month:first-child {
+  margin-top: 0;
+}
+
+.struttura-correzioni-days {
+  margin-bottom: 4px;
+}
+
+.struttura-day.is-senza-messe {
+  opacity: 0.88;
+  border-style: dashed;
 }
 
 .struttura-modello-intro {
@@ -3380,55 +3407,6 @@ body.struttura-modal-open { overflow: hidden; }
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--ink);
-}
-
-.struttura-correzioni-baseline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 8px;
-  padding: 14px 16px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent, #2a5a4a) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #2a5a4a) 18%, transparent);
-}
-
-.struttura-correzioni-baseline-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.struttura-correzioni-baseline .config-item-title {
-  margin: 0 0 2px;
-}
-
-.struttura-correzioni-baseline .config-item-meta {
-  margin: 0;
-}
-
-.struttura-correzioni-month {
-  margin: 14px 0 6px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.config-item.is-anno-override {
-  border-left: 3px solid color-mix(in srgb, var(--accent, #2a5a4a) 55%, transparent);
-  padding-left: 10px;
-}
-
-.config-item.is-senza-messe {
-  border-left: 3px solid color-mix(in srgb, var(--muted) 45%, transparent);
-  opacity: 0.88;
-}
-
-.struttura-correzioni-hint {
-  margin: -4px 0 12px;
 }
 
 .struttura-applica-toolbar {
@@ -6741,18 +6719,13 @@ body.struttura-modal-open { overflow: hidden; }
     font-size: 0.98rem;
   }
 
-  #strutture-messe .struttura-correzioni-head {
+  #strutture-messe .struttura-correzioni-toolbar {
     flex-direction: column;
     align-items: stretch;
   }
 
-  #strutture-messe .struttura-correzione-actions {
-    width: 100%;
-    margin-top: 8px;
-  }
-
-  #strutture-messe .struttura-correzione-actions .btn {
-    flex: 1 1 auto;
+  #strutture-messe .struttura-correzioni-toolbar-actions {
+    justify-content: space-between;
   }
 
   #strutture-messe .struttura-day-actions {
@@ -9252,10 +9225,6 @@ body.struttura-modal-open { overflow: hidden; }
 
   #strutture-messe .struttura-day-title {
     font-size: 1.12rem;
-  }
-
-  #strutture-messe .struttura-correzioni-block {
-    margin-top: 28px;
   }
 
   #strutture-messe .struttura-messe-kind {

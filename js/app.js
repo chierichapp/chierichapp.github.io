@@ -4537,6 +4537,7 @@ function openCorrezioneOrari(dateStr) {
 }
 
 function closeStrutturaCorrezioniEditor() {
+  closeStrutturaModelloModal();
   void renderStrutturaCorrezioniPanel();
 }
 
@@ -4550,7 +4551,6 @@ function isCorrezioniListedDay(d, extra) {
   if (isSundayDate(d.data)) return false;
   if (isSolennitaFestivaDay(d.data)) return true;
   const primary = getLiturgicalDayEvent(d.data);
-  // Feste vere sì; memorie / feriali no (restano sul modello solo se personalizzate)
   if (primary?.tipo === 'festa') return true;
   return false;
 }
@@ -4603,11 +4603,7 @@ function getCorrezioniDaysForAnno(anno) {
 
 async function renderStrutturaCorrezioniPanel() {
   const listEl = document.getElementById('struttura-correzioni-list');
-  const listPanel = document.getElementById('struttura-correzioni-list-panel');
-  const editorPanel = document.getElementById('struttura-correzioni-editor-panel');
   if (!listEl) return;
-  if (listPanel) listPanel.hidden = false;
-  if (editorPanel) editorPanel.hidden = true;
 
   const anno = getStrutturaFestivitaAnno();
   const pastoralLabel = formatPastoralYearLabel(anno);
@@ -4624,104 +4620,108 @@ async function renderStrutturaCorrezioniPanel() {
   const days = getCorrezioniDaysForAnno(anno);
   const nDom = countDomenicheOrdinarieAnno(anno);
   const hasDom = hasStrutturaConfig('domenicale');
-  const nDomSlots = hasDom ? getStrutturaSlots('domenicale').length : 0;
-  const nAnnoOverride = days.filter(d => getMessaExtraForDate(d.data)?.orarioPersonalizzato).length;
-  const nSenzaMesse = days.filter(d => {
+  const nOverride = days.filter(d => getMessaExtraForDate(d.data)?.orarioPersonalizzato).length;
+  const nSenza = days.filter(d => {
     const extra = getMessaExtraForDate(d.data);
-    if (!extra || !isExtraFestiva(extra)) return false;
-    return getFestivaTemplateSlots(extra).length === 0;
+    return !!(extra && isExtraFestiva(extra) && getFestivaTemplateSlots(extra).length === 0);
   }).length;
 
-  let html = `
-    <div class="struttura-correzioni-summary">
-      <div class="struttura-correzioni-baseline">
-        <div class="struttura-correzioni-baseline-main">
-          <p class="config-item-title">Domeniche ordinarie · ${esc(pastoralLabel)}</p>
-          <p class="config-item-meta">${hasDom
-            ? `${nDom} domeniche · modello domenicale (${nDomSlots} messe)`
-            : 'Modello domenicale non configurato'}${nAnnoOverride ? ` · ${nAnnoOverride} giorni con sedi di quest’anno` : ''}</p>
-          <p class="config-item-meta">${esc(formatStrutturaPastoralRangeLabel(anno))}</p>
-        </div>
-        ${canManage ? `
-          <div class="config-item-actions">
-            <button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind('domenicale')">Apri modello</button>
-          </div>` : ''}
-      </div>
-    </div>
-  `;
-
-  html += '<section class="struttura-correzioni-block">';
-  html += '<h4 class="struttura-correzioni-block-title">Giorni con modello</h4>';
-  html += '<p class="struttura-correzioni-block-lead">Modifica messe, orari e sedi per quest’anno. Se non restano messe, il giorno è senza servizio.</p>';
-  if (!days.length) {
-    html += '<p class="empty-state">Nessun giorno speciale applicato. Configura e salva i modelli: compaiono qui.</p>';
-  } else {
-    if (nSenzaMesse) {
-      html += `<p class="liturgy-meta struttura-correzioni-hint">${nSenzaMesse} ${nSenzaMesse === 1 ? 'giorno senza messe' : 'giorni senza messe'} (senza servizio)</p>`;
-    }
-    const byMonth = {};
-    days.forEach(d => {
-      const key = String(d.data).slice(0, 7);
-      if (!byMonth[key]) byMonth[key] = [];
-      byMonth[key].push(d);
-    });
-    Object.keys(byMonth).sort().forEach(monthKey => {
-      const label = new Date(monthKey + '-15T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-      html += '<p class="struttura-correzioni-month">' + esc(label) + '</p><div class="config-list struttura-correzioni-days">';
-      html += byMonth[monthKey].map(d => {
-        const extra = getMessaExtraForDate(d.data);
-        let slots = [];
-        let sediBit = '';
-        let nMesse = 0;
-        if (extra && isExtraFestiva(extra)) {
-          slots = getFestivaTemplateSlots(extra);
-          nMesse = slots.length;
-          sediBit = slots.map(s => s.ora + ' ' + (SEDI_LABEL[s.sede] || s.sede)).join(' · ');
-        } else if (extra && extra.tipo === 'straordinaria') {
-          nMesse = 1;
-          sediBit = (extra.ora || '10:00') + ' ' + (SEDI_LABEL[extra.sede] || extra.sede || '');
-        } else if (d.materialize) {
-          nMesse = null;
-        }
-        const senzaMesse = nMesse === 0;
-        const annoBit = extra?.orarioPersonalizzato ? ' · sedi di quest’anno' : '';
-        const kindBit = d.straordinaria
-          ? 'Straordinaria'
-          : (d.kind ? getStrutturaMeta(d.kind).label : 'Modello');
-        const presetBit = d.preset && d.preset !== 'solennita'
-          ? ' · ' + getFestivityPresetMeta(d.preset).label
-          : '';
-        const countBit = nMesse == null
-          ? ' · da materializzare'
-          : (senzaMesse ? ' · senza messe' : ` · ${nMesse} messe`);
-        return (
-          '<div class="config-item struttura-correzione-day' +
-            (extra?.orarioPersonalizzato ? ' is-anno-override' : '') +
-            (senzaMesse ? ' is-senza-messe' : '') + '">' +
-            '<div class="config-item-main">' +
-              '<p class="config-item-title">' + esc(formatFestivitaDateShort(d.data)) + ' · ' + esc(d.label) + '</p>' +
-              '<p class="config-item-meta">' + esc(kindBit) + esc(presetBit) + esc(annoBit) + esc(countBit) +
-                (sediBit ? '<br><span class="struttura-sedi-line">' + esc(sediBit) + '</span>' : '') + '</p>' +
-            '</div>' +
-            (canManage
-              ? '<div class="config-item-actions struttura-correzione-actions">' +
-                  (d.straordinaria && extra?.uuid
-                    ? '<button type="button" class="btn btn-secondary" onclick="openFestivitaFromStruttura(' + jsStr(d.data) + ')">Apri in Messe</button>'
-                    : '<button type="button" class="btn btn-primary" onclick="editCorrezioneAnno(' + jsStr(d.data) + ')">Modifica</button>') +
-                '</div>'
-              : '') +
-          '</div>'
-        );
-      }).join('');
-      html += '</div>';
-    });
+  const sub = document.getElementById('struttura-correzioni-sub');
+  if (sub) {
+    const bits = [
+      hasDom ? `${nDom} domeniche` : 'domenicale non configurato',
+      `${days.length} speciali`,
+      nOverride ? `${nOverride} personalizzati` : null,
+      nSenza ? `${nSenza} senza messe` : null
+    ].filter(Boolean);
+    sub.textContent = bits.join(' · ') + ' · ' + formatStrutturaPastoralRangeLabel(anno);
   }
-  html += '</section>';
+
+  if (!days.length) {
+    listEl.innerHTML = `
+      <div class="struttura-correzioni-empty">
+        <p class="empty-state">Nessun giorno speciale per ${esc(pastoralLabel)}</p>
+        ${canManage ? `<button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli')">Apri Modelli</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  const byMonth = {};
+  days.forEach(d => {
+    const key = String(d.data).slice(0, 7);
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(d);
+  });
+
+  let html = '';
+  Object.keys(byMonth).sort().forEach(monthKey => {
+    const label = new Date(monthKey + '-15T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    html += `<h4 class="struttura-correzioni-month">${esc(label)}</h4>`;
+    html += '<div class="struttura-days struttura-correzioni-days">';
+    html += byMonth[monthKey].map(d => renderCorrezioneDayCard(d, canManage)).join('');
+    html += '</div>';
+  });
 
   listEl.innerHTML = html;
 }
 
-/** Editor sedi/orari solo per l’anno civile (non tocca il modello). */
+function renderCorrezioneDayCard(d, canManage) {
+  const extra = getMessaExtraForDate(d.data);
+  let slots = [];
+  let nMesse = 0;
+  if (extra && isExtraFestiva(extra)) {
+    slots = getFestivaTemplateSlots(extra);
+    nMesse = slots.length;
+  } else if (extra && extra.tipo === 'straordinaria') {
+    nMesse = 1;
+    slots = [{ ora: extra.ora || '10:00', sede: extra.sede || 'santuario', conTurno: true }];
+  }
+  const senzaMesse = nMesse === 0 && !d.materialize;
+  const kindBit = d.straordinaria
+    ? 'Straordinaria'
+    : (d.kind ? getStrutturaMeta(d.kind).shortLabel || getStrutturaMeta(d.kind).label : 'Speciale');
+  const metaBits = [
+    kindBit,
+    extra?.orarioPersonalizzato ? 'quest’anno' : null,
+    d.materialize ? 'da applicare' : (senzaMesse ? 'senza messe' : `${nMesse} messe`)
+  ].filter(Boolean).join(' · ');
+
+  const openAttrs = canManage && !(d.straordinaria && extra?.uuid)
+    ? `role="button" tabindex="0" onclick="editCorrezioneAnno(${jsStr(d.data)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editCorrezioneAnno(${jsStr(d.data)})}"`
+    : '';
+
+  const sched = slots.length
+    ? `<ul class="struttura-sched">${slots.map(s => {
+        const servizio = s.conTurno
+          ? (s.turnoNum ? formatMessaServizioShort(s.turnoNum) : 'Squadra')
+          : 'Libera';
+        return `<li class="struttura-sched-row${s.conTurno ? ' has-squadra' : ' is-libera'}">
+          <span class="struttura-sched-ora">${esc(s.ora || '—')}</span>
+          <span class="struttura-sched-main"><span class="struttura-sched-sede">${esc(SEDI_LABEL[s.sede] || s.sede || '')}</span></span>
+          <span class="struttura-sched-servizio">${esc(servizio)}</span>
+        </li>`;
+      }).join('')}</ul>`
+    : `<p class="empty-state struttura-day-empty">${d.materialize ? 'Segue il modello' : 'Nessuna messa'}</p>`;
+
+  return `
+    <article class="struttura-day is-card${canManage && !d.straordinaria ? ' is-clickable' : ''}${extra?.orarioPersonalizzato ? ' is-customized' : ''}${senzaMesse ? ' is-senza-messe' : ''}" ${openAttrs}>
+      <header class="struttura-day-head">
+        <div class="struttura-day-copy">
+          <h4 class="struttura-day-title">${esc(formatFestivitaDateShort(d.data))} · ${esc(d.label)}</h4>
+          <p class="struttura-day-meta">${esc(metaBits)}</p>
+        </div>
+        ${canManage ? `
+          <div class="struttura-day-actions" onclick="event.stopPropagation()">
+            ${d.straordinaria && extra?.uuid
+              ? `<button type="button" class="btn btn-secondary" onclick="openFestivitaFromStruttura(${jsStr(d.data)})">Apri</button>`
+              : `<button type="button" class="btn btn-secondary" onclick="editCorrezioneAnno(${jsStr(d.data)})">Modifica</button>`}
+          </div>` : ''}
+      </header>
+      ${sched}
+    </article>`;
+}
+
+/** Editor sedi/orari solo per l’anno pastorale (modal; non tocca il modello). */
 function editCorrezioneAnno(dateStr) {
   if (!requireAdminAction('Solo l\'admin può correggere le sedi dell\'anno')) return;
   const extra = ensureFestivaExtraMaterialized(dateStr);
@@ -4736,33 +4736,32 @@ function editCorrezioneAnno(dateStr) {
     else applyPresetToFestivaExtra(extra, detectFestivityPreset(dateStr));
   }
 
-  const listPanel = document.getElementById('struttura-correzioni-list-panel');
-  const editorPanel = document.getElementById('struttura-correzioni-editor-panel');
-  const container = document.getElementById('struttura-correzioni-editor');
-  const titleEl = document.getElementById('struttura-correzioni-editor-title');
-  if (!container || !editorPanel) return;
-
-  if (listPanel) listPanel.hidden = true;
-  editorPanel.hidden = false;
-  if (titleEl) titleEl.textContent = (extra.nota || 'Festività') + ' · ' + (extra.data || dateStr);
+  const host = document.getElementById('struttura-slots-editor-host');
+  if (!host) return;
   const slots = getFestivaTemplateSlots(extra);
   const startY = getPastoralStartForDateStr(extra.data || dateStr);
   const pastoralLabel = formatPastoralYearLabel(startY);
-  container.innerHTML = `
-    <p class="liturgy-meta">Modifica messe, sedi e orari <strong>solo per l’anno pastorale ${esc(pastoralLabel)}</strong> (${esc(formatStrutturaPastoralRangeLabel(startY))}). Se togli tutte le messe, il giorno resta senza servizio. Il modello in Modelli non cambia.</p>
+  host.innerHTML = `
     <div id="festiva-slots-editor" data-uuid="${esc(extra.uuid)}" data-mount="anno">
       ${festivaSlotEditorRowsHtml(slots) || '<p class="empty-state">Nessuna celebrazione</p>'}
     </div>
-    <div class="messa-actions" style="flex-wrap:wrap;gap:8px;margin-top:12px">
-      <button type="button" class="btn btn-ghost" onclick="addFestivaSlotRow()">+ Celebrazione</button>
+  `;
+  openStrutturaModelloModal({
+    title: extra.nota || 'Festività',
+    sub: formatFestivitaDateShort(extra.data || dateStr) + ' · solo ' + pastoralLabel,
+    mode: 'slots'
+  });
+  const actions = document.getElementById('struttura-modello-modal-actions');
+  if (actions) {
+    actions.innerHTML = `
+      <button type="button" class="btn btn-ghost" onclick="addFestivaSlotRow()">+ Messa</button>
       ${extra.orarioPersonalizzato
         ? `<button type="button" class="btn btn-ghost" onclick="ripristinaCorrezioneAnno(${jsStr(extra.uuid)})">Torna al modello</button>`
         : ''}
       <button type="button" class="btn btn-secondary" onclick="closeStrutturaCorrezioniEditor()">Annulla</button>
-      <button type="button" class="btn btn-primary" onclick="saveCorrezioneAnno(${jsStr(extra.uuid)})">Salva per ${esc(pastoralLabel)}</button>
-    </div>
-  `;
-  editorPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      <button type="button" class="btn btn-primary" onclick="saveCorrezioneAnno(${jsStr(extra.uuid)})">Salva</button>
+    `;
+  }
 }
 
 function saveCorrezioneAnno(uuid) {
@@ -4805,6 +4804,7 @@ function saveCorrezioneAnno(uuid) {
   showToast(slots.length
     ? ('Sedi salvate per ' + formatPastoralYearLabel(getPastoralStartForDateStr(extra.data)) + ' (modello invariato)')
     : ('Nessuna messa · senza servizio per ' + formatPastoralYearLabel(getPastoralStartForDateStr(extra.data))));
+  closeStrutturaModelloModal();
   void renderStrutturaCorrezioniPanel();
   renderMesseAgenda();
   if (messeState.selectedDate === extra.data) renderMessaDetail(extra.data);
