@@ -10501,19 +10501,7 @@ async function loadMesseAgenda() {
   try {
     const anno = getMesseAnno();
     await ensureCalendarioForYear(anno);
-    const syncResult = syncFestivitaAnno(anno);
-    updateMesseFestivoBanner(syncResult.needsConfig);
-    if (syncResult.added > 0 || syncResult.updated > 0 || syncResult.removed > 0) {
-      saveDataLocal();
-      if (isCurrentUserAdmin()) void persistConfig();
-      if (syncResult.removed > 0 && syncResult.added === 0 && syncResult.updated === 0) {
-        showToast(syncResult.removed === 1
-          ? 'Rimossa 1 vigilia domenicale dal sync'
-          : `Rimosse ${syncResult.removed} vigilie domenicali dal sync`);
-      } else if (syncResult.added === 1) showToast('Aggiunta 1 festività con orario festivo');
-      else if (syncResult.added > 1) showToast(`Aggiunte ${syncResult.added} festività con orario festivo`);
-      else if (syncResult.updated > 0) showToast('Aggiornati i preset delle festività');
-    }
+    updateMesseFestivoBanner(false);
     updateMesseAgendaSummary();
     renderMesseAgenda();
 
