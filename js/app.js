@@ -366,8 +366,33 @@ function showAuthInfo(msg) {
   }
 }
 
+function toggleAuthPassword(inputId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(inputId + '-toggle');
+  if (!input || !btn) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+  btn.setAttribute('aria-label', show ? 'Nascondi password' : 'Mostra password');
+  btn.title = show ? 'Nascondi password' : 'Mostra password';
+}
+
+function resetAuthPasswordVisibility() {
+  ['auth-password', 'auth-password2'].forEach(id => {
+    const input = document.getElementById(id);
+    const btn = document.getElementById(id + '-toggle');
+    if (input) input.type = 'password';
+    if (btn) {
+      btn.setAttribute('aria-pressed', 'false');
+      btn.setAttribute('aria-label', 'Mostra password');
+      btn.title = 'Mostra password';
+    }
+  });
+}
+
 function setAuthMode(mode, extra = {}) {
   authMode = mode;
+  resetAuthPasswordVisibility();
   const isBootstrap = mode === 'bootstrap';
   const isUnauthorized = mode === 'unauthorized';
   const waitGoogle = mode === 'google-wait';
@@ -1057,6 +1082,34 @@ async function checkAuthAndInit() {
       initApp();
       return;
     }
+    // Sessione forse ancora in hydration: un secondo tentativo prima di mostrare il login
+    if (!status.needsBootstrap && !status.unauthorized) {
+      await new Promise(r => setTimeout(r, 350));
+      const again = await fetchAuthStatus();
+      if (again.authenticated && again.user
+        && again.user.accountActivated === true
+        && again.user.inviteAccepted === true
+        && !again.mustChangePassword
+        && !again.pendingActivation) {
+        saveSession(again.token || 'supabase', again.user);
+        showAppShell();
+        initApp();
+        return;
+      }
+      if (again.needsBootstrap) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('bootstrap');
+        return;
+      }
+      if (again.unauthorized) {
+        clearSession();
+        showAuthGate();
+        setAuthMode('login');
+        showAuthError(again.message || 'Account non autorizzato');
+        return;
+      }
+    }
     clearSession();
     showAuthGate();
     if (status.needsBootstrap) setAuthMode('bootstrap');
@@ -1065,9 +1118,43 @@ async function checkAuthAndInit() {
       showAuthError(status.message || 'Account non autorizzato');
     } else setAuthMode('login');
   } catch (err) {
+    console.error('[ChierichApp] checkAuthAndInit', err);
+    // Riprova una volta: spesso è solo hydration sessione / rete momentanea
+    let retryErr = null;
+    try {
+      await new Promise(r => setTimeout(r, 400));
+      const retry = await fetchAuthStatus();
+      if (retry.authenticated && retry.user
+        && retry.user.accountActivated === true
+        && retry.user.inviteAccepted === true
+        && !retry.mustChangePassword
+        && !retry.pendingActivation) {
+        saveSession(retry.token || 'supabase', retry.user);
+        showAppShell();
+        initApp();
+        return;
+      }
+      clearSession();
+      showAuthGate();
+      if (retry.needsBootstrap) setAuthMode('bootstrap');
+      else {
+        setAuthMode('login');
+        if (retry.unauthorized) showAuthError(retry.message || 'Account non autorizzato');
+      }
+      return;
+    } catch (err2) {
+      retryErr = err2;
+      console.error('[ChierichApp] checkAuthAndInit retry', err2);
+    }
     showAuthGate();
     setAuthMode('login');
-    showAuthError('Supabase non raggiungibile — riprova tra poco');
+    const msg = String(err?.message || retryErr?.message || '');
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    showAuthError(
+      offline || /failed to fetch|network|fetch|timeout/i.test(msg)
+        ? 'Supabase non raggiungibile — riprova tra poco'
+        : (msg || 'Accesso non riuscito — ricarica la pagina')
+    );
   }
 }
 
@@ -10757,7 +10844,7 @@ function renderMesseMonth() {
   );
   const firstOffset = getMondayFirstOffset(new Date(year, month, 1));
   const days = new Date(year, month + 1, 0).getDate();
-  let html = '<div class="messe-calendar-shell"><div class="messe-calendar-nav">
+  let html = `<div class="messe-calendar-shell"><div class="messe-calendar-nav">
     <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(-1)" aria-label="Mese precedente">‹</button>
     <h4>${MONTHS[month]} ${year}</h4>
     <button type="button" class="btn btn-secondary btn-icon" onclick="shiftMesseMonth(1)" aria-label="Mese successivo">›</button>

@@ -410,6 +410,55 @@ body.sidebar-open { overflow: hidden; }
   padding: 10px 12px;
 }
 
+.auth-password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-password-field input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-password-toggle:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.auth-password-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.auth-password-toggle[aria-pressed="true"] .auth-password-icon-show { display: none; }
+.auth-password-toggle[aria-pressed="true"] .auth-password-icon-hide { display: block; }
+.auth-password-toggle[aria-pressed="false"] .auth-password-icon-show { display: block; }
+.auth-password-toggle[aria-pressed="false"] .auth-password-icon-hide { display: none; }
+
 .auth-forgot-link {
   display: block;
   margin: -6px 0 14px;

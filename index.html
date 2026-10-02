@@ -53,12 +53,24 @@
       </div>
       <div class="form-group" id="auth-password-wrap">
         <label for="auth-password">Password</label>
-        <input type="password" id="auth-password" required autocomplete="current-password" placeholder="••••••••">
+        <div class="auth-password-field">
+          <input type="password" id="auth-password" required autocomplete="current-password" placeholder="••••••••">
+          <button type="button" class="auth-password-toggle" id="auth-password-toggle" onclick="toggleAuthPassword('auth-password')" aria-label="Mostra password" aria-pressed="false" title="Mostra password">
+            <svg class="auth-password-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="auth-password-icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
       </div>
       <button type="button" class="auth-forgot-link" id="auth-forgot-link" style="display:none" onclick="setAuthMode('forgot')">Password dimenticata?</button>
       <div class="form-group" id="auth-password2-wrap" style="display:none">
         <label for="auth-password2">Conferma nuova password</label>
-        <input type="password" id="auth-password2" autocomplete="new-password" placeholder="Ripeti la password" minlength="6">
+        <div class="auth-password-field">
+          <input type="password" id="auth-password2" autocomplete="new-password" placeholder="Ripeti la password" minlength="6">
+          <button type="button" class="auth-password-toggle" id="auth-password2-toggle" onclick="toggleAuthPassword('auth-password2')" aria-label="Mostra password" aria-pressed="false" title="Mostra password">
+            <svg class="auth-password-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="auth-password-icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
       </div>
       <div class="form-group" id="auth-nome-wrap" style="display:none">
         <label for="auth-nome">Nome e cognome</label>
@@ -1028,7 +1040,6 @@
                   </div>
                   <div class="messe-toolbar-right">
                     <button type="button" class="btn btn-ghost" onclick="goMesseToday()">Vai a oggi</button>
-                    <button type="button" class="btn btn-ghost messe-sync-fest-btn" onclick="syncFestivitaAnnoManual()" title="Sincronizza festività dalle strutture">Sync festività</button>
                     <button type="button" class="btn btn-secondary messe-add-extra-btn" onclick="openMesseExtraSheet()">+ Straordinaria</button>
                   </div>
                   </div>
