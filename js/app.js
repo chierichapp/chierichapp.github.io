@@ -19,7 +19,7 @@ const PAGE_META = {
   cerimonieri:{ title: 'Cerimonieri', subtitle: 'Gestione degli account e dei ruoli' },
   accessi:    { title: 'Accessi',    subtitle: 'Log di ogni login all’app' },
   calendario: { title: 'Struttura liturgica', subtitle: 'Calendario ambrosiano e modelli delle celebrazioni' },
-  'strutture-messe': { title: 'Struttura liturgica', subtitle: 'Calendario → modelli → correzioni (non celebrati)' },
+  'strutture-messe': { title: 'Struttura liturgica', subtitle: 'Calendario → modelli → correzioni (servizio altare)' },
   info:       { title: 'Info sull’app', subtitle: 'Terminologia e struttura dell’app' },
   account:    { title: 'Account',    subtitle: 'Il tuo profilo e accesso' }
 };
@@ -1436,6 +1436,7 @@ function initApp() {
   const year = new Date().getFullYear();
   document.getElementById('anno-messe').value = String(year);
   document.getElementById('anno-calendario').value = String(year);
+  syncStrutturaAnnoSelects(getStrutturaPastoralStartForDate());
 
   const launchSection = getLaunchSection();
   if (launchSection === 'presenze') openAppello();
@@ -4205,21 +4206,31 @@ function getStrutturaFestivitaAnno() {
   if (applica?.value) return String(applica.value);
   const corr = document.getElementById('anno-struttura-correzioni');
   if (corr?.value) return String(corr.value);
-  const cal = document.getElementById('anno-calendario');
-  if (cal?.value) return String(cal.value);
-  const el = document.getElementById('anno-messe');
-  if (el?.value) return String(el.value);
-  return String(new Date().getFullYear());
+  return String(getStrutturaPastoralStartForDate());
+}
+
+function populateStrutturaPastoralSelects(selectedStart) {
+  const preferred = String(selectedStart || getStrutturaPastoralStartForDate());
+  const options = getStrutturaPastoralOptionStarts();
+  const value = options.includes(parseInt(preferred, 10)) ? preferred : String(options[options.length - 1] || REGISTRO_MIN_PASTORAL_START);
+  ['anno-struttura-applica', 'anno-struttura-correzioni'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = options.map(y =>
+      `<option value="${y}"${String(y) === value ? ' selected' : ''}>${formatPastoralYearLabel(y)}</option>`
+    ).join('');
+    el.value = value;
+  });
 }
 
 function syncStrutturaAnnoSelects(anno) {
-  const year = String(anno || getStrutturaFestivitaAnno());
-  ['anno-struttura-applica', 'anno-struttura-correzioni', 'anno-calendario'].forEach(id => {
+  const startY = String(anno || getStrutturaFestivitaAnno() || getStrutturaPastoralStartForDate());
+  populateStrutturaPastoralSelects(startY);
+  // Calendario / Messe restano anno civile: allinea al start pastorale (set–dic)
+  ['anno-calendario', 'anno-messe'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && [...el.options].some(o => o.value === year)) el.value = year;
+    if (el && [...el.options].some(o => o.value === startY)) el.value = startY;
   });
-  const messe = document.getElementById('anno-messe');
-  if (messe && [...messe.options].some(o => o.value === year)) messe.value = year;
 }
 
 function onStrutturaApplicaAnnoChange() {
@@ -4233,9 +4244,9 @@ function onStrutturaCorrezioniAnnoChange() {
 }
 
 function getFestivitaListForAnno(anno) {
-  anno = String(anno);
+  const startY = String(anno || getStrutturaFestivitaAnno());
   return (state.messeExtra || [])
-    .filter(m => m.data && m.data.startsWith(anno) && isExtraFestiva(m))
+    .filter(m => m.data && dateInStrutturaPastoralYear(m.data, startY) && isExtraFestiva(m))
     .slice()
     .sort((a, b) => String(a.data).localeCompare(String(b.data)));
 }
@@ -4243,7 +4254,7 @@ function getFestivitaListForAnno(anno) {
 async function ensureStrutturaFestivitaLoaded() {
   const anno = getStrutturaFestivitaAnno();
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
     console.error(err);
   }
@@ -4255,7 +4266,7 @@ async function syncFestivitaFromStruttura() {
   return applicaStruttureAnno();
 }
 
-/** Applica i modelli all'anno civile. `{ quiet: true }` = dopo salvataggio modello, toast breve. */
+/** Applica i modelli all'anno pastorale (set–ago). `{ quiet: true }` = dopo salvataggio modello. */
 async function applicaStruttureAnno(opts = {}) {
   const quiet = !!opts.quiet;
   if (!requireAdminAction('Solo l\'admin può sincronizzare le festività')) return;
@@ -4269,8 +4280,9 @@ async function applicaStruttureAnno(opts = {}) {
     return;
   }
   const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
     if (!quiet) showToast(err.message || 'Calendario non disponibile');
     return;
@@ -4280,13 +4292,13 @@ async function applicaStruttureAnno(opts = {}) {
     saveData();
     void persistConfig();
     if (quiet) {
-      showToast(`Modello applicato a Messe (${anno})`);
+      showToast(`Modello applicato a Messe (${label})`);
     } else {
       const parts = [];
       if (added) parts.push(added === 1 ? '1 aggiunta' : `${added} aggiunte`);
       if (updated) parts.push(updated === 1 ? '1 aggiornata' : `${updated} aggiornate`);
       if (removed) parts.push(removed === 1 ? '1 rimossa' : `${removed} rimosse`);
-      showToast(`Festività ${anno}: ${parts.join(', ')}`);
+      showToast(`Festività ${label}: ${parts.join(', ')}`);
     }
   } else if (!quiet) {
     showToast('Agenda già allineata ai modelli');
@@ -4303,6 +4315,7 @@ async function applicaStruttureAnno(opts = {}) {
 /** Anteprima giorni che Messe mostrerà / sync materializzerà per l'anno. */
 function previewStrutturaApplicaAnno(anno) {
   anno = String(anno);
+  const bounds = getStrutturaPastoralBounds(anno);
   const counts = {
     domenicale: 0,
     natalizio: 0,
@@ -4315,7 +4328,9 @@ function previewStrutturaApplicaAnno(anno) {
   const days = [];
   const missingKinds = new Set();
   const byDate = calState.data?.byDate || {};
-  const dates = Object.keys(byDate).filter(d => d.startsWith(anno)).sort();
+  const dates = Object.keys(byDate)
+    .filter(d => dateInStrutturaPastoralYear(d, anno))
+    .sort();
   dates.forEach(dateStr => {
     if (isFestivitaEsclusa(dateStr)) return;
     const ctx = getLiturgicalContext(dateStr);
@@ -4323,9 +4338,6 @@ function previewStrutturaApplicaAnno(anno) {
     if (!kind) return;
     const willShow = !!(getMessaInfo(dateStr) || isSundayDate(dateStr) || (ctx.preset && ctx.preset !== 'solennita') || isSolennitaFestivaDay(dateStr));
     if (!willShow && !(ctx.strutturaKind === 'festivo' && !isSundayDate(dateStr))) return;
-    if (kind && !hasStrutturaConfig(kind) && kind !== 'domenicale') {
-      // ancora può fare fallback; segna missing solo se serve per materialize
-    }
     if (counts[kind] != null) counts[kind]++;
     if (ctx.preset && ctx.preset !== 'solennita') counts.preset++;
     const needsPersist = (ctx.preset && ctx.preset !== 'solennita')
@@ -4335,8 +4347,6 @@ function previewStrutturaApplicaAnno(anno) {
       counts.materialize++;
       if (kind && !hasStrutturaConfig(kind) && !hasOrarioFestivoConfig() && !hasStrutturaConfig('domenicale')) {
         missingKinds.add(kind);
-      } else if (kind && !hasStrutturaConfig(kind) && kind !== 'domenicale' && !hasOrarioFestivoConfig()) {
-        // ok via fallback
       }
     }
     if (isSundayDate(dateStr) || needsPersist || getMessaExtraForDate(dateStr) || (ctx.preset && ctx.preset !== 'solennita')) {
@@ -4350,19 +4360,13 @@ function previewStrutturaApplicaAnno(anno) {
       });
     }
   });
-  // Gate CTA: kinds usati nei giorni da materializzare senza config
   days.filter(d => d.materialize).forEach(d => {
     if (d.kind && !hasStrutturaConfig(d.kind) && !hasOrarioFestivoConfig()) {
       if (d.kind !== 'domenicale' || !hasStrutturaConfig('domenicale')) missingKinds.add(d.kind);
     }
   });
-  Object.keys(STRUTTURA_KINDS).forEach(k => {
-    if (!hasStrutturaConfig(k) && days.some(d => d.kind === k && (d.materialize || d.existing || isSundayDate(d.data)))) {
-      // only require kinds that appear in materialize list without fallback
-    }
-  });
   const requiredEmpty = [...missingKinds].filter(k => !hasStrutturaConfig(k));
-  return { anno, counts, days, missingKinds: requiredEmpty };
+  return { anno, label: formatPastoralYearLabel(anno), bounds, counts, days, missingKinds: requiredEmpty };
 }
 
 async function renderStrutturaApplicaPanel() {
@@ -4371,10 +4375,11 @@ async function renderStrutturaApplicaPanel() {
   const btn = document.getElementById('btn-applica-strutture-anno');
   if (!summaryEl || !listEl) return;
   const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
   syncStrutturaAnnoSelects(anno);
-  if (btn) btn.textContent = `Applica strutture a ${anno}`;
+  if (btn) btn.textContent = `Applica strutture a ${label}`;
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
     summaryEl.innerHTML = `<p class="empty-state">${esc(err.message || 'Calendario non disponibile')}</p>`;
     listEl.innerHTML = '';
@@ -4414,7 +4419,7 @@ async function renderStrutturaApplicaPanel() {
           </div>
           ${isCurrentUserAdmin() ? `
             <div class="config-item-actions">
-              <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(d.data)})">Non celebriamo</button>
+              <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(d.data)})">Senza servizio</button>
             </div>` : ''}
         </div>
       `).join('')}
@@ -4448,7 +4453,7 @@ function renderStrutturaFestivitaSection() {
       const nTurni = getFestivaTurniCount(extra);
       const actions = canManage ? `
         <div class="config-item-actions" onclick="event.stopPropagation()">
-          <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(extra.uuid)})">Non celebriamo</button>
+          <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(extra.uuid)})">Senza servizio</button>
         </div>` : '';
       return `
         <div class="config-item struttura-festivita-item">
@@ -4462,8 +4467,8 @@ function renderStrutturaFestivitaSection() {
     : `<p class="empty-state" style="margin:0">Nessuna festività in agenda per il ${esc(anno)}.</p>`;
 
   const escluseHtml = escluse.length ? `
-    <h4 class="turni-messe-group-title" style="margin-top:18px">Non celebrate</h4>
-    <p class="liturgy-meta" style="margin:-4px 0 10px">Escluse dallo sync automatico</p>
+    <h4 class="turni-messe-group-title" style="margin-top:18px">Senza servizio all’altare</h4>
+    <p class="liturgy-meta" style="margin:-4px 0 10px">Escluse dallo sync automatico (niente squadra chierichetti)</p>
     <div class="config-list">
       ${escluse.map(ex => `
         <div class="config-item">
@@ -4482,8 +4487,8 @@ function renderStrutturaFestivitaSection() {
 
   return `
     <div class="struttura-festivita-block">
-      <h4 class="turni-messe-group-title">Festività ${esc(anno)}</h4>
-      <p class="liturgy-meta" style="margin:-4px 0 10px">I modelli si applicano al salvataggio. Usa <strong>Correzioni</strong> per i giorni non celebrati.</p>
+      <h4 class="turni-messe-group-title">Festività ${esc(formatPastoralYearLabel(anno))}</h4>
+      <p class="liturgy-meta" style="margin:-4px 0 10px">I modelli si applicano al salvataggio. Usa <strong>Correzioni</strong> per sedi/orari dell’anno pastorale o giorni senza servizio all’altare.</p>
       <div class="config-list">${items}</div>
       ${canManage ? `
         <div class="messa-actions" style="margin-top:12px;justify-content:flex-start;flex-wrap:wrap;gap:8px">
@@ -4510,10 +4515,9 @@ function ensureFestivaExtraMaterialized(dateStr) {
   return extra;
 }
 
-/** Deep-link: apre Correzioni per sedi di quest’anno (o lista). */
+/** Deep-link: apre Correzioni per sedi di quest’anno pastorale (o lista). */
 function openCorrezioneOrari(dateStr) {
-  const year = String(dateStr || '').slice(0, 4);
-  if (year) syncStrutturaAnnoSelects(year);
+  if (dateStr) syncStrutturaAnnoSelects(getPastoralStartForDateStr(dateStr));
   void showSection('strutture-messe').then(() => {
     setStrutturaLiturgicaTab('correzioni');
     if (dateStr) setTimeout(() => editCorrezioneAnno(dateStr), 0);
@@ -4533,10 +4537,11 @@ async function renderStrutturaCorrezioniPanel() {
   if (editorPanel) editorPanel.hidden = true;
 
   const anno = getStrutturaFestivitaAnno();
+  const pastoralLabel = formatPastoralYearLabel(anno);
   syncStrutturaAnnoSelects(anno);
   ensureGruppiConfig();
   try {
-    await ensureCalendarioForYear(anno);
+    await ensureCalendarioForPastoralYear(anno);
   } catch (err) {
     listEl.innerHTML = '<p class="empty-state">' + esc(err.message || 'Calendario non disponibile') + '</p>';
     return;
@@ -4544,7 +4549,7 @@ async function renderStrutturaCorrezioniPanel() {
 
   const canManage = isCurrentUserAdmin();
   const escluse = getFestivitaEscluse().filter(ex =>
-    (ex.data && String(ex.data).startsWith(anno)) || ex.eventKey
+    (ex.data && dateInStrutturaPastoralYear(ex.data, anno)) || ex.eventKey
   );
   const preview = previewStrutturaApplicaAnno(anno);
   const speciali = preview.days.filter(d =>
@@ -4557,15 +4562,15 @@ async function renderStrutturaCorrezioniPanel() {
 
   let html = `
     <div class="struttura-modello-intro">
-      <p class="struttura-modello-intro-title">Pipeline</p>
-      <p class="liturgy-meta" style="margin:0">1) Modello domenicale · 2) Modelli festa · 3) Qui: sedi/orari <strong>solo di quest’anno</strong> (es. scambio sedi vigilia di Natale) oppure giorni non celebrati.</p>
+      <p class="struttura-modello-intro-title">Pipeline · ${esc(pastoralLabel)}</p>
+      <p class="liturgy-meta" style="margin:0">Il calendario ambrosiano diventa il calendario della comunità tramite i modelli. Qui correggi <strong>numero, orario e sede</strong> delle messe per quest’anno pastorale, oppure togli i giorni in cui <strong>non fate servizio all’altare</strong>.</p>
     </div>
     <div class="struttura-correzioni-baseline">
       <div class="struttura-correzioni-baseline-main">
-        <p class="config-item-title">Domeniche ordinarie ${esc(anno)}</p>
+        <p class="config-item-title">Domeniche ordinarie ${esc(pastoralLabel)}</p>
         <p class="config-item-meta">${hasDom
           ? `${nDom} domeniche · modello domenicale (${nDomSlots} messe)`
-          : 'Modello domenicale non configurato'}${nAnnoOverride ? ` · ${nAnnoOverride} feste con sedi di quest’anno` : ''}</p>
+          : 'Modello domenicale non configurato'}${nAnnoOverride ? ` · ${nAnnoOverride} feste con sedi di quest’anno` : ''} · ${esc(formatStrutturaPastoralRangeLabel(anno))}</p>
       </div>
       ${canManage ? `
         <div class="config-item-actions">
@@ -4574,7 +4579,7 @@ async function renderStrutturaCorrezioniPanel() {
     </div>
   `;
 
-  html += '<h4 class="turni-messe-group-title">Giorni dai modelli ' + esc(anno) + '</h4>';
+  html += '<h4 class="turni-messe-group-title">Giorni dai modelli ' + esc(pastoralLabel) + '</h4>';
   if (!speciali.length) {
     html += '<p class="empty-state">Nessun giorno speciale in agenda. Salva i modelli: si applicano subito.</p>';
   } else {
@@ -4608,7 +4613,7 @@ async function renderStrutturaCorrezioniPanel() {
             (canManage
               ? '<div class="config-item-actions">' +
                   '<button type="button" class="btn btn-secondary" onclick="editCorrezioneAnno(' + jsStr(d.data) + ')">Sedi anno</button>' +
-                  '<button type="button" class="btn btn-danger" onclick="escludiFestivita(' + jsStr(excludeTarget) + ')">Non celebriamo</button>' +
+                  '<button type="button" class="btn btn-danger" onclick="escludiFestivita(' + jsStr(excludeTarget) + ')">Senza servizio</button>' +
                 '</div>'
               : '') +
           '</div>'
@@ -4618,9 +4623,9 @@ async function renderStrutturaCorrezioniPanel() {
     });
   }
 
-  html += '<h4 class="turni-messe-group-title" style="margin-top:22px">Non celebrate</h4>';
+  html += '<h4 class="turni-messe-group-title" style="margin-top:22px">Senza servizio all’altare</h4>';
   if (!escluse.length) {
-    html += '<p class="empty-state" style="margin:0">Nessuna esclusione — l’agenda segue i modelli.</p>';
+    html += '<p class="empty-state" style="margin:0">Nessun giorno senza servizio — l’agenda segue i modelli.</p>';
   } else {
     html += '<div class="config-list">' + escluse.map(ex => (
       '<div class="config-item">' +
@@ -4665,9 +4670,10 @@ function editCorrezioneAnno(dateStr) {
   editorPanel.hidden = false;
   if (titleEl) titleEl.textContent = (extra.nota || 'Festività') + ' · ' + (extra.data || dateStr);
   const slots = getFestivaTemplateSlots(extra);
-  const anno = String(extra.data || dateStr).slice(0, 4);
+  const startY = getPastoralStartForDateStr(extra.data || dateStr);
+  const pastoralLabel = formatPastoralYearLabel(startY);
   container.innerHTML = `
-    <p class="liturgy-meta">Cambia sedi o orari <strong>solo per il ${esc(anno)}</strong>. Esempio: vigilia di Natale 22:00 / 24:00 con sedi scambiate rispetto all’anno scorso. Il modello in Modelli resta invariato.</p>
+    <p class="liturgy-meta">Cambia numero, sedi o orari <strong>solo per l’anno pastorale ${esc(pastoralLabel)}</strong> (${esc(formatStrutturaPastoralRangeLabel(startY))}). Esempio: vigilia di Natale con sedi scambiate rispetto all’anno scorso. Il modello in Modelli resta invariato.</p>
     <div id="festiva-slots-editor" data-uuid="${esc(extra.uuid)}" data-mount="anno">
       ${festivaSlotEditorRowsHtml(slots) || '<p class="empty-state">Nessuna celebrazione</p>'}
     </div>
@@ -4677,7 +4683,7 @@ function editCorrezioneAnno(dateStr) {
         ? `<button type="button" class="btn btn-ghost" onclick="ripristinaCorrezioneAnno(${jsStr(extra.uuid)})">Torna al modello</button>`
         : ''}
       <button type="button" class="btn btn-secondary" onclick="closeStrutturaCorrezioniEditor()">Annulla</button>
-      <button type="button" class="btn btn-primary" onclick="saveCorrezioneAnno(${jsStr(extra.uuid)})">Salva per il ${esc(anno)}</button>
+      <button type="button" class="btn btn-primary" onclick="saveCorrezioneAnno(${jsStr(extra.uuid)})">Salva per ${esc(pastoralLabel)}</button>
     </div>
   `;
   editorPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4720,7 +4726,7 @@ function saveCorrezioneAnno(uuid) {
   // Non aggiornare festivitaModelli: vale solo questo anno
   saveData();
   void persistConfig();
-  showToast('Sedi salvate per il ' + String(extra.data || '').slice(0, 4) + ' (modello invariato)');
+  showToast('Sedi salvate per ' + formatPastoralYearLabel(getPastoralStartForDateStr(extra.data)) + ' (modello invariato)');
   void renderStrutturaCorrezioniPanel();
   renderMesseAgenda();
   if (messeState.selectedDate === extra.data) renderMessaDetail(extra.data);
@@ -5680,6 +5686,69 @@ function getRegistroPastoralBounds(startY) {
     from: getPastoralYearWindowStart(startY),
     to: `${startY + 1}-06-30`
   };
+}
+
+/** Bounds Struttura: settembre → agosto (es. 2026/27 = 2026-09-01 … 2027-08-31). */
+function getStrutturaPastoralBounds(startY) {
+  const y = parseInt(startY, 10);
+  return {
+    from: `${y}-09-01`,
+    to: `${y + 1}-08-31`,
+    openFrom: getPastoralYearWindowStart(y)
+  };
+}
+
+/** Start year pastorale Struttura per una data (set–ago; apertura ~2 sett. prima di set). */
+function getStrutturaPastoralStartForDate(d = new Date()) {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const today = typeof getTodayStr === 'function' ? getTodayStr() : formatDateFromDate(d);
+  const earlyOpen = getPastoralYearWindowStart(y);
+  if (today >= earlyOpen && today < `${y}-09-01`) {
+    return Math.max(y, REGISTRO_MIN_PASTORAL_START);
+  }
+  const start = m >= 8 ? y : y - 1;
+  return Math.max(start, REGISTRO_MIN_PASTORAL_START);
+}
+
+function getPastoralStartForDateStr(dateStr) {
+  if (!dateStr || dateStr.length < 10) return getStrutturaPastoralStartForDate();
+  return getStrutturaPastoralStartForDate(new Date(dateStr + 'T12:00:00'));
+}
+
+function dateInStrutturaPastoralYear(dateStr, startY) {
+  if (!dateStr) return false;
+  const { from, to } = getStrutturaPastoralBounds(startY);
+  return dateStr >= from && dateStr <= to;
+}
+
+function getStrutturaPastoralOptionStarts() {
+  const max = Math.max(getStrutturaPastoralStartForDate(new Date()) + 1, REGISTRO_MIN_PASTORAL_START);
+  const starts = [];
+  for (let y = REGISTRO_MIN_PASTORAL_START; y <= max; y++) starts.push(y);
+  return starts;
+}
+
+function formatStrutturaPastoralRangeLabel(startY) {
+  return `Set ${startY} – Ago ${startY + 1}`;
+}
+
+function getSundaysInStrutturaPastoralYear(startY) {
+  const { from, to } = getStrutturaPastoralBounds(startY);
+  const dates = [];
+  const d = new Date(from + 'T12:00:00');
+  const end = new Date(to + 'T12:00:00');
+  while (d <= end) {
+    if (d.getDay() === 0) dates.push(formatDateFromDate(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+async function ensureCalendarioForPastoralYear(startY) {
+  startY = String(startY);
+  // Pack startY+startY+1 copre set→ago del pastorale
+  return ensureCalendarioForYear(startY);
 }
 
 function calendarYearForPastoralMonth(startY, month) {
@@ -8697,7 +8766,7 @@ function renderGruppiVetrinaList() {
 
 function countDomenicheOrdinarieAnno(anno) {
   anno = String(anno || getStrutturaFestivitaAnno());
-  return getSundaysInYear(parseInt(anno, 10)).filter(dateStr => {
+  return getSundaysInStrutturaPastoralYear(parseInt(anno, 10)).filter(dateStr => {
     if (isFestivitaEsclusa(dateStr)) return false;
     const ctx = getLiturgicalContext(dateStr);
     return ctx.strutturaKind === 'domenicale';
@@ -8730,7 +8799,7 @@ function renderMesseDomenicaliList() {
     const intro = `
       <div class="struttura-modello-intro is-domenicale">
         <p class="struttura-modello-intro-title">Modello di default</p>
-        <p class="liturgy-meta" style="margin:0 0 10px">Si applica a <strong>ogni domenica ordinaria</strong> del ${esc(anno)} (e alla vigilia del sabato). Poi, in Correzioni, togli i giorni che non celebrate.</p>
+        <p class="liturgy-meta" style="margin:0 0 10px">Si applica a <strong>ogni domenica ordinaria</strong> dell’anno pastorale ${esc(formatPastoralYearLabel(anno))} (${esc(formatStrutturaPastoralRangeLabel(anno))}). Poi, in Correzioni, aggiusta messe o togli i giorni senza servizio all’altare.</p>
         <div class="struttura-applica-stats" style="margin:0">
           <span class="struttura-applica-stat">Domeniche <strong>${nDom}</strong></span>
           <span class="struttura-applica-stat">Messe nel modello <strong>${messe.length}</strong></span>
@@ -8981,13 +9050,14 @@ function ripristinaStrutturaGiornoSpeciale(eventKey) {
 
 function renderStraordinarieSection() {
   const anno = getStrutturaFestivitaAnno();
+  const label = formatPastoralYearLabel(anno);
   const list = (state.messeExtra || [])
-    .filter(m => m.data?.startsWith(anno) && m.tipo === 'straordinaria')
+    .filter(m => m.data && dateInStrutturaPastoralYear(m.data, anno) && m.tipo === 'straordinaria')
     .sort((a, b) => String(a.data).localeCompare(String(b.data)));
   if (!list.length) return '';
   return `
     <div class="struttura-festivita-block">
-      <h4 class="turni-messe-group-title">Straordinarie ${esc(anno)}</h4>
+      <h4 class="turni-messe-group-title">Straordinarie ${esc(label)}</h4>
       <p class="liturgy-meta" style="margin:-4px 0 10px">Celebrazioni aggiunte a mano (non da struttura)</p>
       <div class="config-list">
         ${list.map(ex => `
@@ -10951,7 +11021,7 @@ function ripristinaFestivitaEsclusa(eventKeyOrData) {
   );
   saveData();
   void persistConfig();
-  showToast('Festività ripristinata');
+  showToast('Di nuovo in agenda (con servizio)');
   void renderStrutturaCorrezioniPanel();
   if (strutturaMesseKind === 'festivo') {
     renderMesseDomenicaliList();
@@ -10961,8 +11031,8 @@ function ripristinaFestivitaEsclusa(eventKeyOrData) {
 }
 
 /**
- * Rimuove la festività dall'agenda e la esclude dalle sync future
- * (es. S. Carlo, vigilia di Cristo Re se non le celebrate).
+ * Rimuove la festività dall'agenda chierichetti (niente servizio all'altare)
+ * e la esclude dalle sync future.
  */
 function escludiFestivita(uuidOrDate) {
   if (!requireAdminAction('Solo l\'admin può escludere festività')) return;
@@ -10980,7 +11050,7 @@ function escludiFestivita(uuidOrDate) {
     return;
   }
   const nome = extra?.nota || primaryEvent(calState.data?.byDate?.[dateStr] || [])?.nome || dateStr;
-  if (!confirm(`Non celebrate «${nome}»?\n\nVerrà tolta dall'agenda e non verrà più aggiunta dai modelli.`)) return;
+  if (!confirm(`Nessun servizio all'altare per «${nome}»?\n\nVerrà tolta dall'agenda chierichetti e non verrà più aggiunta dai modelli.`)) return;
 
   addFestivitaEsclusa(dateStr, { nome });
   if (extra?.uuid) {
@@ -10989,7 +11059,7 @@ function escludiFestivita(uuidOrDate) {
   }
   saveData();
   void persistConfig();
-  showToast('Esclusa dalle festività');
+  showToast('Senza servizio all\'altare');
   if (messeState.selectedDate === dateStr) messeState.selectedDate = null;
   void renderStrutturaCorrezioniPanel();
   if (strutturaMesseKind === 'festivo') {
@@ -11333,12 +11403,12 @@ function applyFestivitaModelloToExtra(extra, modello) {
   return true;
 }
 
-/** Se manca il modello, lo crea dalle festività già personalizzate quest’anno. */
+/** Se manca il modello, lo crea dalle festività già personalizzate in quest’anno pastorale. */
 function backfillFestivitaModelliFromExtras(anno) {
   anno = String(anno);
   let n = 0;
   (state.messeExtra || []).forEach(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return;
     if (!hasCustomFestivaSlots(extra) && !(extra.preset && extra.preset !== 'solennita')) return;
     const key = getPrimaryFestivityEventKey(extra.data);
     if (!key || getFestivitaModello(key)) return;
@@ -11495,7 +11565,7 @@ function syncFestivitaAnno(anno) {
   // Rimuovi festività auto create per sbaglio sulle vigilie domenicali
   const before = state.messeExtra.length;
   state.messeExtra = state.messeExtra.filter(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return true;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return true;
     if (extra.source !== 'auto') return true;
     if (!isVigiliaDomenicaleLiturgica(extra.data)) return true;
     removed++;
@@ -11504,7 +11574,7 @@ function syncFestivitaAnno(anno) {
   if (state.messeExtra.length !== before) removed = before - state.messeExtra.length;
   backfillFestivitaModelliFromExtras(anno);
   Object.keys(calState.data.byDate).forEach(dateStr => {
-    if (!dateStr.startsWith(anno)) return;
+    if (!dateInStrutturaPastoralYear(dateStr, anno)) return;
     if (isFestivitaEsclusa(dateStr)) return;
     if (getMessaExtraForDate(dateStr)) return;
     const ctx = getLiturgicalContext(dateStr);
@@ -11512,14 +11582,13 @@ function syncFestivitaAnno(anno) {
       || isSolennitaFestivaDay(dateStr)
       || (ctx.strutturaKind === 'festivo' && !isSundayDate(dateStr) && hasStrutturaConfig('festivo'));
     if (!needsPersist) return;
-    // Serve una struttura risolvibile
     const kind = ctx.strutturaKind;
     if (kind && !hasStrutturaConfig(kind) && !hasOrarioFestivoConfig() && !hasStrutturaConfig('domenicale')) return;
     state.messeExtra.push(buildFestivaExtraRecord(dateStr, { source: 'auto' }));
     added++;
   });
   (state.messeExtra || []).forEach(extra => {
-    if (!extra?.data?.startsWith(anno) || !isExtraFestiva(extra)) return;
+    if (!extra?.data || !dateInStrutturaPastoralYear(extra.data, anno) || !isExtraFestiva(extra)) return;
     if (isFestivitaEsclusa(extra.data)) return;
     const ctx = getLiturgicalContext(extra.data);
     if (!extra.strutturaKind && ctx.strutturaKind) {
@@ -12041,7 +12110,7 @@ function renderMessaDetail(dateStr) {
     container.innerHTML = `
       <p class="day-detail-date">${esc(dateLabel)}</p>
       <p class="day-detail-empty empty-state-inline">${esclusa
-        ? 'Festività esclusa: non la celebrate (non rientra in agenda con Sync).'
+        ? 'Senza servizio all\'altare: non rientra in agenda chierichetti con Sync.'
         : 'Non è una messa in agenda (solo domeniche, festività e eccezioni).'}</p>
       <div class="messa-actions">
         ${esclusa && canManage ? `<button type="button" class="btn btn-primary" onclick="ripristinaEAggiungiFestivita(${jsStr(dateStr)})">Ripristina e aggiungi</button>` : ''}
@@ -12135,7 +12204,7 @@ function renderMessaDetail(dateStr) {
 
   const actions = [];
   if (massInfo.type === 'festiva' && canManage && massInfo.extra?.uuid) {
-    actions.push(`<button type="button" class="btn btn-secondary" onclick="escludiFestivita(${jsStr(massInfo.extra.uuid)})">Non la celebriamo</button>`);
+    actions.push(`<button type="button" class="btn btn-secondary" onclick="escludiFestivita(${jsStr(massInfo.extra.uuid)})">Senza servizio</button>`);
     actions.push(`<button type="button" class="btn btn-ghost" onclick="removeMessaExtra(${jsStr(massInfo.extra.uuid)})">Rimuovi solo quest'anno</button>`);
   }
   if (massInfo.type === 'extra' && massInfo.extra?.uuid) {
@@ -12228,11 +12297,11 @@ function renderFestivaOrarioActions(extra) {
   return `
     <div class="festiva-orario-actions">
       ${renderFestivaPresetChips(extra)}
-      <p class="liturgy-meta">Struttura nei <strong>Modelli</strong>. Sedi/orari di quest’anno e giorni non celebrati in <strong>Correzioni</strong>${annoBit}.</p>
+      <p class="liturgy-meta">Struttura nei <strong>Modelli</strong>. Sedi/orari di quest’anno e giorni senza servizio all’altare in <strong>Correzioni</strong>${annoBit}.</p>
       <div class="messa-actions" style="flex-wrap:wrap;gap:8px;justify-content:flex-start">
         <button type="button" class="btn btn-secondary" onclick="openCorrezioneOrari(${jsStr(dateStr)})">Sedi di quest’anno</button>
         <button type="button" class="btn btn-ghost" onclick="void showSection('strutture-messe').then(() => { setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind(${jsStr(kind)}); })">Modello</button>
-        <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(extra.uuid)})">Non celebriamo</button>
+        <button type="button" class="btn btn-danger" onclick="escludiFestivita(${jsStr(extra.uuid)})">Senza servizio</button>
       </div>
     </div>
   `;
@@ -12506,7 +12575,7 @@ function toggleMessaExtraOrarioFields() {
 }
 
 async function syncFestivitaAnnoManual() {
-  syncStrutturaAnnoSelects(getMesseAnno());
+  syncStrutturaAnnoSelects(getStrutturaPastoralStartForDate());
   void showSection('strutture-messe').then(() => {
     setStrutturaLiturgicaTab('applica');
     void applicaStruttureAnno();
@@ -12534,7 +12603,6 @@ function getCalAnno() {
 
 function onCalYearChange() {
   calState.selectedDate = null;
-  syncStrutturaAnnoSelects(getCalAnno());
   loadCalendario();
 }
 
@@ -13007,7 +13075,7 @@ function renderLiturgicalDayAdmin(dateStr, primary) {
       </select></div>
       <div class="form-group"><label for="liturgical-day-structure">Struttura Messa</label><select id="liturgical-day-structure" required>${kindOptions}</select></div>
     </div>
-    <div class="form-actions"><button type="button" class="btn btn-primary" onclick="saveLiturgicalDay('${dateStr}')">Salva giorno</button><button type="button" class="btn btn-danger" onclick="escludiFestivita('${dateStr}')">Non celebriamo</button>${override.nome || override.strutturaKind ? `<button type="button" class="btn btn-ghost" onclick="clearLiturgicalDay('${dateStr}')">Ripristina fonte</button>` : ''}</div>
+    <div class="form-actions"><button type="button" class="btn btn-primary" onclick="saveLiturgicalDay('${dateStr}')">Salva giorno</button><button type="button" class="btn btn-danger" onclick="escludiFestivita('${dateStr}')">Senza servizio</button>${override.nome || override.strutturaKind ? `<button type="button" class="btn btn-ghost" onclick="clearLiturgicalDay('${dateStr}')">Ripristina fonte</button>` : ''}</div>
   </div>`;
 }
 
