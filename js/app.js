@@ -5257,6 +5257,8 @@ function saveCorrezioneCivilDay(civilDateStr) {
     extra.orarioPersonalizzato = true;
     if (!Array.isArray(extra.slots)) extra.slots = [];
     extra.slots = renumberFestivaSlots(extra.slots);
+    if (isVigilOnlySlotList(extra.slots)) extra.vigilOnly = true;
+    else delete extra.vigilOnly;
   });
 
   // Host civile senza altre messe: se vuoto e non aveva celebrazioni proprie, ok
@@ -5793,7 +5795,10 @@ function getTurniForAgendaDate(dateStr) {
     );
   }
   if (info?.type === 'festiva') {
-    const turniSlots = getFestivaTurniSlots(dateStr);
+    const turniSlots = getFestivaTurniSlots(info.extra?.data || dateStr, {
+      extra: info.extra,
+      civilDate: info.civilDate || dateStr
+    });
     return state.turni.filter(t =>
       turniSlots.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
     );
@@ -12830,6 +12835,8 @@ function applyFestivitaModelloToExtra(extra, modello) {
     if (Array.isArray(built)) extra.slots = built;
     else delete extra.slots;
   }
+  if (isVigilOnlySlotList(extra.slots)) extra.vigilOnly = true;
+  else delete extra.vigilOnly;
   return true;
 }
 
@@ -12856,8 +12863,48 @@ function applyPresetToFestivaExtra(extra, presetId) {
   extra.usaOrarioDomenicale = true;
   delete extra.inheritedFrom;
   const slots = buildFestivityPresetSlots(id);
-  if (Array.isArray(slots)) extra.slots = slots;
-  else delete extra.slots;
+  if (Array.isArray(slots)) {
+    extra.slots = slots;
+    if (isVigilOnlySlotList(slots)) extra.vigilOnly = true;
+    else delete extra.vigilOnly;
+  } else {
+    delete extra.slots;
+    delete extra.vigilOnly;
+  }
+}
+
+/** True se tutte le messe sono della vigilia (giorno civile precedente), nessuna del giorno. */
+function isVigilOnlySlotList(slots) {
+  if (!Array.isArray(slots) || !slots.length) return false;
+  return slots.every(s => s.dayOffset === -1);
+}
+
+function festivaConcreteSlotsOnCivilDate(extra, civilDateStr) {
+  if (!extra?.data || !civilDateStr) return [];
+  return getFestivaSlots(extra.data).filter(s => s.data === civilDateStr);
+}
+
+/**
+ * Il giorno liturgico si attiva solo se c’è almeno una messa del giorno (dayOffset 0).
+ * Solo vigilia → non applicare orario festivo / non mostrare il giorno come celebrato.
+ */
+function festivityDayIsActivatedBySlots(slots) {
+  if (!Array.isArray(slots)) return true; // template stagione/festivo implicito
+  if (!slots.length) return false;
+  return slots.some(s => s.dayOffset !== -1);
+}
+
+function resolveFestivityScheduleSlots(dateStr) {
+  const eventKey = getPrimaryFestivityEventKey(dateStr);
+  const modello = getFestivitaModello(eventKey);
+  if (modello?.disabled) return [];
+  if (modello && Array.isArray(modello.slots)) return cloneFestivaSlotsForModello(modello.slots) || [];
+  const preset = detectFestivityPreset(dateStr);
+  if (preset && preset !== 'solennita') {
+    const built = buildFestivityPresetSlots(preset);
+    if (Array.isArray(built)) return built;
+  }
+  return null;
 }
 
 function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
@@ -12880,8 +12927,19 @@ function buildFestivaExtraRecord(dateStr, { source = 'auto' } = {}) {
     createdAt: new Date().toISOString()
   };
   const modello = getFestivitaModello(eventKey);
-  if (modello) applyFestivitaModelloToExtra(extra, modello);
-  else applyPresetToFestivaExtra(extra, preset);
+  if (modello) {
+    applyFestivitaModelloToExtra(extra, modello);
+  } else {
+    applyPresetToFestivaExtra(extra, preset);
+  }
+  // Solo vigilia: non riempire con orario festivo del giorno
+  const schedule = Array.isArray(extra.slots) ? extra.slots : resolveFestivityScheduleSlots(dateStr);
+  if (isVigilOnlySlotList(schedule)) {
+    extra.slots = renumberFestivaSlots(cloneFestivaSlotsForModello(schedule) || []);
+    extra.vigilOnly = true;
+  } else {
+    delete extra.vigilOnly;
+  }
   return extra;
 }
 
@@ -12909,10 +12967,17 @@ function getFestivaTemplateSlots(extra) {
       }))
       .sort((a, b) => a.dayOffset - b.dayOffset || compareOraSlot(a.ora, b.ora));
   }
+  // Solo vigilia configurata: non cadere sull’orario festivo del giorno
+  if (extra?.vigilOnly) return [];
   if (extra?.preset && extra.preset !== 'solennita') {
     const built = buildFestivityPresetSlots(extra.preset);
-    if (Array.isArray(built)) return built;
+    if (Array.isArray(built)) {
+      if (isVigilOnlySlotList(built)) return built;
+      return built;
+    }
   }
+  const schedule = extra?.data ? resolveFestivityScheduleSlots(extra.data) : null;
+  if (isVigilOnlySlotList(schedule)) return schedule;
   const kind = extra?.strutturaKind || 'festivo';
   if (hasStrutturaConfig(kind)) return cloneStrutturaSlots(kind);
   if (hasStrutturaConfig('festivo')) return cloneStrutturaSlots('festivo');
@@ -12929,14 +12994,16 @@ function renumberFestivaSlots(slots) {
 }
 
 /** Slot concreti per una festività (stessa logica della domenica, ancorati al giorno di festa). */
-function getFestivaSlots(festivaDateStr) {
-  const extra = getMessaExtraForDate(festivaDateStr);
+function getFestivaSlots(festivaDateStr, opts = {}) {
+  const extra = opts.extra || getMessaExtraForDate(festivaDateStr);
   const template = getFestivaTemplateSlots(extra);
-  const weekOffset = isRotazioneAttiva() ? getRotationWeekOffset(festivaDateStr) : null;
+  const anchor = extra?.data || festivaDateStr;
+  const weekOffset = isRotazioneAttiva() ? getRotationWeekOffset(anchor) : null;
+  const civilFilter = opts.civilDate || null;
   return template.map(slot => {
-    const data = addDaysToDateStr(festivaDateStr, slot.dayOffset);
+    const data = addDaysToDateStr(anchor, slot.dayOffset);
     const turno = slot.conTurno ? slot.turnoNum : null;
-    const gruppo = turno ? getGruppoIdForTurno(turno, festivaDateStr) : null;
+    const gruppo = turno ? getGruppoIdForTurno(turno, anchor) : null;
     const titolo = slot.titolo ? String(slot.titolo).trim() : null;
     return {
       data,
@@ -12948,8 +13015,8 @@ function getFestivaSlots(festivaDateStr) {
       gruppo,
       gruppoLabel: gruppo ? getGruppoLabel(gruppo) : null,
       conChierichetti: !!slot.conTurno,
-      domenicaRef: festivaDateStr,
-      festivaRef: festivaDateStr,
+      domenicaRef: anchor,
+      festivaRef: anchor,
       rotazioneSettimana: weekOffset,
       titolo,
       label: titolo
@@ -12957,15 +13024,23 @@ function getFestivaSlots(festivaDateStr) {
         : `${slot.ora} ${SEDI_LABEL[slot.sede] || slot.sede}`,
       slotId: slot.id
     };
+  }).filter(s => !civilFilter || s.data === civilFilter);
+}
+
+function getFestivaTurniSlots(festivaDateStr, opts = {}) {
+  return getFestivaSlots(festivaDateStr, opts).filter(s => s.conChierichetti);
+}
+
+function getFestivaSlotsForMassInfo(dateStr, massInfo) {
+  if (massInfo?.type !== 'festiva' || !massInfo.extra) return getFestivaSlots(dateStr);
+  return getFestivaSlots(massInfo.extra.data || dateStr, {
+    extra: massInfo.extra,
+    civilDate: massInfo.civilDate || dateStr
   });
 }
 
-function getFestivaTurniSlots(festivaDateStr) {
-  return getFestivaSlots(festivaDateStr).filter(s => s.conChierichetti);
-}
-
-function countAssignedFestivaSlots(festivaDateStr) {
-  return getFestivaTurniSlots(festivaDateStr).filter(isSlotCoperto).length;
+function countAssignedFestivaSlots(festivaDateStr, opts = {}) {
+  return getFestivaTurniSlots(festivaDateStr, opts).filter(isSlotCoperto).length;
 }
 
 function getFestivaTurniCount(extra) {
@@ -13096,9 +13171,34 @@ function getMessaInfo(dateStr) {
     if (isExtraFestiva(extra)) {
       const ctx = getLiturgicalContext(dateStr);
       if (!extra.strutturaKind && ctx.strutturaKind) extra.strutturaKind = ctx.strutturaKind;
+      const template = getFestivaTemplateSlots(extra);
+      const onThisCivilDay = festivaConcreteSlotsOnCivilDate(extra, dateStr);
+      // Solo messe non del giorno (es. sola vigilia la sera prima): non attivare il giorno liturgico
+      if (!onThisCivilDay.length && isVigilOnlySlotList(template)) {
+        return null;
+      }
+      if (!onThisCivilDay.length && template.length > 0 && !template.some(s => s.dayOffset !== -1)) {
+        return null;
+      }
       return { type: 'festiva', extra, context: ctx };
     }
     return { type: 'extra', extra, context: getLiturgicalContext(dateStr) };
+  }
+
+  // Vigilia civile: messe del giorno liturgico successivo (solo-vigilia o dayOffset -1)
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  const nextExtra = getMessaExtraForDate(nextDate);
+  if (nextExtra && isExtraFestiva(nextExtra) && !isFestivitaEsclusa(nextDate)) {
+    const vigilSlots = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
+    if (vigilSlots.length) {
+      return {
+        type: 'festiva',
+        extra: nextExtra,
+        context: getLiturgicalContext(nextDate),
+        civilDate: dateStr,
+        fromVigilOf: nextDate
+      };
+    }
   }
 
   const ctx = getLiturgicalContext(dateStr);
@@ -13110,7 +13210,29 @@ function getMessaInfo(dateStr) {
   if (!isCurrentUserAdmin() && !isSundayDate(dateStr)) return null;
 
   if (ctx.preset && ctx.preset !== 'solennita') {
-    return { type: 'festiva', extra: buildSyntheticFestivaExtra(dateStr, ctx), context: ctx };
+    const syn = buildSyntheticFestivaExtra(dateStr, ctx);
+    const template = getFestivaTemplateSlots(syn);
+    if (isVigilOnlySlotList(template) || !festivityDayIsActivatedBySlots(template)) {
+      return null;
+    }
+    if (!festivaConcreteSlotsOnCivilDate(syn, dateStr).length) return null;
+    return { type: 'festiva', extra: syn, context: ctx };
+  }
+
+  // Sintetico: vigilia da preset del giorno successivo
+  const nextCtx = getLiturgicalContext(nextDate);
+  if (nextCtx.preset && nextCtx.preset !== 'solennita') {
+    const synNext = buildSyntheticFestivaExtra(nextDate, nextCtx);
+    const vigilSlots = festivaConcreteSlotsOnCivilDate(synNext, dateStr);
+    if (vigilSlots.length) {
+      return {
+        type: 'festiva',
+        extra: synNext,
+        context: nextCtx,
+        civilDate: dateStr,
+        fromVigilOf: nextDate
+      };
+    }
   }
 
   if (ctx.strutturaKind === 'domenicale' && hasStrutturaConfig('domenicale')) {
@@ -13247,7 +13369,12 @@ function buildMessaAgendaItem(dateStr) {
     : getTurniPerDomenica();
   const assignedSlots = isDomenica
     ? countAssignedSlots(dateStr)
-    : (isFestiva ? countAssignedFestivaSlots(dateStr) : turni.length);
+    : (isFestiva
+      ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
+        extra: massInfo.extra,
+        civilDate: massInfo.civilDate || dateStr
+      })
+      : turni.length);
   const coverageComplete = (isDomenica || isFestiva) && nTurni > 0 && assignedSlots >= nTurni;
   const litColor = primary?.colore || '';
 
@@ -13266,7 +13393,10 @@ function buildMessaAgendaItem(dateStr) {
   else if (isFestiva) metaParts.push(strutturaLabel || 'Festività');
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
   const slots = isDomenica ? getMesseOrdinarieSlots(dateStr)
-    : (isFestiva ? getFestivaSlots(dateStr) : []);
+    : (isFestiva ? getFestivaSlots(massInfo.extra?.data || dateStr, {
+      extra: massInfo.extra,
+      civilDate: massInfo.civilDate || dateStr
+    }) : []);
   if (slots.length) {
     metaParts.push(slots.map(slot => `${slot.ora || ''} ${SEDI_LABEL[slot.sede] || slot.sede || ''}`.trim()).join(' · '));
   } else if (isExtra && massInfo.extra?.ora) {
@@ -13610,10 +13740,13 @@ function renderMessaDetail(dateStr) {
   let sectionTitle = 'Messe di servizio';
   if (massInfo.type === 'domenica' || massInfo.type === 'festiva') {
     const allSlots = massInfo.type === 'festiva'
-      ? getFestivaSlots(dateStr)
+      ? getFestivaSlotsForMassInfo(dateStr, massInfo)
       : getMesseOrdinarieSlots(dateStr);
     const assigned = massInfo.type === 'festiva'
-      ? countAssignedFestivaSlots(dateStr)
+      ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
+        extra: massInfo.extra,
+        civilDate: massInfo.civilDate || dateStr
+      })
       : countAssignedSlots(dateStr);
     const nCelebrazioni = allSlots.length;
     const nTurni = massInfo.type === 'festiva'
