@@ -602,7 +602,7 @@
         </div>
 
         <div id="turni-panel-messe" class="turni-tab-panel">
-          <div class="struttura-messe-kind" role="tablist" aria-label="Tipo struttura">
+          <div class="struttura-messe-kind" role="tablist" aria-label="Categoria modelli">
             <button type="button" class="struttura-chip active" data-struttura="domenicale" id="chip-struttura-domenicale" onclick="setStrutturaMesseKind('domenicale')">Domenicale</button>
             <button type="button" class="struttura-chip" data-struttura="natalizio" id="chip-struttura-natalizio" onclick="setStrutturaMesseKind('natalizio')">Natalizio</button>
             <button type="button" class="struttura-chip" data-struttura="pasquale" id="chip-struttura-pasquale" onclick="setStrutturaMesseKind('pasquale')">Pasquale</button>
@@ -612,8 +612,8 @@
           <div class="turni-layout-grid">
             <div class="panel">
               <div class="panel-head">
-                <h3 id="turni-struttura-title">Struttura delle celebrazioni</h3>
-                <p id="messe-domenicali-summary">Modelli locali per domeniche ordinarie e festività</p>
+                <h3 id="turni-struttura-title">Modelli</h3>
+                <p id="messe-domenicali-summary">Ogni modello è un preset popolato con le messe delle parrocchie locali</p>
               </div>
               <div class="panel-body">
                 <div id="messe-domenicali-list"></div>
@@ -655,6 +655,7 @@
                       <option value="santuario">Santuario</option>
                       <option value="vanzago">Vanzago</option>
                       <option value="mantegazza">Mantegazza</option>
+                      <option value="cimitero">Cimitero Vanzago</option>
                     </select>
                   </div>
                   <div class="form-check-group">
@@ -1120,12 +1121,11 @@
       <section id="strutture-messe" class="section">
         <div class="panel-head calendario-page-intro">
           <h3>Struttura liturgica</h3>
-          <p>Calendario → modelli → applica all’anno → correzioni. Il risultato si vede in Messe.</p>
+          <p>Calendario → modelli (applicati subito) → correzioni (giorni non celebrati). Il risultato si vede in Messe.</p>
         </div>
         <div class="section-tabs" role="tablist" aria-label="Struttura liturgica">
           <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')">Calendario</button>
           <button type="button" class="section-tab" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="false" onclick="setStrutturaLiturgicaTab('modelli')">Modelli</button>
-          <button type="button" class="section-tab" id="tab-struttura-applica" aria-controls="struttura-liturgica-applica" aria-pressed="false" onclick="setStrutturaLiturgicaTab('applica')">Applica</button>
           <button type="button" class="section-tab" id="tab-struttura-correzioni" aria-controls="struttura-liturgica-correzioni" aria-pressed="false" onclick="setStrutturaLiturgicaTab('correzioni')">Correzioni</button>
         </div>
 
@@ -1133,7 +1133,7 @@
         <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario">
         <div class="panel-head calendario-page-intro">
           <h3>Calendario liturgico ambrosiano</h3>
-          <p>Fonte liturgica ufficiale. Le Messe locali nascono dai passi Modelli → Applica → Correzioni.</p>
+          <p>Fonte liturgica ufficiale. I modelli popolano Messe; in Correzioni togli i giorni che non celebrate.</p>
         </div>
         <div class="cal-section-head">
           <div class="cal-legend" aria-label="Legenda gradi liturgici">
@@ -1210,12 +1210,12 @@
           <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
         </div>
 
-        <!-- 3. Applica strutture all'anno civile -->
-        <div id="struttura-liturgica-applica" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-applica" hidden>
+        <!-- Applica: nascosto — i modelli si applicano al salvataggio; panel tenuto per deep-link legacy -->
+        <div id="struttura-liturgica-applica" class="struttura-pipeline-panel" role="tabpanel" hidden>
           <div class="panel">
             <div class="panel-head">
-              <h3>Applica strutture all’anno</h3>
-              <p>Materializza solennità e giorni speciali dell’anno civile dalle strutture configurate.</p>
+              <h3>Riapplica all’anno</h3>
+              <p>I modelli si applicano automaticamente al salvataggio. Usa questo solo per forzare un refresh dell’anno.</p>
             </div>
             <div class="panel-body">
               <div class="struttura-applica-toolbar">
@@ -1225,7 +1225,7 @@
                   <option value="2026" selected>2026</option>
                   <option value="2027">2027</option>
                 </select>
-                <button type="button" class="btn btn-primary" id="btn-applica-strutture-anno" onclick="applicaStruttureAnno()">Applica strutture</button>
+                <button type="button" class="btn btn-primary" id="btn-applica-strutture-anno" onclick="applicaStruttureAnno()">Riapplica</button>
               </div>
               <div id="struttura-applica-summary" class="struttura-applica-summary"></div>
               <div id="struttura-applica-list" class="struttura-applica-list"></div>
@@ -1233,12 +1233,12 @@
           </div>
         </div>
 
-        <!-- 4. Correzioni anno -->
+        <!-- 3. Correzioni: giorni liturgici non celebrati -->
         <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
           <div class="panel" id="struttura-correzioni-list-panel">
             <div class="panel-head">
-              <h3>Correzioni dell’anno</h3>
-              <p>Override liturgici e orari personalizzati (con titoli) per l’anno civile selezionato.</p>
+              <h3>Giorni non celebrati</h3>
+              <p>Togli dall’agenda i giorni liturgici che la comunità non celebra. I modelli restano invariati.</p>
             </div>
             <div class="panel-body">
               <div class="struttura-applica-toolbar">
@@ -1251,13 +1251,6 @@
               </div>
               <div id="struttura-correzioni-list"></div>
             </div>
-          </div>
-          <div class="panel" id="struttura-correzioni-editor-panel" hidden>
-            <div class="panel-head">
-              <h3 id="struttura-correzioni-editor-title">Modifica orari</h3>
-              <p>Correzione per questo anno civile (i titoli valgono anche come modello per gli anni successivi).</p>
-            </div>
-            <div class="panel-body" id="struttura-correzioni-editor"></div>
           </div>
         </div>
       </section>

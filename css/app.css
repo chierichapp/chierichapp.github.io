@@ -2873,6 +2873,29 @@ body.anag-sheet-open { overflow: hidden; }
   border-top: 1px solid var(--border);
 }
 
+.struttura-giorno-speciale {
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.struttura-giorno-speciale:last-of-type {
+  border-bottom: none;
+}
+
+.struttura-giorno-speciale-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.struttura-giorno-editor {
+  margin-bottom: 12px;
+}
+
 .struttura-pipeline-panel {
   margin-top: 4px;
 }
