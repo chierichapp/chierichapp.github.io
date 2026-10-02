@@ -11,8 +11,31 @@
   let passwordInvitePending = false;
   let authListenersReady = false;
 
+  const PRODUCTION_APP_URL = 'https://chierichapp.github.io/';
+
+  function isLocalDevHost() {
+    try {
+      const h = global.location.hostname;
+      return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+    } catch { /* ignore */ }
+    return false;
+  }
+
+  /** URL dove Supabase reindirizza dopo invite / recovery (sempre produzione se apri da localhost). */
+  function authRedirectTo() {
+    const fromConfig = String(cfg.siteUrl || cfg.appUrl || '').trim();
+    if (fromConfig) {
+      return fromConfig.endsWith('/') ? fromConfig : `${fromConfig}/`;
+    }
+    if (isLocalDevHost()) return PRODUCTION_APP_URL;
+    const origin = global.location.origin;
+    const path = global.location.pathname || '/';
+    if (path === '/' || path === '') return `${origin}/`;
+    return origin + path;
+  }
+
   function recoveryRedirectTo() {
-    return global.location.origin + global.location.pathname;
+    return authRedirectTo();
   }
 
   function detectRecoveryFromUrl() {
@@ -653,7 +676,7 @@
   async function invitaUtente(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, redirectTo: global.location.origin + global.location.pathname }
+      body: { email, redirectTo: authRedirectTo() }
     });
     if (error) return { success: false, message: error.message };
     return data || { success: false, message: 'Invito non riuscito' };
@@ -666,7 +689,7 @@
   async function ricreaInvitoAccesso(email) {
     const sb = requireClient();
     const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, resetExisting: true, redirectTo: global.location.origin + global.location.pathname }
+      body: { email, resetExisting: true, redirectTo: authRedirectTo() }
     });
     if (error) return { success: false, message: error.message };
     if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };

@@ -45,8 +45,10 @@ Deno.serve(async (req) => {
         if (deleteError) throw deleteError;
       }
     }
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://chierichapp.github.io/';
+    const redirectTo = body.redirectTo || siteUrl;
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: body.redirectTo || `${url}/`
+      redirectTo
     });
     if (error) throw error;
     return new Response(JSON.stringify({ success: true, userId: data.user.id, message: 'Invito inviato via email' }), {
