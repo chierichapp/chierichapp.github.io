@@ -11,16 +11,10 @@
   let passwordInvitePending = false;
   let authListenersReady = false;
 
-  /** Destinazione fissa dei link auth (invite / recovery). Non usare location.origin:
-   * se Site URL Supabase è localhost e redirectTo non è in allow-list, GoTrue
-   * riscrive comunque redirect_to → Site URL. */
+  /** Destinazione fissa dei link auth (invite / recovery). Mai location.origin. */
   const PRODUCTION_APP_URL = 'https://chierichapp.github.io/';
 
   function authRedirectTo() {
-    const fromConfig = String(cfg.siteUrl || cfg.appUrl || '').trim();
-    if (fromConfig) {
-      return fromConfig.endsWith('/') ? fromConfig : `${fromConfig}/`;
-    }
     return PRODUCTION_APP_URL;
   }
 

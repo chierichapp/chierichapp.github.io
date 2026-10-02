@@ -6,8 +6,9 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-/** Sempre produzione: non fidarsi di body.redirectTo (client vecchi / localhost). */
-const APP_REDIRECT = Deno.env.get('SITE_URL') || 'https://chierichapp.github.io/';
+/** Fisso su produzione. NON usare SITE_URL/env: un secret locale
+ *  (es. http://localhost:3000 da template Docker) finirebbe nei link email. */
+const APP_REDIRECT = 'https://chierichapp.github.io/';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
