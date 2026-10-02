@@ -609,8 +609,8 @@
             <button type="button" class="struttura-chip" data-struttura="defunti" id="chip-struttura-defunti" onclick="setStrutturaMesseKind('defunti')">Defunti</button>
             <button type="button" class="struttura-chip" data-struttura="festivo" id="chip-struttura-festivo" onclick="setStrutturaMesseKind('festivo')">Festivo</button>
           </div>
-          <div class="turni-layout-grid">
-            <div class="panel">
+          <div class="turni-layout-grid struttura-modelli-grid">
+            <div class="panel struttura-modelli-main">
               <div class="panel-head">
                 <h3 id="turni-struttura-title">Modelli</h3>
                 <p id="messe-domenicali-summary">Il modello domenicale vale per ogni domenica ordinaria; gli altri modelli per i giorni speciali</p>
@@ -624,7 +624,7 @@
               </div>
             </div>
 
-            <div class="panel turni-form-panel">
+            <div class="panel turni-form-panel struttura-modelli-form">
               <div class="panel-head">
                 <h3 id="turni-form-title">Nuova Messa</h3>
                 <p id="turni-form-hint">Aggiungi o modifica una Messa della struttura locale</p>
@@ -1119,28 +1119,48 @@
       </section>
 
       <section id="strutture-messe" class="section">
-        <div class="panel-head calendario-page-intro">
-          <h3>Struttura liturgica</h3>
-          <p>Dal calendario ambrosiano al calendario della comunità (modelli), poi correzioni per anno pastorale (set–ago). Il risultato si vede in Messe.</p>
+        <div class="struttura-page-hero">
+          <div class="panel-head calendario-page-intro">
+            <h3>Struttura liturgica</h3>
+            <p>Dal calendario ambrosiano al calendario della comunità, poi le correzioni dell’anno pastorale.</p>
+          </div>
+          <ol class="struttura-pipeline-steps" aria-label="Passi della struttura liturgica">
+            <li class="struttura-pipeline-step is-active" data-step="calendario" role="button" tabindex="0" aria-current="step" onclick="setStrutturaLiturgicaTab('calendario')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('calendario')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">1</span>
+              <span class="struttura-pipeline-label">Calendario</span>
+              <span class="struttura-pipeline-desc">Fonte ambrosiana</span>
+            </li>
+            <li class="struttura-pipeline-step" data-step="modelli" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('modelli')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('modelli')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">2</span>
+              <span class="struttura-pipeline-label">Modelli</span>
+              <span class="struttura-pipeline-desc">Cosa celebrate</span>
+            </li>
+            <li class="struttura-pipeline-step" data-step="correzioni" role="button" tabindex="0" onclick="setStrutturaLiturgicaTab('correzioni')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStrutturaLiturgicaTab('correzioni')}">
+              <span class="struttura-pipeline-num" aria-hidden="true">3</span>
+              <span class="struttura-pipeline-label">Correzioni</span>
+              <span class="struttura-pipeline-desc">Anno pastorale</span>
+            </li>
+          </ol>
         </div>
-        <div class="section-tabs" role="tablist">
-          <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')">Calendario</button>
-          <button type="button" class="section-tab" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="false" onclick="setStrutturaLiturgicaTab('modelli')">Modelli</button>
-          <button type="button" class="section-tab" id="tab-struttura-correzioni" aria-controls="struttura-liturgica-correzioni" aria-pressed="false" onclick="setStrutturaLiturgicaTab('correzioni')">Correzioni</button>
+        <!-- Tab nascoste: la pipeline è la navigazione primaria; restano per sync stato JS -->
+        <div class="section-tabs struttura-section-tabs" role="tablist" aria-label="Struttura liturgica" hidden>
+          <button type="button" class="section-tab active" id="tab-struttura-calendario" aria-controls="calendario" aria-pressed="true" onclick="setStrutturaLiturgicaTab('calendario')"><span class="tab-label-full">Calendario</span><span class="tab-label-short">Cal.</span></button>
+          <button type="button" class="section-tab" id="tab-struttura-modelli" aria-controls="struttura-liturgica-modelli" aria-pressed="false" onclick="setStrutturaLiturgicaTab('modelli')"><span class="tab-label-full">Modelli</span><span class="tab-label-short">Modelli</span></button>
+          <button type="button" class="section-tab" id="tab-struttura-correzioni" aria-controls="struttura-liturgica-correzioni" aria-pressed="false" onclick="setStrutturaLiturgicaTab('correzioni')"><span class="tab-label-full">Correzioni</span><span class="tab-label-short">Correz.</span></button>
         </div>
 
         <!-- 1. Calendario liturgico ambrosiano -->
         <div id="calendario" class="struttura-liturgica-calendar" role="tabpanel" aria-labelledby="tab-struttura-calendario">
-        <div class="panel-head calendario-page-intro">
-          <h3>Calendario liturgico ambrosiano</h3>
-          <p>Fonte ufficiale. I modelli delimitano i giorni celebrati dalla comunità; in Correzioni aggiusti messe e sedi per l’anno pastorale.</p>
+        <div class="struttura-tab-intro">
+          <h3 class="struttura-tab-title">Calendario ambrosiano</h3>
+          <p class="struttura-tab-lead">Fonte ufficiale. Non definisce da solo le Messe locali: quelle arrivano dai modelli.</p>
         </div>
         <div class="cal-section-head">
           <div class="cal-legend" aria-label="Legenda gradi liturgici">
             <span><i class="solemnity"></i> S — Solennità</span>
             <span><i class="feast"></i> F — Festa</span>
             <span><i class="memorial"></i> M — Memoria</span>
-            <span><i class="feriale"></i> m — Memoria facoltativa</span>
+            <span><i class="feriale"></i> m — Facoltativa</span>
           </div>
 
           <div class="calendar-toolbar" id="cal-toolbar">
@@ -1152,7 +1172,7 @@
                 <option value="2027">2027</option>
               </select>
               <button type="button" class="btn btn-secondary" id="btn-cal-refresh" onclick="loadCalendario(true)" aria-label="Aggiorna calendario">
-                <span class="cal-refresh-label">Aggiorna calendario</span>
+                <span class="cal-refresh-label">Aggiorna</span>
                 <span class="cal-refresh-icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
                 </span>
@@ -1160,7 +1180,7 @@
             </div>
             <label class="cal-filter" for="cal-filter-important">
               <input type="checkbox" id="cal-filter-important" onchange="renderCalMonth()">
-              <span class="cal-filter-label-full">Evidenzia solo solennità, feste e memorie</span>
+              <span class="cal-filter-label-full">Solo solennità, feste e memorie</span>
               <span class="cal-filter-label-short">Solo S · F · M</span>
             </label>
           </div>
@@ -1206,7 +1226,11 @@
       </div>
 
         <!-- 2. Modelli strutture -->
-        <div id="struttura-liturgica-modelli" role="tabpanel" aria-labelledby="tab-struttura-modelli" hidden>
+        <div id="struttura-liturgica-modelli" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-modelli" hidden>
+          <div class="struttura-tab-intro">
+            <h3 class="struttura-tab-title">Modelli della comunità</h3>
+            <p class="struttura-tab-lead">Definiscono quali giorni celebrate e con quali messe tipiche. Si applicano subito a Messe.</p>
+          </div>
           <div id="strutture-messe-slot" class="messe-strutture-slot"></div>
         </div>
 
@@ -1233,18 +1257,20 @@
 
         <!-- 3. Correzioni: esclusioni + sedi/orari di quest’anno -->
         <div id="struttura-liturgica-correzioni" class="struttura-pipeline-panel" role="tabpanel" aria-labelledby="tab-struttura-correzioni" hidden>
-          <div class="panel" id="struttura-correzioni-list-panel">
-            <div class="panel-head">
-              <h3>Correzioni all’agenda</h3>
-              <p>Per l’anno pastorale (settembre–agosto): cambia numero, orario e sede delle messe, oppure togli i giorni in cui non fate servizio all’altare. I modelli restano invariati.</p>
-            </div>
-            <div class="panel-body">
-              <div class="struttura-applica-toolbar">
-                <label for="anno-struttura-correzioni">Anno pastorale</label>
+          <div class="panel struttura-correzioni-panel" id="struttura-correzioni-list-panel">
+            <div class="panel-head struttura-correzioni-head">
+              <div>
+                <h3>Correzioni anno pastorale</h3>
+                <p>Numero, orario e sede delle messe; oppure giorni senza servizio all’altare. I modelli restano invariati.</p>
+              </div>
+              <div class="struttura-applica-toolbar struttura-correzioni-year">
+                <label for="anno-struttura-correzioni">Anno</label>
                 <select id="anno-struttura-correzioni" onchange="onStrutturaCorrezioniAnnoChange()">
                   <option value="2026" selected>2026/27</option>
                 </select>
               </div>
+            </div>
+            <div class="panel-body">
               <div id="struttura-correzioni-list"></div>
             </div>
           </div>

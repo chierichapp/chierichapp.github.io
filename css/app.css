@@ -2856,16 +2856,21 @@ body.anag-sheet-open { overflow: hidden; }
 
 .struttura-messe-kind {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   margin-bottom: 14px;
   padding: 4px;
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: 14px;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.struttura-messe-kind::-webkit-scrollbar { display: none; }
 
 .struttura-festivita-block {
   margin-top: 22px;
@@ -2874,13 +2879,19 @@ body.anag-sheet-open { overflow: hidden; }
 }
 
 .struttura-giorno-speciale {
-  margin-bottom: 22px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.struttura-giorno-speciale.is-customized {
+  border-color: color-mix(in srgb, var(--accent, #2a5a4a) 28%, var(--border));
 }
 
 .struttura-giorno-speciale:last-of-type {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .struttura-giorno-speciale-head {
@@ -2889,7 +2900,53 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
+}
+
+.struttura-giorno-speciale-copy {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.struttura-giorno-speciale-title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.struttura-giorno-speciale-meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.struttura-giorno-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent, #2a5a4a);
+  background: color-mix(in srgb, var(--accent, #2a5a4a) 12%, transparent);
+}
+
+.struttura-giorno-speciale-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.struttura-giorno-speciale .config-list {
+  margin: 0;
 }
 
 .struttura-giorno-editor {
@@ -2898,6 +2955,174 @@ body.anag-sheet-open { overflow: hidden; }
 
 .struttura-pipeline-panel {
   margin-top: 4px;
+}
+
+.struttura-page-hero {
+  margin-bottom: 14px;
+}
+
+.struttura-page-hero .calendario-page-intro {
+  margin-bottom: 12px;
+}
+
+.struttura-section-tabs[hidden] {
+  display: none !important;
+}
+
+.struttura-liturgica-calendar {
+  margin-top: 4px;
+}
+
+.struttura-modelli-grid {
+  margin-top: 4px;
+}
+
+.struttura-modelli-main > .panel-head h3 {
+  font-size: 1rem;
+}
+
+.struttura-pipeline-steps {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.struttura-pipeline-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.struttura-pipeline-step:hover,
+.struttura-pipeline-step:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, #2a5a4a) 35%, var(--border));
+  outline: none;
+}
+
+.struttura-pipeline-step.is-active {
+  border-color: color-mix(in srgb, var(--accent, #2a5a4a) 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #2a5a4a) 25%, transparent);
+  background: color-mix(in srgb, var(--accent, #2a5a4a) 6%, var(--surface));
+}
+
+.struttura-pipeline-num {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  margin-bottom: 2px;
+}
+
+.struttura-pipeline-step.is-active .struttura-pipeline-num {
+  color: var(--surface);
+  background: var(--accent, #2a5a4a);
+}
+
+.struttura-pipeline-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.struttura-pipeline-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.struttura-section-tabs {
+  width: 100%;
+  max-width: 100%;
+}
+
+.struttura-tab-intro {
+  margin: 0 0 16px;
+}
+
+.struttura-tab-title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.struttura-tab-lead {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 42rem;
+}
+
+.struttura-correzioni-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.struttura-correzioni-head > div:first-child {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.struttura-correzioni-year {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.struttura-correzioni-summary {
+  margin-bottom: 8px;
+}
+
+.struttura-correzioni-block {
+  margin-top: 22px;
+  padding-top: 4px;
+}
+
+.struttura-correzioni-block-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.struttura-correzioni-block-lead {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.struttura-sedi-line {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--ink-soft, var(--ink));
+}
+
+.struttura-correzione-day {
+  align-items: flex-start;
+}
+
+.struttura-correzione-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .struttura-modello-intro {
@@ -2926,7 +3151,7 @@ body.anag-sheet-open { overflow: hidden; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 0 0 20px;
+  margin: 0 0 8px;
   padding: 14px 16px;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent, #2a5a4a) 8%, transparent);
@@ -6223,6 +6448,93 @@ body.anag-sheet-open { overflow: hidden; }
     box-shadow: 0 4px 12px rgba(12, 24, 41, 0.04);
   }
 
+  #strutture-messe .struttura-page-hero {
+    position: sticky;
+    top: var(--sticky-below-topbar);
+    z-index: 45;
+    margin-left: -14px;
+    margin-right: -14px;
+    margin-bottom: 12px;
+    padding: 8px 14px 10px;
+    background: color-mix(in srgb, var(--cream) 92%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  #strutture-messe .struttura-page-hero .calendario-page-intro {
+    display: none;
+  }
+
+  #strutture-messe .struttura-pipeline-steps {
+    gap: 6px;
+    margin: 0;
+  }
+
+  #strutture-messe .struttura-pipeline-step {
+    padding: 8px 8px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #strutture-messe .struttura-pipeline-num {
+    margin-bottom: 0;
+    flex: 0 0 auto;
+  }
+
+  #strutture-messe .struttura-pipeline-desc {
+    display: none;
+  }
+
+  #strutture-messe .struttura-pipeline-label {
+    font-size: 0.8rem;
+  }
+
+  #strutture-messe .struttura-tab-intro {
+    margin-bottom: 12px;
+  }
+
+  #strutture-messe .struttura-tab-title {
+    font-size: 0.98rem;
+  }
+
+  #strutture-messe .struttura-correzioni-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #strutture-messe .struttura-correzione-actions {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  #strutture-messe .struttura-correzione-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  #strutture-messe .struttura-giorno-speciale-actions {
+    width: 100%;
+  }
+
+  #strutture-messe .struttura-giorno-speciale-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  #strutture-messe .struttura-messe-kind {
+    position: sticky;
+    top: calc(var(--sticky-below-topbar) + 52px);
+    z-index: 44;
+    margin-left: -2px;
+    margin-right: -2px;
+    width: calc(100% + 4px);
+    background: var(--cream);
+  }
+
+  #strutture-messe .struttura-chip {
+    flex: 0 0 auto;
+  }
+
   #registro .registro-toolbar {
     position: static;
     z-index: auto;
@@ -8657,6 +8969,35 @@ body.anag-sheet-open { overflow: hidden; }
 
   .gruppi-edit-footer {
     padding: 12px 16px;
+  }
+
+  #strutture-messe .struttura-page-hero {
+    margin-bottom: 18px;
+  }
+
+  #strutture-messe .struttura-pipeline-steps {
+    gap: 10px;
+    max-width: 52rem;
+  }
+
+  #strutture-messe .struttura-pipeline-step {
+    padding: 12px 14px;
+  }
+
+  #strutture-messe .struttura-tab-intro {
+    margin-bottom: 18px;
+  }
+
+  #strutture-messe .struttura-giorno-speciale {
+    padding: 16px 18px;
+  }
+
+  #strutture-messe .struttura-correzioni-block {
+    margin-top: 28px;
+  }
+
+  #strutture-messe .struttura-messe-kind {
+    max-width: 42rem;
   }
 }
 

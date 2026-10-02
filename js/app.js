@@ -342,6 +342,13 @@ function setStrutturaLiturgicaTab(tab) {
     tabs[id].classList.toggle('active', on);
     tabs[id].setAttribute('aria-pressed', String(on));
   });
+  const stepKey = active === 'applica' ? 'correzioni' : active;
+  document.querySelectorAll('.struttura-pipeline-step').forEach(el => {
+    const on = el.dataset.step === stepKey;
+    el.classList.toggle('is-active', on);
+    if (on) el.setAttribute('aria-current', 'step');
+    else el.removeAttribute('aria-current');
+  });
   if (active === 'calendario') {
     const anno = getCalAnno();
     if (!calState.data || calState.data.anno !== anno) void loadCalendario();
@@ -4561,25 +4568,26 @@ async function renderStrutturaCorrezioniPanel() {
   const nAnnoOverride = speciali.filter(d => getMessaExtraForDate(d.data)?.orarioPersonalizzato).length;
 
   let html = `
-    <div class="struttura-modello-intro">
-      <p class="struttura-modello-intro-title">Pipeline · ${esc(pastoralLabel)}</p>
-      <p class="liturgy-meta" style="margin:0">Il calendario ambrosiano diventa il calendario della comunità tramite i modelli. Qui correggi <strong>numero, orario e sede</strong> delle messe per quest’anno pastorale, oppure togli i giorni in cui <strong>non fate servizio all’altare</strong>.</p>
-    </div>
-    <div class="struttura-correzioni-baseline">
-      <div class="struttura-correzioni-baseline-main">
-        <p class="config-item-title">Domeniche ordinarie ${esc(pastoralLabel)}</p>
-        <p class="config-item-meta">${hasDom
-          ? `${nDom} domeniche · modello domenicale (${nDomSlots} messe)`
-          : 'Modello domenicale non configurato'}${nAnnoOverride ? ` · ${nAnnoOverride} feste con sedi di quest’anno` : ''} · ${esc(formatStrutturaPastoralRangeLabel(anno))}</p>
+    <div class="struttura-correzioni-summary">
+      <div class="struttura-correzioni-baseline">
+        <div class="struttura-correzioni-baseline-main">
+          <p class="config-item-title">Domeniche ordinarie · ${esc(pastoralLabel)}</p>
+          <p class="config-item-meta">${hasDom
+            ? `${nDom} domeniche · modello domenicale (${nDomSlots} messe)`
+            : 'Modello domenicale non configurato'}${nAnnoOverride ? ` · ${nAnnoOverride} con sedi di quest’anno` : ''}</p>
+          <p class="config-item-meta">${esc(formatStrutturaPastoralRangeLabel(anno))}</p>
+        </div>
+        ${canManage ? `
+          <div class="config-item-actions">
+            <button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind('domenicale')">Apri modello</button>
+          </div>` : ''}
       </div>
-      ${canManage ? `
-        <div class="config-item-actions">
-          <button type="button" class="btn btn-secondary" onclick="setStrutturaLiturgicaTab('modelli'); setStrutturaMesseKind('domenicale')">Apri modello</button>
-        </div>` : ''}
     </div>
   `;
 
-  html += '<h4 class="turni-messe-group-title">Giorni dai modelli ' + esc(pastoralLabel) + '</h4>';
+  html += '<section class="struttura-correzioni-block">';
+  html += '<h4 class="struttura-correzioni-block-title">Giorni dai modelli</h4>';
+  html += '<p class="struttura-correzioni-block-lead">Cambia sedi/orari di quest’anno oppure togli i giorni senza servizio all’altare.</p>';
   if (!speciali.length) {
     html += '<p class="empty-state">Nessun giorno speciale in agenda. Salva i modelli: si applicano subito.</p>';
   } else {
@@ -4591,7 +4599,7 @@ async function renderStrutturaCorrezioniPanel() {
     });
     Object.keys(byMonth).sort().forEach(monthKey => {
       const label = new Date(monthKey + '-15T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-      html += '<p class="struttura-correzioni-month">' + esc(label) + '</p><div class="config-list">';
+      html += '<p class="struttura-correzioni-month">' + esc(label) + '</p><div class="config-list struttura-correzioni-days">';
       html += byMonth[monthKey].map(d => {
         const extra = getMessaExtraForDate(d.data);
         const excludeTarget = extra?.uuid || d.data;
@@ -4604,14 +4612,14 @@ async function renderStrutturaCorrezioniPanel() {
           ? ' · ' + getFestivityPresetMeta(d.preset).label
           : '';
         return (
-          '<div class="config-item' + (extra?.orarioPersonalizzato ? ' is-anno-override' : '') + '">' +
+          '<div class="config-item struttura-correzione-day' + (extra?.orarioPersonalizzato ? ' is-anno-override' : '') + '">' +
             '<div class="config-item-main">' +
               '<p class="config-item-title">' + esc(formatFestivitaDateShort(d.data)) + ' · ' + esc(d.label) + '</p>' +
               '<p class="config-item-meta">' + esc(getStrutturaMeta(d.kind || 'festivo').label) + esc(presetBit) + esc(annoBit) +
-                (sediBit ? '<br>' + esc(sediBit) : '') + '</p>' +
+                (sediBit ? '<br><span class="struttura-sedi-line">' + esc(sediBit) + '</span>' : '') + '</p>' +
             '</div>' +
             (canManage
-              ? '<div class="config-item-actions">' +
+              ? '<div class="config-item-actions struttura-correzione-actions">' +
                   '<button type="button" class="btn btn-secondary" onclick="editCorrezioneAnno(' + jsStr(d.data) + ')">Sedi anno</button>' +
                   '<button type="button" class="btn btn-danger" onclick="escludiFestivita(' + jsStr(excludeTarget) + ')">Senza servizio</button>' +
                 '</div>'
@@ -4622,8 +4630,11 @@ async function renderStrutturaCorrezioniPanel() {
       html += '</div>';
     });
   }
+  html += '</section>';
 
-  html += '<h4 class="turni-messe-group-title" style="margin-top:22px">Senza servizio all’altare</h4>';
+  html += '<section class="struttura-correzioni-block">';
+  html += '<h4 class="struttura-correzioni-block-title">Senza servizio all’altare</h4>';
+  html += '<p class="struttura-correzioni-block-lead">Giorni esclusi dall’agenda: i modelli restano, ma non generano messe per queste date.</p>';
   if (!escluse.length) {
     html += '<p class="empty-state" style="margin:0">Nessun giorno senza servizio — l’agenda segue i modelli.</p>';
   } else {
@@ -4641,6 +4652,7 @@ async function renderStrutturaCorrezioniPanel() {
       '</div>'
     )).join('') + '</div>';
   }
+  html += '</section>';
 
   listEl.innerHTML = html;
 }
@@ -8916,14 +8928,14 @@ function renderStrutturaGiorniSpecialiHtml(kind) {
       ? g.label
       : g.label;
     return `
-      <article class="struttura-giorno-speciale" data-preset="${esc(g.presetId)}">
+      <article class="struttura-giorno-speciale${customized ? ' is-customized' : ''}" data-preset="${esc(g.presetId)}">
         <div class="struttura-giorno-speciale-head">
-          <div>
-            <h4 class="turni-messe-group-title" style="margin-bottom:2px">${esc(label)}</h4>
-            <p class="liturgy-meta" style="margin:0 0 10px">Modello · ${esc(g.dateHint)}${customized ? ' · personalizzato' : ''} · ${slots.length} messe</p>
+          <div class="struttura-giorno-speciale-copy">
+            <h4 class="struttura-giorno-speciale-title">${esc(label)}${customized ? ' <span class="struttura-giorno-badge">Personalizzato</span>' : ''}</h4>
+            <p class="struttura-giorno-speciale-meta">${esc(g.dateHint)} · ${slots.length} messe</p>
           </div>
           ${canManage ? `
-            <div class="config-item-actions">
+            <div class="config-item-actions struttura-giorno-speciale-actions">
               <button type="button" class="btn btn-primary" onclick="applicaModelloGiornoSpeciale(${jsStr(kind)}, ${jsStr(g.presetId)})">Applica modello</button>
               <button type="button" class="btn btn-secondary" onclick="editStrutturaGiornoSpeciale(${jsStr(kind)}, ${jsStr(g.presetId)})">Modifica messe</button>
               ${customized ? `<button type="button" class="btn btn-ghost" onclick="ripristinaStrutturaGiornoSpeciale(${jsStr(g.eventKey)})">Ripristina</button>` : ''}
