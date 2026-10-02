@@ -2758,6 +2758,7 @@ function applyServerSnapshot(chi, turni, pres, configRes, cerimonieri) {
     if (dateStr < pastoralFrom) delete state.messeIndicazioni[dateStr];
   });
   if (configRes?.gruppiConfig) state.gruppiConfig = configRes.gruppiConfig;
+  invalidateLiturgyCaches();
   if (Array.isArray(cerimonieri)) {
     cerimonieriAccounts = cerimonieri;
     cerimonieriHydrated = true;
@@ -3555,6 +3556,7 @@ function emailExists(email, excludeUuid) {
 }
 
 function ensureGruppiConfig() {
+  if (ensureGruppiConfig._ready) return;
   if (ensureGruppiConfig._busy) return;
   ensureGruppiConfig._busy = true;
   try {
@@ -3641,9 +3643,27 @@ function ensureGruppiConfig() {
     renumberAllStruttureMesse();
     repairGruppiConfig();
     syncGruppiToTurniSlots();
+    ensureGruppiConfig._ready = true;
   } finally {
     ensureGruppiConfig._busy = false;
   }
+}
+
+/** Invalida cache liturgiche dopo mutazioni a modelli / calendario / extras. */
+function invalidateLiturgyCaches() {
+  ensureGruppiConfig._ready = false;
+  _messaInfoCache.clear();
+  _displacedFestivityCache = { anno: null, set: null };
+  clearCorrezioniCivilDayCache();
+  clearMesseDatesYearCache();
+}
+
+const _messaInfoCache = new Map();
+let _displacedFestivityCache = { anno: null, set: null };
+let _messeDatesYearCache = { anno: null, dates: null };
+
+function clearMesseDatesYearCache() {
+  _messeDatesYearCache = { anno: null, dates: null };
 }
 
 /** Migra messeDomenicali/messeFestive → 5 strutture tempi liturgici */
@@ -3736,7 +3756,10 @@ function getStrutturaSlotsMutable(kind) {
 }
 
 function hasStrutturaConfig(kind) {
-  return getStrutturaSlots(kind).length > 0;
+  ensureGruppiConfig();
+  const key = getStrutturaConfigKey(kind);
+  const list = state.gruppiConfig?.[key];
+  return Array.isArray(list) && list.length > 0;
 }
 
 function renumberStrutturaSlots(kind) {
@@ -5274,24 +5297,32 @@ function getCorrezioniCivilDaysForAnno(anno) {
   return [...byCivil.values()].sort((a, b) => String(a.data).localeCompare(String(b.data)));
 }
 
-/** Cache giorni civili Correzioni per render Messe (stesso anno pastorale). */
-let _correzioniCivilDayCache = { anno: null, map: null };
+/** Cache giorni civili Correzioni per render Messe (per anno pastorale). */
+const _correzioniCivilDayCacheByAnno = new Map();
 
 function clearCorrezioniCivilDayCache() {
-  _correzioniCivilDayCache = { anno: null, map: null };
+  _correzioniCivilDayCacheByAnno.clear();
+}
+
+function getCorrezioniCivilDaysCached(anno) {
+  anno = String(anno || getStrutturaFestivitaAnno());
+  let entry = _correzioniCivilDayCacheByAnno.get(anno);
+  if (!entry) {
+    const days = getCorrezioniCivilDaysForAnno(anno);
+    entry = {
+      days,
+      map: new Map(days.map(d => [d.data, d]))
+    };
+    _correzioniCivilDayCacheByAnno.set(anno, entry);
+  }
+  return entry.days;
 }
 
 function getCorrezioniCivilDayCached(dateStr) {
   if (!dateStr) return null;
   const anno = String(getPastoralStartForDateStr(dateStr));
-  if (_correzioniCivilDayCache.anno !== anno || !_correzioniCivilDayCache.map) {
-    const days = getCorrezioniCivilDaysForAnno(anno);
-    _correzioniCivilDayCache = {
-      anno,
-      map: new Map(days.map(d => [d.data, d]))
-    };
-  }
-  return _correzioniCivilDayCache.map.get(dateStr) || null;
+  getCorrezioniCivilDaysCached(anno);
+  return _correzioniCivilDayCacheByAnno.get(anno)?.map.get(dateStr) || null;
 }
 
 /**
@@ -5330,17 +5361,8 @@ async function renderStrutturaCorrezioniPanel() {
   }
 
   const canManage = isCurrentUserAdmin();
-  if (canManage) {
-    try {
-      const sync = syncFestivitaAnno(anno);
-      if (sync.added || sync.updated || sync.removed) {
-        saveData();
-        void persistConfig();
-      }
-    } catch (_) { /* ignore */ }
-  }
 
-  const days = getCorrezioniCivilDaysForAnno(anno);
+  const days = getCorrezioniCivilDaysCached(anno);
   const nDom = days.filter(d => isSundayDate(d.data) && d.kind === 'domenicale').length;
   const nOverride = days.filter(d => d.personalized).length;
   const nSenza = days.filter(d => d.senzaMesse).length;
@@ -5644,7 +5666,7 @@ function ricaricaMesseCorrezioneDalModello(civilDateStr) {
   extra.orarioPersonalizzato = false;
   saveData();
   void persistConfig();
-  clearCorrezioniCivilDayCache();
+  invalidateLiturgyCaches();
   editCorrezioneAnno(civilDateStr);
   showToast('Messe ricaricate dal modello');
 }
@@ -5698,7 +5720,7 @@ function saveCorrezioneDayConfig(civilDateStr) {
     }
   }
   clearLiturgicalSeasonCache();
-  clearCorrezioniCivilDayCache();
+  invalidateLiturgyCaches();
   return true;
 }
 
@@ -5827,7 +5849,7 @@ function saveCorrezioneCivilDay(civilDateStr) {
   try {
     syncFestivitaAnno(anno);
   } catch (_) { /* ignore */ }
-  clearCorrezioniCivilDayCache();
+  invalidateLiturgyCaches();
   showToast(rows.length
     ? ('Correzioni salvate · ' + formatFestivitaDateShort(civilDateStr) + ' · ' + formatPastoralYearLabel(anno))
     : ('Nessuna messa · ' + formatFestivitaDateShort(civilDateStr)));
@@ -5856,7 +5878,7 @@ function ripristinaCorrezioneCivilDay(civilDateStr) {
     }
   });
   clearLiturgicalSeasonCache();
-  clearCorrezioniCivilDayCache();
+  invalidateLiturgyCaches();
 
   sourceDates.forEach(src => {
     const extra = getMessaExtraForDate(src);
@@ -11941,6 +11963,7 @@ function addChierichettoToGruppoFromSelect(gruppoId) {
 }
 
 function afterGruppiConfigChange() {
+  invalidateLiturgyCaches();
   renumberAllStruttureMesse();
   syncGruppiToTurniSlots();
   saveData();
@@ -12979,20 +13002,37 @@ function detectFestivityPresetFromCivilOverride(dateStr) {
  * e questo giorno non è già la data civile di un’altra festa (es. 2 nov Defunti).
  */
 function isFestivityDisplacedFromDate(dateStr) {
-  const fromLit = detectFestivityPresetFromAmbrosian(dateStr);
-  if (!fromLit) return false;
-  const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
-  if (!eventKey) return false;
+  if (!dateStr) return false;
   const anno = dateStr.slice(0, 4);
-  const effective = getFestivitaDateForAnno(eventKey, anno);
-  if (!effective || effective === dateStr) return false;
-  // Qui cade un’altra festa comunità (1/2 nov): non scartare il giorno
-  if (detectDefuntiCivilPreset(dateStr)) return false;
-  for (const ek of Object.keys(FESTIVITA_DEFAULT_MD)) {
-    if (ek === eventKey) continue;
-    if (getFestivitaDateForAnno(ek, anno) === dateStr) return false;
+  if (_displacedFestivityCache.anno !== anno || !_displacedFestivityCache.set) {
+    const displaced = new Set();
+    const effectiveByKey = {};
+    Object.keys(FESTIVITA_DEFAULT_MD || {}).forEach(ek => {
+      effectiveByKey[ek] = getFestivitaDateForAnno(ek, anno);
+    });
+    const byDate = calState.data?.byDate || {};
+    Object.keys(byDate).forEach(d => {
+      if (!d.startsWith(anno)) return;
+      const fromLit = detectFestivityPresetFromAmbrosian(d);
+      if (!fromLit) return;
+      const eventKey = FESTIVITA_EVENTKEY_BY_PRESET[fromLit];
+      if (!eventKey) return;
+      const effective = effectiveByKey[eventKey];
+      if (!effective || effective === d) return;
+      if (detectDefuntiCivilPreset(d)) return;
+      let otherFestivityHere = false;
+      for (const ek of Object.keys(effectiveByKey)) {
+        if (ek === eventKey) continue;
+        if (effectiveByKey[ek] === d) {
+          otherFestivityHere = true;
+          break;
+        }
+      }
+      if (!otherFestivityHere) displaced.add(d);
+    });
+    _displacedFestivityCache = { anno, set: displaced };
   }
-  return true;
+  return _displacedFestivityCache.set.has(dateStr);
 }
 
 function detectFestivityPresetFromCivilDefault(dateStr) {
@@ -13845,7 +13885,7 @@ function newMessaExtraUuid(prefix = 'MES') {
  */
 function syncFestivitaAnno(anno) {
   anno = String(anno);
-  clearCorrezioniCivilDayCache();
+  invalidateLiturgyCaches();
   if (!isCurrentUserAdmin()) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   if (!calState.data?.byDate) return { added: 0, needsConfig: false, updated: 0, removed: 0 };
   const hasAnySeason = ['natalizio', 'pasquale', 'defunti', 'festivo'].some(hasStrutturaConfig);
@@ -13967,6 +14007,14 @@ function syncFestivitaAnno(anno) {
 }
 
 function getMessaInfo(dateStr) {
+  if (!dateStr) return null;
+  if (_messaInfoCache.has(dateStr)) return _messaInfoCache.get(dateStr);
+  const info = computeMessaInfo(dateStr);
+  _messaInfoCache.set(dateStr, info);
+  return info;
+}
+
+function computeMessaInfo(dateStr) {
   // Festa LitCal sul giorno ma celebrata altrove: niente orario festivo qui (come in Correzioni)
   if (isFestivityDisplacedFromDate(dateStr)) {
     const extraHere = getMessaExtraForDate(dateStr);
@@ -14101,31 +14149,46 @@ function getMessaInfo(dateStr) {
 
 function getMesseDatesForYear(anno) {
   anno = String(anno);
+  if (_messeDatesYearCache.anno === anno && Array.isArray(_messeDatesYearCache.dates)) {
+    return _messeDatesYearCache.dates.slice();
+  }
   const set = new Set();
   getSundaysInYear(parseInt(anno, 10)).forEach(d => set.add(d));
   (state.messeExtra || []).forEach(m => {
     if (m.data && m.data.startsWith(anno)) set.add(m.data);
+    // Vigilia sul giorno civile precedente
+    if (m.data && isExtraFestiva(m)) {
+      const vigil = addDaysToDateStr(m.data, -1);
+      if (vigil.startsWith(anno) && festivaConcreteSlotsOnCivilDate(m, vigil).length) set.add(vigil);
+    }
   });
-  // Stessi giorni civili di Correzioni (con messe) per gli anni pastorali che toccano l’anno civile
+  // Giorni civili già in Correzioni (con messe) per gli anni pastorali che toccano l’anno civile
   const y = parseInt(anno, 10);
   [String(y - 1), String(y)].forEach(pastoralStart => {
     try {
-      getCorrezioniCivilDaysForAnno(pastoralStart).forEach(day => {
+      getCorrezioniCivilDaysCached(pastoralStart).forEach(day => {
         if (!day?.data || !day.data.startsWith(anno)) return;
         if ((day.slots || []).length) set.add(day.data);
       });
     } catch (_) { /* calendario non pronto */ }
   });
-  // Giorni con struttura (tempi + festivi) — scan anno civile
-  const start = new Date(parseInt(anno, 10), 0, 1);
-  const end = new Date(parseInt(anno, 10), 11, 31);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = formatDateFromDate(d);
-    if (set.has(dateStr)) continue;
-    const info = getMessaInfo(dateStr);
-    if (info) set.add(dateStr);
-  }
-  return [...set].filter(dateStr => !!getMessaInfo(dateStr)).sort();
+  // Solo i range di stagione (non tutto l’anno civile)
+  try {
+    const bounds = getLiturgicalSeasonBounds(anno);
+    const addRange = (range) => {
+      if (!range?.start || !range?.end) return;
+      for (let d = range.start; d <= range.end; d = addDaysToDateStr(d, 1)) {
+        if (!d.startsWith(anno) || set.has(d)) continue;
+        if (getMessaInfo(d)) set.add(d);
+      }
+    };
+    (bounds.nataleRanges || []).forEach(addRange);
+    addRange(bounds.pasqua);
+    addRange(bounds.defunti);
+  } catch (_) { /* ignore */ }
+  const dates = [...set].sort();
+  _messeDatesYearCache = { anno, dates };
+  return dates.slice();
 }
 
 function getTurniForDate(dateStr) {
@@ -14145,22 +14208,6 @@ async function loadMesseAgenda() {
   try {
     const anno = getMesseAnno();
     await ensureCalendarioForYear(anno);
-    // Allinea extras ai modelli/Correzioni (anni pastorali che toccano l’anno civile)
-    if (isCurrentUserAdmin()) {
-      const y = parseInt(anno, 10);
-      let touched = false;
-      [String(y - 1), String(y)].forEach(py => {
-        try {
-          const sync = syncFestivitaAnno(py);
-          if (sync.added || sync.updated || sync.removed) touched = true;
-        } catch (_) { /* ignore */ }
-      });
-      if (touched) {
-        saveData();
-        void persistConfig();
-      }
-    }
-    clearCorrezioniCivilDayCache();
     updateMesseFestivoBanner(false);
     updateMesseAgendaSummary();
     renderMesseAgenda();
@@ -14323,7 +14370,6 @@ function renderMesseAgenda() {
   const container = document.getElementById('messe-agenda');
   const anno = parseInt(getMesseAnno(), 10);
   const today = getTodayStr();
-  clearCorrezioniCivilDayCache();
   document.querySelectorAll('[data-messe-view]').forEach(btn => {
     const active = btn.dataset.messeView === messeState.view;
     btn.classList.toggle('active', active);
@@ -15370,6 +15416,7 @@ async function loadCalendario(refresh) {
     calState.data = data;
     calState.unavailable = false;
     clearLiturgicalSeasonCache();
+    invalidateLiturgyCaches();
     renderCalMonth();
     ensureCalDaySelected();
     renderProssimeCelebrazioni();
