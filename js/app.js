@@ -3390,28 +3390,14 @@ function getCelebrationsForAppelloDate(dateStr) {
   };
 
   if (info?.type === 'domenica' || (day === 0 && info?.type !== 'festiva')) {
-    pushSlotsForDate(dateStr, dateStr);
+    const domenicaRef = info?.type === 'domenica'
+      ? getDomenicaRefFromMassInfo(dateStr, info)
+      : dateStr;
+    pushSlotsForDate(domenicaRef, dateStr);
   }
 
   if (info?.type === 'festiva') {
     pushFestivaSlotsForDate(dateStr, dateStr);
-  }
-
-  // Vigilia del giorno successivo (domenica o festivo): anche se oggi è già festivo
-  // (es. 1 nov Tutti i Santi + vigilia Defunti alle 18)
-  {
-    const next = addDaysToDateStr(dateStr, 1);
-    const nextInfo = getMessaInfo(next);
-    if (nextInfo?.type === 'festiva') {
-      getFestivaSlots(next)
-        .filter(s => s.data === dateStr)
-        .forEach(s => {
-          const key = messaSlotKey(s);
-          if (!slots.some(x => x.key === key)) slots.push({ ...s, key, isFestiva: true });
-        });
-    } else if (day === 6 && info?.type !== 'festiva' && nextInfo?.type === 'domenica') {
-      pushSlotsForDate(next, dateStr);
-    }
   }
 
   if (info?.type === 'extra') {
@@ -3428,10 +3414,30 @@ function getCelebrationsForAppelloDate(dateStr) {
       gruppo: null,
       gruppoLabel: null,
       vigilia: false,
-      isExtra: true,
       key: messaSlotKey({ data: dateStr, ora, sede })
     };
-    if (!slots.some(s => s.key === slot.key)) slots.push(slot);
+    if (!slots.some(x => x.key === slot.key)) slots.push(slot);
+  }
+
+  // Vigilia domenicale anche se oggi c’è già una straordinaria (es. Cresime + 18:00)
+  if (Array.isArray(info?.vigilSlots)) {
+    info.vigilSlots.forEach(s => {
+      const key = messaSlotKey(s);
+      if (!slots.some(x => x.key === key)) slots.push({ ...s, key });
+    });
+  } else {
+    const next = addDaysToDateStr(dateStr, 1);
+    const nextInfo = getMessaInfo(next);
+    if (nextInfo?.type === 'festiva') {
+      getFestivaSlots(next)
+        .filter(s => s.data === dateStr)
+        .forEach(s => {
+          const key = messaSlotKey(s);
+          if (!slots.some(x => x.key === key)) slots.push({ ...s, key, isFestiva: true });
+        });
+    } else if (day === 6 && nextInfo?.type === 'domenica') {
+      pushSlotsForDate(next, dateStr);
+    }
   }
 
   return slots.sort((a, b) => compareOraSlot(a.ora, b.ora) || (a.sede || '').localeCompare(b.sede || ''));
@@ -6365,6 +6371,86 @@ function getTurniSlots(domenicaDateStr) {
   return getMesseOrdinarieSlots(domenicaDateStr).filter(s => s.conChierichetti);
 }
 
+/** Ancora liturgica (domenica) per un giorno civile, incl. sabato vigiliare. */
+function getDomenicaRefFromMassInfo(dateStr, massInfo) {
+  if (!massInfo || massInfo.type !== 'domenica') return dateStr;
+  return massInfo.domenicaRef || massInfo.fromVigilOf || dateStr;
+}
+
+/** Messe ordinarie del solo giorno civile (sabato vigilia vs domenica). */
+function getMesseOrdinarieSlotsOnCivil(domenicaRef, civilDateStr) {
+  return getMesseOrdinarieSlots(domenicaRef).filter(s => s.data === civilDateStr);
+}
+
+function getTurniSlotsOnCivil(domenicaRef, civilDateStr) {
+  return getTurniSlots(domenicaRef).filter(s => s.data === civilDateStr);
+}
+
+function countAssignedSlotsOnCivil(domenicaRef, civilDateStr) {
+  return getTurniSlotsOnCivil(domenicaRef, civilDateStr).filter(isSlotCoperto).length;
+}
+
+/**
+ * Vigilia sul giorno civile proveniente dalla domenica/festa del giorno dopo.
+ * Se la domenica ha orario personalizzato senza slot sabato, ripiega sul modello domenicale.
+ */
+function resolveCivilDayVigilFromNext(dateStr) {
+  if (!dateStr) return null;
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  if (isFestivitaEsclusa(nextDate)) return null;
+
+  const nextExtra = getMessaExtraForDate(nextDate);
+  if (nextExtra && isExtraFestiva(nextExtra) && !isFestivityDisplacedFromDate(nextDate)) {
+    const festVigil = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
+    if (festVigil.length) {
+      return {
+        kind: 'festiva',
+        fromVigilOf: nextDate,
+        extra: nextExtra,
+        slots: festVigil,
+        context: getLiturgicalContext(nextDate)
+      };
+    }
+  }
+
+  if (!isSundayDate(nextDate) || !hasStrutturaConfig('domenicale')) return null;
+
+  // Evita getMessaInfo(next) se stiamo già calcolando next → usa tipo diretto
+  let nextIsDomenicaLike = false;
+  if (nextExtra && isExtraFestiva(nextExtra)) {
+    // Festiva domenicale personalizzata senza vigilia sul sabato: ripiega sul modello
+    nextIsDomenicaLike = true;
+  } else if (!nextExtra) {
+    const nextCtx = getLiturgicalContext(nextDate);
+    nextIsDomenicaLike = nextCtx.strutturaKind === 'domenicale'
+      || (isSundayDate(nextDate) && !nextCtx.preset);
+  }
+
+  if (!nextIsDomenicaLike) {
+    // next potrebbe essere domenica sintetica: controlla senza ricorsione infinita
+    if (_messaInfoCache.has(nextDate)) {
+      const cached = _messaInfoCache.get(nextDate);
+      nextIsDomenicaLike = cached?.type === 'domenica' || cached?.type === 'festiva';
+    } else {
+      // Calcola next (non dipende dal sabato per tipo domenica/festiva del giorno)
+      const nextInfo = getMessaInfo(nextDate);
+      nextIsDomenicaLike = nextInfo?.type === 'domenica' || nextInfo?.type === 'festiva';
+    }
+  }
+
+  if (!nextIsDomenicaLike) return null;
+
+  const slots = getMesseOrdinarieSlotsOnCivil(nextDate, dateStr);
+  if (!slots.length) return null;
+  return {
+    kind: 'domenicale',
+    fromVigilOf: nextDate,
+    domenicaRef: nextDate,
+    slots,
+    context: getLiturgicalContext(nextDate)
+  };
+}
+
 function getTurnoRecordForSlot(slot) {
   return state.turni.find(t =>
     t.data === slot.data &&
@@ -6386,7 +6472,8 @@ function getTurnoForSlot(slot) {
 function getTurniForAgendaDate(dateStr) {
   const info = getMessaInfo(dateStr);
   if (info?.type === 'domenica') {
-    const turniSlots = getTurniSlots(dateStr);
+    const domenicaRef = getDomenicaRefFromMassInfo(dateStr, info);
+    const turniSlots = getTurniSlotsOnCivil(domenicaRef, dateStr);
     return state.turni.filter(t =>
       turniSlots.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
     );
@@ -6396,8 +6483,17 @@ function getTurniForAgendaDate(dateStr) {
       extra: info.extra,
       civilDate: info.civilDate || dateStr
     });
+    const vigil = Array.isArray(info.vigilSlots) ? info.vigilSlots.filter(s => s.conChierichetti !== false) : [];
+    const all = [...turniSlots, ...vigil];
     return state.turni.filter(t =>
-      turniSlots.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
+      all.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
+    );
+  }
+  if (info?.type === 'extra' && Array.isArray(info.vigilSlots) && info.vigilSlots.length) {
+    const vigil = info.vigilSlots.filter(s => s.conChierichetti !== false);
+    return state.turni.filter(t =>
+      (t.data === dateStr && t.parrocchia === (info.extra?.sede || 'santuario') && t.oraInizio === (info.extra?.ora || '10:00'))
+      || vigil.some(s => s.data === t.data && s.sede === t.parrocchia && s.ora === t.oraInizio)
     );
   }
   return getTurniForDate(dateStr);
@@ -6412,12 +6508,19 @@ function getChierichettiSlotsForYear(anno) {
   getMesseDatesForYear(anno).forEach(dateStr => {
     const info = getMessaInfo(dateStr);
     if (info?.type === 'domenica') {
-      getTurniSlots(dateStr).forEach(s => {
+      const domenicaRef = getDomenicaRefFromMassInfo(dateStr, info);
+      getTurniSlotsOnCivil(domenicaRef, dateStr).forEach(s => {
         slots.push({ ...s, massInfo: info });
       });
     } else if (info?.type === 'festiva') {
-      getFestivaTurniSlots(dateStr).forEach(s => {
+      getFestivaTurniSlots(dateStr, {
+        extra: info.extra,
+        civilDate: info.civilDate || dateStr
+      }).forEach(s => {
         slots.push({ ...s, massInfo: info, isFestiva: true });
+      });
+      (info.vigilSlots || []).filter(s => s.conChierichetti !== false).forEach(s => {
+        slots.push({ ...s, massInfo: info });
       });
     } else if (info?.type === 'extra') {
       const ex = info.extra;
@@ -6437,6 +6540,9 @@ function getChierichettiSlotsForYear(anno) {
         label: ex?.nota || 'Messa straordinaria',
         massInfo: info
       });
+      (info.vigilSlots || []).filter(s => s.conChierichetti !== false).forEach(s => {
+        slots.push({ ...s, massInfo: info });
+      });
     }
   });
   return slots;
@@ -6447,11 +6553,15 @@ function getAllSlotsForYear(anno) {
   getMesseDatesForYear(anno).forEach(dateStr => {
     const info = getMessaInfo(dateStr);
     if (info?.type === 'domenica') {
-      getMesseOrdinarieSlots(dateStr).forEach(s => {
+      const domenicaRef = getDomenicaRefFromMassInfo(dateStr, info);
+      getMesseOrdinarieSlotsOnCivil(domenicaRef, dateStr).forEach(s => {
         slots.push({ ...s, massInfo: info });
       });
     } else if (info?.type === 'festiva') {
-      getFestivaSlots(dateStr).forEach(s => {
+      getFestivaSlots(info.extra?.data || dateStr, {
+        extra: info.extra,
+        civilDate: info.civilDate || dateStr
+      }).forEach(s => {
         slots.push({ ...s, massInfo: info, isFestiva: true });
       });
     } else if (info?.type === 'extra') {
@@ -14019,27 +14129,32 @@ function computeMessaInfo(dateStr) {
   if (isFestivityDisplacedFromDate(dateStr)) {
     const extraHere = getMessaExtraForDate(dateStr);
     if (extraHere && !isExtraFestiva(extraHere) && extraHere.tipo === 'straordinaria') {
-      return { type: 'extra', extra: extraHere, context: getLiturgicalContext(dateStr) };
+      const vigil = resolveCivilDayVigilFromNext(dateStr);
+      return {
+        type: 'extra',
+        extra: extraHere,
+        context: getLiturgicalContext(dateStr),
+        ...(vigil ? {
+          fromVigilOf: vigil.fromVigilOf,
+          domenicaRef: vigil.domenicaRef || vigil.fromVigilOf,
+          vigilSlots: vigil.slots,
+          vigilKind: vigil.kind
+        } : {})
+      };
     }
     // Vigilia di un’altra festa communauté sul giorno dopo può comunque cadere qui
-    const nextDate = addDaysToDateStr(dateStr, 1);
-    const nextExtra = getMessaExtraForDate(nextDate);
-    if (nextExtra && isExtraFestiva(nextExtra) && !isFestivitaEsclusa(nextDate)
-      && !isFestivityDisplacedFromDate(nextDate)) {
-      const vigilSlots = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
-      if (vigilSlots.length) {
-        return {
-          type: 'festiva',
-          extra: nextExtra,
-          context: getLiturgicalContext(nextDate),
-          civilDate: dateStr,
-          fromVigilOf: nextDate
-        };
-      }
+    const vigil = resolveCivilDayVigilFromNext(dateStr);
+    if (vigil?.kind === 'festiva') {
+      return {
+        type: 'festiva',
+        extra: vigil.extra,
+        context: vigil.context,
+        civilDate: dateStr,
+        fromVigilOf: vigil.fromVigilOf
+      };
     }
     if (isSundayDate(dateStr) && hasStrutturaConfig('domenicale')) {
       const ctx = getLiturgicalContext(dateStr);
-      // Solo se il contesto domenicale non è stato azzerato: se displaced ha azzerato kind, usa domenicale
       return { type: 'domenica', context: ctx.strutturaKind === 'domenicale' ? ctx : { ...ctx, strutturaKind: 'domenicale' } };
     }
     return null;
@@ -14059,7 +14174,6 @@ function computeMessaInfo(dateStr) {
       if (ek) {
         const effective = getFestivitaDateForAnno(ek, dateStr.slice(0, 4));
         if (effective && effective !== dateStr) {
-          // Può essere ancora valido se sono solo messe vigiliari del giorno dopo
           const onThisCivilDay = festivaConcreteSlotsOnCivilDate(extra, dateStr);
           if (!onThisCivilDay.length) return null;
         }
@@ -14068,35 +14182,65 @@ function computeMessaInfo(dateStr) {
       if (!extra.strutturaKind && ctx.strutturaKind) extra.strutturaKind = ctx.strutturaKind;
       const template = getFestivaTemplateSlots(extra);
       const onThisCivilDay = festivaConcreteSlotsOnCivilDate(extra, dateStr);
-      // Solo messe non del giorno (es. sola vigilia la sera prima): non attivare il giorno liturgico
       if (!onThisCivilDay.length && isVigilOnlySlotList(template)) {
         return null;
       }
       if (!onThisCivilDay.length && template.length > 0 && !template.some(s => s.dayOffset !== -1)) {
         return null;
       }
-      return { type: 'festiva', extra, context: ctx };
-    }
-    return { type: 'extra', extra, context: getLiturgicalContext(dateStr) };
-  }
-
-  // Vigilia civile: messe del giorno liturgico successivo (solo-vigilia o dayOffset -1)
-  const nextDate = addDaysToDateStr(dateStr, 1);
-  const nextExtra = getMessaExtraForDate(nextDate);
-  if (nextExtra && isExtraFestiva(nextExtra) && !isFestivitaEsclusa(nextDate)
-    && !isFestivityDisplacedFromDate(nextDate)) {
-    const vigilSlots = festivaConcreteSlotsOnCivilDate(nextExtra, dateStr);
-    if (vigilSlots.length) {
+      // Festiva sul sabato + eventuale altra vigilia del giorno dopo
+      const vigil = resolveCivilDayVigilFromNext(dateStr);
+      const sameExtraVigil = vigil?.extra && vigil.extra.uuid && vigil.extra.uuid === extra.uuid;
       return {
         type: 'festiva',
-        extra: nextExtra,
-        context: getLiturgicalContext(nextDate),
+        extra,
+        context: ctx,
         civilDate: dateStr,
-        fromVigilOf: nextDate
+        ...(vigil && !sameExtraVigil ? {
+          fromVigilOf: vigil.fromVigilOf,
+          domenicaRef: vigil.domenicaRef || vigil.fromVigilOf,
+          vigilSlots: vigil.slots,
+          vigilKind: vigil.kind
+        } : {})
       };
     }
+    // Straordinaria: tieni anche la vigilia domenicale/festiva del giorno dopo
+    const vigil = resolveCivilDayVigilFromNext(dateStr);
+    return {
+      type: 'extra',
+      extra,
+      context: getLiturgicalContext(dateStr),
+      ...(vigil ? {
+        fromVigilOf: vigil.fromVigilOf,
+        domenicaRef: vigil.domenicaRef || vigil.fromVigilOf,
+        vigilSlots: vigil.slots,
+        vigilKind: vigil.kind
+      } : {})
+    };
   }
 
+  // Vigilia civile dal giorno liturgico successivo (festiva o domenicale)
+  const vigil = resolveCivilDayVigilFromNext(dateStr);
+  if (vigil?.kind === 'festiva') {
+    return {
+      type: 'festiva',
+      extra: vigil.extra,
+      context: vigil.context,
+      civilDate: dateStr,
+      fromVigilOf: vigil.fromVigilOf
+    };
+  }
+  if (vigil?.kind === 'domenicale') {
+    return {
+      type: 'domenica',
+      context: vigil.context,
+      civilDate: dateStr,
+      fromVigilOf: vigil.fromVigilOf,
+      domenicaRef: vigil.domenicaRef
+    };
+  }
+
+  const nextDate = addDaysToDateStr(dateStr, 1);
   const ctx = getLiturgicalContext(dateStr);
   if (isFestivitaEsclusa(dateStr)) return null;
   if (isGiornoIntrasettimanaleEscluso(dateStr)) return null;
@@ -14153,7 +14297,12 @@ function getMesseDatesForYear(anno) {
     return _messeDatesYearCache.dates.slice();
   }
   const set = new Set();
-  getSundaysInYear(parseInt(anno, 10)).forEach(d => set.add(d));
+  getSundaysInYear(parseInt(anno, 10)).forEach(d => {
+    set.add(d);
+    // Sabato vigiliare del modello domenicale
+    const vigil = addDaysToDateStr(d, -1);
+    if (vigil.startsWith(anno) && getMessaInfo(vigil)) set.add(vigil);
+  });
   (state.messeExtra || []).forEach(m => {
     if (m.data && m.data.startsWith(anno)) set.add(m.data);
     // Vigilia sul giorno civile precedente
@@ -14270,6 +14419,11 @@ function getMessaAgendaTitle(dateStr, massInfo, primary) {
       const lab = getStrutturaGiornoDisplayLabel(groups[0]);
       if (lab && !isStrutturaDisplayName(lab)) return lab;
     }
+    // Vigilia domenicale / festa: titolo del giorno liturgico (domenica o festa)
+    const sunPrimary = getLiturgicalDayEvent(massInfo.fromVigilOf);
+    if (sunPrimary?.nome && !isStrutturaDisplayName(sunPrimary.nome)) {
+      return sanitizeAwayStrutturaName(sunPrimary.nome, massInfo.fromVigilOf, 'Domenica');
+    }
   }
   if ((massInfo?.type === 'extra' || massInfo?.type === 'festiva') && massInfo.extra?.nota
     && !isStrutturaDisplayName(massInfo.extra.nota)) {
@@ -14284,8 +14438,8 @@ function getMessaAgendaTitle(dateStr, massInfo, primary) {
 function buildMessaAgendaItem(dateStr) {
   const todayStr = getTodayStr();
   const massInfo = getMessaInfo(dateStr);
-  const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = getLiturgicalDayEvent(dateStr);
+  const litRef = massInfo?.fromVigilOf || dateStr;
+  const primary = getLiturgicalDayEvent(litRef) || getLiturgicalDayEvent(dateStr);
   const turni = getTurniForAgendaDate(dateStr);
   const d = new Date(dateStr + 'T12:00:00');
   const isToday = dateStr === todayStr;
@@ -14296,18 +14450,24 @@ function buildMessaAgendaItem(dateStr) {
   const isFestiva = massInfo?.type === 'festiva';
   const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
   const isDomenica = massInfo?.type === 'domenica';
+  const domenicaRef = isDomenica ? getDomenicaRefFromMassInfo(dateStr, massInfo) : dateStr;
+  const vigilSlots = Array.isArray(massInfo?.vigilSlots) ? massInfo.vigilSlots : [];
   const nTurni = isFestiva
     ? getFestivaTurniCount(massInfo.extra)
-    : getTurniPerDomenica();
+    : ((isDomenica || vigilSlots.length) ? getTurniPerDomenica() : 0);
+  const assignedVigil = vigilSlots.length
+    ? vigilSlots.filter(s => s.conChierichetti !== false && isSlotCoperto(s)).length
+    : 0;
   const assignedSlots = isDomenica
-    ? countAssignedSlots(dateStr)
+    ? countAssignedSlotsOnCivil(domenicaRef, dateStr)
     : (isFestiva
       ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
         extra: massInfo.extra,
         civilDate: massInfo.civilDate || dateStr
-      })
-      : turni.length);
-  const coverageComplete = (isDomenica || isFestiva) && nTurni > 0 && assignedSlots >= nTurni;
+      }) + assignedVigil
+      : assignedVigil);
+  const coverageComplete = nTurni > 0 && assignedSlots >= nTurni
+    && (isDomenica || isFestiva || vigilSlots.length);
   const litColor = primary?.colore || '';
 
   const classes = ['messe-agenda-item'];
@@ -14318,15 +14478,36 @@ function buildMessaAgendaItem(dateStr) {
 
   const metaParts = [];
   if (primary?.tipoLabel && primary.tipoLabel !== 'Feriale') metaParts.push(primary.tipoLabel);
-  const slots = isDomenica ? getMesseOrdinarieSlots(dateStr)
+  let slots = isDomenica
+    ? getMesseOrdinarieSlotsOnCivil(domenicaRef, dateStr)
     : (isFestiva ? getFestivaSlots(massInfo.extra?.data || dateStr, {
       extra: massInfo.extra,
       civilDate: massInfo.civilDate || dateStr
     }) : []);
+  if (isExtra && massInfo.extra) {
+    slots = [{
+      data: dateStr,
+      ora: massInfo.extra.ora || '10:00',
+      sede: massInfo.extra.sede || 'santuario',
+      sedeLabel: SEDI_LABEL[massInfo.extra.sede] || massInfo.extra.sede || '',
+      titolo: massInfo.extra.nota || null,
+      conChierichetti: true
+    }];
+  }
+  // Unisci vigilia (es. 18:00 domenicale) a straordinaria/festiva sullo stesso sabato
+  if (vigilSlots.length) {
+    const keys = new Set(slots.map(s => `${s.ora}|${s.sede}`));
+    vigilSlots.forEach(s => {
+      const k = `${s.ora}|${s.sede}`;
+      if (!keys.has(k)) {
+        keys.add(k);
+        slots.push(s);
+      }
+    });
+    slots.sort((a, b) => compareOraSlot(a.ora, b.ora) || String(a.sede).localeCompare(String(b.sede)));
+  }
   if (slots.length) {
     metaParts.push(slots.map(slot => `${slot.ora || ''} ${SEDI_LABEL[slot.sede] || slot.sede || ''}`.trim()).join(' · '));
-  } else if (isExtra && massInfo.extra?.ora) {
-    metaParts.push(`${massInfo.extra.ora} · ${SEDI_LABEL[massInfo.extra.sede] || massInfo.extra.sede || ''}`);
   }
   const metaLine = metaParts.filter(Boolean).join(' · ');
 
@@ -14342,10 +14523,10 @@ function buildMessaAgendaItem(dateStr) {
   } else if (isExtra) {
     badges.push('<span class="messe-agenda-badge is-extra">Straordinaria</span>');
   }
-  if ((isDomenica || isFestiva) && nTurni > 0) {
+  if (nTurni > 0 && (isDomenica || isFestiva || vigilSlots.length)) {
     const covClass = coverageComplete ? 'is-covered' : 'is-uncovered';
     badges.push(`<span class="messe-agenda-badge ${covClass}">${assignedSlots}/${nTurni} coperte</span>`);
-  } else if (!isDomenica && !isFestiva && turni.length) {
+  } else if (!isDomenica && !isFestiva && !vigilSlots.length && turni.length) {
     badges.push('<span class="messe-agenda-badge is-covered">Con servizio</span>');
   }
 
@@ -14621,8 +14802,8 @@ function syncRegistroFiltersToggle() {
 function renderMessaDetail(dateStr) {
   const container = document.getElementById('messa-detail');
   const massInfo = getMessaInfo(dateStr);
-  const events = calState.data?.byDate?.[dateStr] || [];
-  const primary = getLiturgicalDayEvent(dateStr);
+  const litRef = massInfo?.fromVigilOf || dateStr;
+  const primary = getLiturgicalDayEvent(litRef) || getLiturgicalDayEvent(dateStr);
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
@@ -14653,6 +14834,8 @@ function renderMessaDetail(dateStr) {
   } else if (massInfo.type === 'extra') {
     badgeClass = 'eccezione';
     badgeLabel = esc(getMessaAgendaTitle(dateStr, massInfo, primary) || massInfo.extra?.nota || 'Messa straordinaria');
+  } else if (massInfo.fromVigilOf) {
+    badgeLabel = 'Vigilia';
   }
 
   const notaMessaHtml = renderMessaNotaFieldHtml(dateStr, {
@@ -14662,15 +14845,18 @@ function renderMessaDetail(dateStr) {
   let turniHtml = '';
   let sectionTitle = 'Messe di servizio';
   if (massInfo.type === 'domenica' || massInfo.type === 'festiva') {
+    const domenicaRef = massInfo.type === 'domenica'
+      ? getDomenicaRefFromMassInfo(dateStr, massInfo)
+      : dateStr;
     const allSlots = massInfo.type === 'festiva'
       ? getFestivaSlotsForMassInfo(dateStr, massInfo)
-      : getMesseOrdinarieSlots(dateStr);
+      : getMesseOrdinarieSlotsOnCivil(domenicaRef, dateStr);
     const assigned = massInfo.type === 'festiva'
       ? countAssignedFestivaSlots(massInfo.extra?.data || dateStr, {
         extra: massInfo.extra,
         civilDate: massInfo.civilDate || dateStr
       })
-      : countAssignedSlots(dateStr);
+      : countAssignedSlotsOnCivil(domenicaRef, dateStr);
     const nCelebrazioni = allSlots.length;
     const nTurni = massInfo.type === 'festiva'
       ? getFestivaTurniCount(massInfo.extra)
@@ -14688,7 +14874,7 @@ function renderMessaDetail(dateStr) {
         : (hasOrarioFestivoConfig()
           ? `Preset «${presetMeta.label}» · orario festivo tipico${inherited ? ' · da anno scorso' : ''}`
           : 'Orario festivo non configurato — usa la domenica'))
-      : '';
+      : (massInfo.fromVigilOf ? 'Messa vigiliare del sabato' : '');
     turniHtml = `
       <p class="liturgy-meta" style="margin-bottom:10px">${nCelebrazioni} celebrazioni · ${assigned}/${nTurni} messe coperte${orarioHint ? ' · ' + esc(orarioHint) : ''}</p>
       ${nCelebrazioni
@@ -14710,13 +14896,24 @@ function renderMessaDetail(dateStr) {
       vigilia: false,
       turno: null,
       gruppo: null,
-      gruppoLabel: null
+      gruppoLabel: null,
+      titolo: ex?.nota || null
     };
+    const vigilSlots = Array.isArray(massInfo.vigilSlots) ? massInfo.vigilSlots : [];
+    const allSlots = [extraSlot];
+    vigilSlots.forEach(s => {
+      if (!allSlots.some(x => x.ora === s.ora && x.sede === s.sede)) allSlots.push(s);
+    });
+    allSlots.sort((a, b) => compareOraSlot(a.ora, b.ora) || String(a.sede).localeCompare(String(b.sede)));
+    const nTurni = vigilSlots.length ? getTurniPerDomenica() : 0;
+    const assigned = vigilSlots.length
+      ? vigilSlots.filter(s => s.conChierichetti !== false && isSlotCoperto(s)).length
+      : 0;
     const turni = getTurniForDate(dateStr);
     let assignedHtml = '';
-    if (!turni.length) {
+    if (!turni.length && !vigilSlots.length) {
       assignedHtml = '<p class="empty-state" style="margin-top:8px">Nessuna squadra assegnata</p>';
-    } else {
+    } else if (turni.length) {
       assignedHtml = `<div class="messa-turni-list">${turni.map(t => `
         <div class="messa-turno-item">
           <span><strong>${esc(sedeLabel(t.parrocchia))}</strong> · ${esc(t.oraInizio)}–${esc(t.oraFine)} · ${t.numeroChierichetti} chier.</span>
@@ -14724,9 +14921,11 @@ function renderMessaDetail(dateStr) {
       `).join('')}</div>`;
     }
     turniHtml = `
-      ${renderMessaSlotsHtml([extraSlot], { withNotes: true, messaDate: dateStr })}
+      <p class="liturgy-meta" style="margin-bottom:10px">${allSlots.length} celebrazioni${nTurni ? ` · ${assigned}/${nTurni} messe coperte (vigilia)` : ''}${vigilSlots.length ? ' · include vigilia domenicale' : ''}</p>
+      ${renderMessaSlotsHtml(allSlots, { withNotes: true, messaDate: dateStr })}
       ${assignedHtml}
     `;
+    sectionTitle = vigilSlots.length ? 'Messe e celebrazioni' : 'Messa straordinaria';
   }
 
   const actions = [];
