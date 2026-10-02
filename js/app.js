@@ -200,6 +200,25 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuthAndInit();
 });
 
+// Navigazione a pagine: ogni sezione ha un proprio indirizzo condivisibile.
+// Usiamo hash per mantenere il deploy statico compatibile con GitHub Pages.
+const SECTION_ROUTES = {
+  dashboard: 'oggi', presenze: 'appello', registro: 'registro', messe: 'messe',
+  calendario: 'calendario', gruppi: 'gruppi', turni: 'turni',
+  anagrafica: 'anagrafica', accessi: 'accessi', info: 'info', account: 'account'
+};
+const ROUTE_SECTIONS = Object.fromEntries(Object.entries(SECTION_ROUTES).map(([section, route]) => [route, section]));
+
+function sectionFromRoute() {
+  const route = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/')[0];
+  return ROUTE_SECTIONS[route] || null;
+}
+
+window.addEventListener('hashchange', () => {
+  const section = sectionFromRoute();
+  if (section && document.getElementById(section)) void showSection(section, { syncUrl: false });
+});
+
 function moveStrutturaMesseToMesse() {
   const panel = document.getElementById('turni-panel-messe');
   const target = document.getElementById('messe-strutture-slot');
@@ -1245,11 +1264,14 @@ function initApp() {
 
 function getLaunchSection() {
   try {
+    const routeSection = sectionFromRoute();
+    if (routeSection) return routeSection;
     const params = new URLSearchParams(location.search);
     const section = params.get('section');
     const allowed = new Set([
       'dashboard', 'presenze', 'registro', 'messe',
       'calendario', 'gruppi', 'turni', 'anagrafica', 'account'
+      , 'accessi', 'info'
     ]);
     if (!section || !allowed.has(section)) return null;
     params.delete('section');
@@ -1731,7 +1753,7 @@ async function flushAppelloIfNeeded() {
   return true;
 }
 
-async function showSection(sectionId) {
+async function showSection(sectionId, options = {}) {
   const current = document.querySelector('.section.active')?.id;
   if (current === 'presenze' && sectionId !== 'presenze') {
     const ok = await flushAppelloIfNeeded();
@@ -1745,6 +1767,13 @@ async function showSection(sectionId) {
 
   const next = document.getElementById(sectionId);
   if (!next) return;
+
+  if (options.syncUrl !== false) {
+    const route = SECTION_ROUTES[sectionId];
+    if (route && location.hash !== `#/${route}`) {
+      history.replaceState({ section: sectionId }, '', `${location.pathname}${location.search}#/${route}`);
+    }
+  }
 
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   next.classList.add('active');
