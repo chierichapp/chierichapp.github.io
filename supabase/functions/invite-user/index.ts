@@ -53,34 +53,21 @@ async function sendInviteEmail(admin: ReturnType<typeof createClient>, email: st
 }
 
 /**
- * Reinvia una mail di invito (type=invite), non recovery.
- * 1) prova auth.resend (senza cancellare l'utente)
- * 2) altrimenti delete + invite (con pausa, per evitare race/rate-limit)
+ * Sempre mail di invito (type=invite).
+ * Se l'utente Auth esiste già: delete + nuovo inviteUserByEmail.
+ * Non usare auth.resend(signup): quello manda type=email (conferma), non invite.
  */
 async function inviteFresh(admin: ReturnType<typeof createClient>, email: string) {
   const existing = await findAuthUserByEmail(admin, email);
-
   if (existing) {
-    // Resend senza delete: spesso funziona su utenti invitati non confermati
-    const { error: resendError } = await admin.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: APP_REDIRECT },
-    });
-    if (!resendError) {
-      return { user: existing, resent: true };
-    }
-
     const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
     if (deleteError) throw new Error(mapAuthError(deleteError));
-    // Lascia sedimentare Auth prima del nuovo invite
     await new Promise((r) => setTimeout(r, 1200));
   }
 
   try {
     return await sendInviteEmail(admin, email);
   } catch (err) {
-    // Secondo tentativo dopo breve attesa (rate limit / race post-delete)
     await new Promise((r) => setTimeout(r, 2000));
     return await sendInviteEmail(admin, email);
   }
@@ -114,7 +101,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Reinvio invito / replace: sempre mail di invito (type=invite), mai recovery
+    // Reinvio invito / replace: sempre mail di invito (type=invite)
     if (body.resetExisting || body.replaceExisting) {
       const data = await inviteFresh(admin, email);
       return json({
@@ -144,7 +131,6 @@ Deno.serve(async (req) => {
       throw err;
     }
   } catch (error) {
-    // 200 + success:false così functions.invoke espone data.message (non solo «non-2xx»)
     return json({
       success: false,
       message: mapAuthError(error)
