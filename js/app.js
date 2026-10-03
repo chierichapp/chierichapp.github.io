@@ -15386,16 +15386,28 @@ function mapLitCalColor(raw) {
 
 async function resendCerimoniereInvite(uuid) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
-  if (!c?.email || !isSupabase) return;
+  if (!c?.email || !isSupabase) {
+    showToast(!c?.email ? 'Email mancante per questo account' : 'Supabase non configurato', 'error');
+    return;
+  }
   if (!isCurrentUserAdmin()) {
     showToast('Solo l\'admin può reinviare inviti o link password', 'error');
     return;
   }
-  // Non attivato → nuovo invito (mail type=invite). Già attivo → cambio password (recovery).
-  let result = c.inviteAccepted !== true
-    ? await window.ChierichSupabase.riccreaInvitoAccesso(c.email)
-    : await window.ChierichSupabase.reinviaInvito(c.email);
-  showToast(result.message || (result.success ? 'Email inviata' : 'Invio non riuscito'), result.success ? 'success' : 'error');
+  if (!window.ChierichSupabase) {
+    showToast('Modulo autenticazione non caricato — ricarica la pagina', 'error');
+    return;
+  }
+  try {
+    // Non attivato → nuovo invito (mail type=invite). Già attivo → cambio password (recovery).
+    const result = c.inviteAccepted !== true
+      ? await window.ChierichSupabase.ricreaInvitoAccesso(c.email)
+      : await window.ChierichSupabase.reinviaInvito(c.email);
+    showToast(result?.message || (result?.success ? 'Email inviata' : 'Invio non riuscito'), result?.success ? 'success' : 'error');
+  } catch (err) {
+    console.error('[ChierichApp] resendCerimoniereInvite', err);
+    showToast(err?.message || 'Invio non riuscito', 'error');
+  }
 }
 
 // Nel calendario ambrosiano il periodo dopo Pentecoste in preparazione/
