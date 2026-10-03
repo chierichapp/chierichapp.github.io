@@ -724,13 +724,10 @@
     return invitaUtente(email);
   }
 
+  /** Reinvia un vero invito (cancella utente Auth pendente e inviteUserByEmail). */
   async function ricreaInvitoAccesso(email) {
     const cleanEmail = String(email || '').trim().toLowerCase();
-    const data = await invokeInviteUser({ email: cleanEmail, resetExisting: true });
-    if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
-    // Compat: vecchia edge function che chiedeva al client di mandare il recovery
-    if (data.passwordResetRequired) return resetPasswordForEmail(cleanEmail);
-    return data;
+    return invokeInviteUser({ email: cleanEmail, replaceExisting: true });
   }
 
   async function salvaCerimoniere(dati) {

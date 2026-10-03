@@ -30,6 +30,20 @@ async function sendRecovery(admin: ReturnType<typeof createClient>, email: strin
   if (resetError) throw resetError;
 }
 
+/** Elimina utente Auth se esiste, poi invia un vero invito (mail type=invite). */
+async function inviteFresh(admin: ReturnType<typeof createClient>, email: string) {
+  const existing = await findAuthUserByEmail(admin, email);
+  if (existing) {
+    const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
+    if (deleteError) throw deleteError;
+  }
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: APP_REDIRECT,
+  });
+  if (error) throw error;
+  return data;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -49,7 +63,7 @@ Deno.serve(async (req) => {
     const email = String(body.email || '').trim().toLowerCase();
     if (!email) throw new Error('Email obbligatoria');
 
-    // Cambio / reset password (admin → «Invia cambio password»)
+    // Solo «Invia cambio password» (account già attivato) → mail recovery
     if (body.passwordReset || body.sendRecovery) {
       await sendRecovery(admin, email);
       return json({
@@ -58,36 +72,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Reinvio attivazione: utente Auth già presente → recovery (tipo recovery in email)
-    if (body.resetExisting) {
-      const existing = await findAuthUserByEmail(admin, email);
-      if (!existing) {
-        const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: APP_REDIRECT,
-        });
-        if (error) throw error;
-        return json({
-          success: true,
-          userId: data.user.id,
-          message: 'Invito inviato via email'
-        });
-      }
-      const temporary = `Tmp-${crypto.randomUUID()}-aA1!`;
-      const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, { password: temporary });
-      if (updateError) throw updateError;
-      await sendRecovery(admin, email);
+    // Reinvio invito / replace: sempre mail di invito (type=invite), mai recovery
+    if (body.resetExisting || body.replaceExisting) {
+      const data = await inviteFresh(admin, email);
       return json({
         success: true,
-        message: 'Nuovo link di attivazione inviato via email'
+        userId: data.user.id,
+        message: 'Invito inviato via email'
       });
-    }
-
-    if (body.replaceExisting) {
-      const existing = await findAuthUserByEmail(admin, email);
-      if (existing) {
-        const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
-        if (deleteError) throw deleteError;
-      }
     }
 
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -95,12 +87,13 @@ Deno.serve(async (req) => {
     });
     if (error) {
       const msg = String(error.message || '');
-      // Già registrato: invia recovery come re-invito
+      // Già registrato: cancella e re-invita (mail invite, non recovery)
       if (/already|registered|exists|invito/i.test(msg)) {
-        await sendRecovery(admin, email);
+        const data2 = await inviteFresh(admin, email);
         return json({
           success: true,
-          message: 'Utente già presente: inviato link di attivazione via email'
+          userId: data2.user.id,
+          message: 'Invito inviato via email'
         });
       }
       throw error;

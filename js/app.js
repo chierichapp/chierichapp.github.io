@@ -15391,12 +15391,10 @@ async function resendCerimoniereInvite(uuid) {
     showToast('Solo l\'admin può reinviare inviti o link password', 'error');
     return;
   }
+  // Non attivato → nuovo invito (mail type=invite). Già attivo → cambio password (recovery).
   let result = c.inviteAccepted !== true
-    ? await window.ChierichSupabase.ricreaInvitoAccesso(c.email)
+    ? await window.ChierichSupabase.riccreaInvitoAccesso(c.email)
     : await window.ChierichSupabase.reinviaInvito(c.email);
-  // Dopo il primo click l'utente esiste già in Auth: Supabase non consente
-  // un secondo inviteUserByEmail, quindi inviamo un link di recupero che
-  // viene comunque presentato come «Attiva account» finché invite_accepted è false.
   showToast(result.message || (result.success ? 'Email inviata' : 'Invio non riuscito'), result.success ? 'success' : 'error');
 }
 
