@@ -15381,6 +15381,10 @@ function mapLitCalColor(raw) {
 async function resendCerimoniereInvite(uuid) {
   const c = cerimonieriAccounts.find(x => x.uuid === uuid);
   if (!c?.email || !isSupabase) return;
+  if (!isCurrentUserAdmin()) {
+    showToast('Solo l\'admin può reinviare inviti o link password', 'error');
+    return;
+  }
   let result = c.inviteAccepted !== true
     ? await window.ChierichSupabase.ricreaInvitoAccesso(c.email)
     : await window.ChierichSupabase.reinviaInvito(c.email);

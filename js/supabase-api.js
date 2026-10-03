@@ -355,18 +355,42 @@
     };
   }
 
+  /** Estrae message dal body JSON delle Edge Function (altrimenti solo «non-2xx»). */
+  async function functionsErrorMessage(error, fallback) {
+    if (!error) return fallback || 'Richiesta non riuscita';
+    try {
+      const res = error.context;
+      if (res && typeof res.clone === 'function') {
+        const body = await res.clone().json();
+        if (body?.message) return String(body.message);
+      }
+    } catch { /* ignore */ }
+    return error.message || fallback || 'Richiesta non riuscita';
+  }
+
+  async function invokeInviteUser(body) {
+    const sb = requireClient();
+    const { data, error } = await sb.functions.invoke('invite-user', { body });
+    if (error) {
+      return { success: false, message: await functionsErrorMessage(error, 'Invito non riuscito') };
+    }
+    if (data && data.success === false) {
+      return { success: false, message: data.message || 'Invito non riuscito' };
+    }
+    return data || { success: false, message: 'Invito non riuscito' };
+  }
+
   /** Admin: email «cambio password» con redirect fisso produzione (via edge). */
   async function reinviaInvito(email) {
-    const sb = requireClient();
     const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail) return { success: false, message: 'Email obbligatoria' };
-    const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email: cleanEmail, passwordReset: true }
-    });
-    if (error) return { success: false, message: error.message };
+    const data = await invokeInviteUser({ email: cleanEmail, passwordReset: true });
     if (data?.success) return data;
     // Fallback se edge non aggiornata: recovery client-side con stesso redirect produzione
-    return resetPasswordForEmail(cleanEmail);
+    if (/non-2xx|Edge Function/i.test(String(data?.message || ''))) {
+      return resetPasswordForEmail(cleanEmail);
+    }
+    return data;
   }
 
   async function updatePassword(password) {
@@ -693,27 +717,19 @@
   }
 
   async function invitaUtente(email) {
-    const sb = requireClient();
-    const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email }
-    });
-    if (error) return { success: false, message: error.message };
-    return data || { success: false, message: 'Invito non riuscito' };
+    return invokeInviteUser({ email: String(email || '').trim().toLowerCase() });
   }
 
   async function inviaInvitoAccesso(email) {
     return invitaUtente(email);
   }
 
-  async function ricreaInvitoAccesso(email) {
-    const sb = requireClient();
-    const { data, error } = await sb.functions.invoke('invite-user', {
-      body: { email, resetExisting: true }
-    });
-    if (error) return { success: false, message: error.message };
+  async function riccreaInvitoAccesso(email) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const data = await invokeInviteUser({ email: cleanEmail, resetExisting: true });
     if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
     // Compat: vecchia edge function che chiedeva al client di mandare il recovery
-    if (data.passwordResetRequired) return resetPasswordForEmail(email);
+    if (data.passwordResetRequired) return resetPasswordForEmail(cleanEmail);
     return data;
   }
 
