@@ -17,31 +17,73 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function mapAuthError(err: { message?: string } | null | undefined) {
+  const msg = String(err?.message || 'Invito non riuscito');
+  if (/rate.?limit|too many|429/i.test(msg)) {
+    return 'Limite email Supabase raggiunto: aspetta 30–60 minuti oppure configura SMTP personalizzato (Authentication → SMTP)';
+  }
+  return msg;
+}
+
 async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
-  const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (listError) throw listError;
-  return users.users.find((item) => String(item.email || '').toLowerCase() === email) || null;
+  for (let page = 1; page <= 10; page++) {
+    const { data, error: listError } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (listError) throw listError;
+    const users = data?.users || [];
+    const found = users.find((item) => String(item.email || '').toLowerCase() === email);
+    if (found) return found;
+    if (users.length < 200) break;
+  }
+  return null;
 }
 
 async function sendRecovery(admin: ReturnType<typeof createClient>, email: string) {
   const { error: resetError } = await admin.auth.resetPasswordForEmail(email, {
     redirectTo: APP_REDIRECT,
   });
-  if (resetError) throw resetError;
+  if (resetError) throw new Error(mapAuthError(resetError));
 }
 
-/** Elimina utente Auth se esiste, poi invia un vero invito (mail type=invite). */
-async function inviteFresh(admin: ReturnType<typeof createClient>, email: string) {
-  const existing = await findAuthUserByEmail(admin, email);
-  if (existing) {
-    const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
-    if (deleteError) throw deleteError;
-  }
+async function sendInviteEmail(admin: ReturnType<typeof createClient>, email: string) {
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: APP_REDIRECT,
   });
-  if (error) throw error;
+  if (error) throw new Error(mapAuthError(error));
   return data;
+}
+
+/**
+ * Reinvia una mail di invito (type=invite), non recovery.
+ * 1) prova auth.resend (senza cancellare l'utente)
+ * 2) altrimenti delete + invite (con pausa, per evitare race/rate-limit)
+ */
+async function inviteFresh(admin: ReturnType<typeof createClient>, email: string) {
+  const existing = await findAuthUserByEmail(admin, email);
+
+  if (existing) {
+    // Resend senza delete: spesso funziona su utenti invitati non confermati
+    const { error: resendError } = await admin.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: APP_REDIRECT },
+    });
+    if (!resendError) {
+      return { user: existing, resent: true };
+    }
+
+    const { error: deleteError } = await admin.auth.admin.deleteUser(existing.id);
+    if (deleteError) throw new Error(mapAuthError(deleteError));
+    // Lascia sedimentare Auth prima del nuovo invite
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+
+  try {
+    return await sendInviteEmail(admin, email);
+  } catch (err) {
+    // Secondo tentativo dopo breve attesa (rate limit / race post-delete)
+    await new Promise((r) => setTimeout(r, 2000));
+    return await sendInviteEmail(admin, email);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -77,37 +119,35 @@ Deno.serve(async (req) => {
       const data = await inviteFresh(admin, email);
       return json({
         success: true,
-        userId: data.user.id,
+        userId: data.user?.id,
         message: 'Invito inviato via email'
       });
     }
 
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: APP_REDIRECT,
-    });
-    if (error) {
-      const msg = String(error.message || '');
-      // Già registrato: cancella e re-invita (mail invite, non recovery)
+    try {
+      const data = await sendInviteEmail(admin, email);
+      return json({
+        success: true,
+        userId: data.user.id,
+        message: 'Invito inviato via email'
+      });
+    } catch (err) {
+      const msg = String((err as Error)?.message || '');
       if (/already|registered|exists|invito/i.test(msg)) {
         const data2 = await inviteFresh(admin, email);
         return json({
           success: true,
-          userId: data2.user.id,
+          userId: data2.user?.id,
           message: 'Invito inviato via email'
         });
       }
-      throw error;
+      throw err;
     }
-    return json({
-      success: true,
-      userId: data.user.id,
-      message: 'Invito inviato via email'
-    });
   } catch (error) {
     // 200 + success:false così functions.invoke espone data.message (non solo «non-2xx»)
     return json({
       success: false,
-      message: error?.message || 'Invito non riuscito'
+      message: mapAuthError(error)
     }, 200);
   }
 });
