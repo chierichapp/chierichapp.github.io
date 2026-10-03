@@ -1088,6 +1088,12 @@ async function checkAuthAndInit() {
   }
 
   try {
+    if (!window.ChierichSupabase) {
+      showAuthGate();
+      setAuthMode('login');
+      showAuthError('Modulo autenticazione non caricato. Ricarica la pagina (o svuota la cache).');
+      return;
+    }
     window.ChierichSupabase.ensureAuthListeners();
     if (typeof window.ChierichSupabase.consumeEmailLinkFromUrl === 'function') {
       const link = await window.ChierichSupabase.consumeEmailLinkFromUrl();

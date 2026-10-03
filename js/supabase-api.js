@@ -724,7 +724,7 @@
     return invitaUtente(email);
   }
 
-  async function riccreaInvitoAccesso(email) {
+  async function ricreaInvitoAccesso(email) {
     const cleanEmail = String(email || '').trim().toLowerCase();
     const data = await invokeInviteUser({ email: cleanEmail, resetExisting: true });
     if (!data?.success) return data || { success: false, message: 'Nuovo invito non riuscito' };
